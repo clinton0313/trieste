@@ -25,8 +25,9 @@ from typing import Any, Sequence
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+from .layers import DropConnect, MCDropout
 
-from .layers import DropConnect
+
 class KerasEnsemble:
     """
     This class builds an ensemble of neural networks, using Keras. Individual networks must
@@ -320,7 +321,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
 
         for index, hidden_layer_args in enumerate(self._hidden_layer_args):
             layer_name = f"{self.network_name}dense_{index}"
-            dropout = tf.keras.layers.Dropout(self._rate[index])
+            dropout = MCDropout(self._rate[index])
             layer = tf.keras.layers.Dense(**hidden_layer_args, name=layer_name)
             dropout_tensor = dropout(input_tensor) 
             input_tensor = layer(dropout_tensor)
@@ -328,7 +329,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
 
     def _gen_output_layer(self, input_tensor: tf.Tensor) -> tf.Tensor:
 
-        dropout = tf.keras.layers.Dropout(self._rate[-1])
+        dropout = MCDropout(self._rate[-1])
         output_layer = tf.keras.layers.Dense(units=self.flattened_output_shape, name=self.output_layer_name)
         dropout_tensor = dropout(input_tensor)
         output_tensor = output_layer(dropout_tensor)

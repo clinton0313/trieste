@@ -333,11 +333,11 @@ class DeepEnsemble(
         x, y = self.prepare_dataset(dataset)
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
-class MCDropout(KerasPredictor, TrainableProbabilisticModel):
+class DeepDropout(KerasPredictor, TrainableProbabilisticModel):
     def __init__(
         self,
         model: DropoutNetwork,
-        optimizer: Optional[KerasOptimizer] = None #Look into what is KerasOptimizer doing under the hood
+        optimizer: Optional[KerasOptimizer] = None
     ) -> None:
 
         super().__init__(optimizer)
@@ -355,7 +355,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
             }
 
         if self.optimizer.loss is None:
-            self.optimizer.loss = negative_log_likelihood
+            self.optimizer.loss = "mse"
 
         model.model.compile(
             self.optimizer.optimizer,
@@ -370,10 +370,47 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         return self._model.model
 
     def optimize(self, dataset:Dataset) -> None:
-        ...
+        x, y = dataset.astuple()
+        self.model.fit(x=x, y=y, **self.optimizer.fit_args)
+        
     def update(self, dataset: Dataset) -> None:
         ...
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
         ...
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
-        ...
+        r"""
+        Returns mean and variance of the MC Dropout.
+
+        Following <cite data-cite="gal2015simple"/>, we make T stochastic forward passes
+        through the trained network of L hidden layers M_l and average the results to derive 
+        the mean and variance. These are respectively given by
+
+        .. math:: \mathbb{E}_{q\left(\mathbf{y}^{*} \mid \mathbf{x}^{*}\right)}
+            \left(\mathbf{y}^{*}\right) \approx \frac{1}{T} \sum_{t=1}^{T} 
+            \widehat{\mathbf{y}}^{*}\left(\mathrm{x}^{*}, \widehat{\mathbf{M}}_{1}^{t}, 
+            \ldots, \widehat{\mathbf{M}}_{L}^{t}\right)
+
+        .. math:: \frac{1}{T} \operatorname{Var}_{q\left(\mathbf{y}^{*} \mid \mathbf{x}^{*}\right)}
+            \left(\mathbf{y}^{*}\right) \approx\sum_{t=1}^{T} \widehat{\mathbf{y}}^{*}\left(\mathbf{x}^{*}, 
+            \widehat{\mathbf{M}}_{1}^{t}, \ldots, \widehat{\mathbf{M}}_{L}^{t}\right)^{T} 
+            \widehat{\mathbf{y}}^{*}\left(\mathbf{x}^{*}, \widehat{\mathbf{M}}_{1}^{t}, \ldots, 
+            \widehat{\mathbf{M}}_{L}^{t}\right)-\mathbb{E}_{q\left(\mathbf{y}^{*} \mid 
+            \mathbf{x}^{*}\right)}\left(\mathbf{y}^{*}\right)^{T} \mathbb{E}_{q\left(\mathbf{y}^{*} 
+            \mid \mathbf{x}^{*}\right)}\left(\mathbf{y}^{*}\right)
+
+        :param query_points: The points at which to make predictions.
+        :return: The predicted mean and variance of the observations at the specified
+            ``query_points``.
+        """
+        T = 100
+        stochastic_passes = tf.stack([self.model.call(query_points) for _ in range(T)], axis=0)
+        predicted_means = tf.math.reduce_mean(stochastic_passes, axis=0)
+
+        predicted_vars = (
+            tf.subtract(
+                tf.divide(
+                    tf.reduce_sum(tf.math.multiply(stochastic_passes, stochastic_passes), axis=0), T
+                ), tf.math.square(predicted_means)
+            )
+        )
+        return predicted_means, predicted_vars

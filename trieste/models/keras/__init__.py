@@ -25,6 +25,6 @@ from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork,
 from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_mcdropout
 from .interface import KerasPredictor
 from .layers import DropConnect, MCDropout
-from .models import DeepEnsemble, DropoutNetwork
+from .models import DeepEnsemble, DeepDropout
 from .sampler import EnsembleTrajectorySampler
 from .utils import get_tensor_spec_from_data, negative_log_likelihood, sample_with_replacement

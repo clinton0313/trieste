@@ -65,6 +65,9 @@ class DropConnect(Dense):
         if self.activation is not None:
             outputs = self.activation(outputs)
         return outputs
+
+        
 class MCDropout(Dropout):
     def call(self, x, **kwargs):
-        return super().call(x, training=True, **kwargs)
+        kargs = {k:v for k,v in kwargs.items() if k != "training"}
+        return super().call(x, training=True, **kargs)
