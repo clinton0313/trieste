@@ -397,7 +397,15 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         pass
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
-        ...
+        """
+        Return ``num_samples`` samples at ``query_points``. We use the stochastic forward passes
+        to simulate ``num_samples`` samples for each point of ``query_points`` points.
+
+        :param query_points: The points at which to sample, with shape [..., N, D].
+        :param num_samples: The number of samples at each point.
+        :return: The samples, with shape [..., S, N].
+        """
+        return tf.stack([self.model(query_points, training=True) for _ in range(num_samples)], axis=0)
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
