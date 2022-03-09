@@ -12,21 +12,15 @@ import trieste
 # https://stackoverflow.com/questions/35911252/disable-tensorflow-debugging-information
 tf.get_logger().setLevel("ERROR")
 
-
-
-# %%
 np.random.seed(1794)
 tf.random.set_seed(1794)
 tf.keras.backend.set_floatx("float64")
 
-
 # %% [markdown]
 # ## MC dropout
-
 # %%
 from trieste.space import Box
 from trieste.data import Dataset
-
 
 def objective(x, error=True):
     y = tf.pow(x, 3)
@@ -34,35 +28,38 @@ def objective(x, error=True):
         y += tf.random.normal(x.shape, 0, 3, dtype=x.dtype)
     return y
 
-
 num_points = 20
-
 # we define the [-4,4] interval using a `Box` search space that has convenient sampling methods
 search_space = Box([-4], [4])
 inputs = search_space.sample_sobol(num_points)
 outputs = objective(inputs)
 data = Dataset(inputs, outputs)
 
-
 # %% [markdown]
 # Next we define a MC dropout model and train it.
 
 # %%
 from trieste.models.keras import (
-    DeepDropout,
+    MCDropout,
     KerasPredictor,
     build_vanilla_keras_mcdropout,
 )
 from trieste.models.optimizer import KerasOptimizer
 
-
-def build_cubic_model(data: Dataset) -> DeepDropout:
+def build_cubic_model(data:Dataset, dropout:str="standard") -> MCDropout:
     num_hidden_layers = 3
-    num_nodes = 100
+    num_nodes = 50
     activation = "relu"
     rate = 0.2
 
-    dropout_nn = build_vanilla_keras_mcdropout(data)
+    dropout_nn = build_vanilla_keras_mcdropout(
+        data, 
+        num_hidden_layers=num_hidden_layers,
+        units=num_nodes,
+        activation=activation,
+        rate=rate,
+        dropout=dropout
+    )
 
     fit_args = {
         "batch_size": 10,
@@ -71,21 +68,17 @@ def build_cubic_model(data: Dataset) -> DeepDropout:
     }
     optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.01), fit_args)
 
-    return DeepDropout(dropout_nn, optimizer)
-
+    return MCDropout(dropout_nn, optimizer)
 
 # building and optimizing the model
-model = build_cubic_model(data)
+model = build_cubic_model(data, "standard")
 model.optimize(data)
-
 
 # %% [markdown]
 # Let's illustrate the results
 # %%
 import matplotlib.pyplot as plt
 
-
-# test data that includes extrapolation points
 test_points = tf.linspace(-6, 6, 1000)
 
 # generating a plot with ground truth function, mean prediction and 3 standard
@@ -110,3 +103,4 @@ plt.ylim([-100, 100])
 plt.show()
 
 # %%
+

@@ -67,7 +67,7 @@ class DropConnect(Dense):
         return outputs
 
         
-class MCDropout(Dropout):
+class MCDropoutLayer(Dropout):
     def call(self, x, **kwargs):
         kargs = {k:v for k,v in kwargs.items() if k != "training"}
         return super().call(x, training=True, **kargs)
