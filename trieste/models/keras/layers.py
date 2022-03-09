@@ -1,3 +1,5 @@
+from typing import Union
+
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.python.ops import nn_ops, math_ops, sparse_ops, embedding_ops, gen_math_ops, standard_ops
@@ -5,8 +7,9 @@ from tensorflow.python.framework import sparse_tensor
 from tensorflow.python.eager import context
 
 
+
 class DropConnect(Dense):
-    def __init__(self, rate=0.5, *args, **kwargs):
+    def __init__(self, rate: Union[float, int]=0.5, *args, **kwargs):
         """
         :param units: Number of units to use in the layer.
         :param rate: The probability of dropout applied to each weight of a Dense Keras layer.

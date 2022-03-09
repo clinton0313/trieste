@@ -254,7 +254,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
             {"units": 50, "activation": "relu"},
             {"units": 50, "activation": "relu"},
         ),
-        rate: Sequence[float] | float | int = 0.5
+        rate: Sequence[float] | float = 0.5
     ):
         """
         :param input_tensor_spec: Tensor specification for the input to the network.
@@ -296,14 +296,14 @@ class DropoutNetwork(KerasEnsembleNetwork):
             for p in rate:
                 self._check_probability(p)
             self._rate = rate
-        elif isinstance(rate, (float, int)):
+        elif isinstance(rate, float):
             self._check_probability(rate)
             self._rate = [rate for _ in range(len(self._hidden_layer_args) + 1)]
         else:
             raise TypeError(f"dropout_prob needs to be a sequence, float or int. Instead got {type(rate)}")
 
-    def _check_probability(self, p: float | int) -> None:
-        if not 0 <= p <= 1:
+    def _check_probability(self, p: float) -> None:
+        if not 0 < p < 1:
             raise ValueError(
                 f"Invalid probability {p} received."
             )
@@ -321,7 +321,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
 
         for index, hidden_layer_args in enumerate(self._hidden_layer_args):
             layer_name = f"{self.network_name}dense_{index}"
-            dropout = MCDropout(self._rate[index])
+            dropout = tf.keras.layers.Dropout(self._rate[index])
             layer = tf.keras.layers.Dense(**hidden_layer_args, name=layer_name)
             dropout_tensor = dropout(input_tensor) 
             input_tensor = layer(dropout_tensor)
@@ -329,7 +329,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
 
     def _gen_output_layer(self, input_tensor: tf.Tensor) -> tf.Tensor:
 
-        dropout = MCDropout(self._rate[-1])
+        dropout = tf.keras.layers.Dropout(self._rate[-1])
         output_layer = tf.keras.layers.Dense(units=self.flattened_output_shape, name=self.output_layer_name)
         dropout_tensor = dropout(input_tensor)
         output_tensor = output_layer(dropout_tensor)

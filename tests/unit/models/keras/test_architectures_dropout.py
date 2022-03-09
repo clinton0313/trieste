@@ -2,6 +2,7 @@
 from typing import Any, List, Tuple, Union
 
 import numpy as np
+import numpy.testing as npt
 import pytest
 import tensorflow as tf
 
@@ -31,7 +32,6 @@ def _observation_shape_fixture(request: Any) -> List[int]:
     [
         (1, 0.3),
         (3, 0.7),
-        (3, [0.2, 0.3, 0.6, 0.5]),
         (5, [0.3, 0.3, 0.3, 0.3, 0.3, 0.3])
     ]
 )
@@ -123,4 +123,19 @@ def test_dropout_network_can_be_compiled(
     assert dropout_nn.model.compiled_loss is not None
     assert dropout_nn.model.compiled_metrics is not None
     assert dropout_nn.model.optimizer is not None
+
+
+def test_dropout(dropout_network: DropoutNetwork) -> None:
+    '''Tests the ability of architecture to dropout.'''
+
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+
+    dropout_nn = dropout_network(inputs, outputs, rate=0.999999999)
+    dropout_nn.model.compile(tf.optimizers.Adam(), tf.losses.MeanSquaredError())
+
+    outputs = [dropout_nn.model(tf.constant([1]), training=True) for _ in range(100)]
+    npt.assert_almost_equal(0., np.mean(outputs), err_msg=f"{dropout_network} not dropping up to randomness")
+
+
 # %%

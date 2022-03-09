@@ -12,13 +12,13 @@ from trieste.models.keras.builders import build_vanilla_keras_mcdropout
 
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
 @pytest.mark.parametrize("num_hidden_layers", [0, 1, 3])
-@pytest.mark.parametrize("dropout_prob", [0.1, 0.5, 0.9])
+@pytest.mark.parametrize("rate", [0.1, 0.5, 0.9])
 @pytest.mark.parametrize("dropout", ["standard", "dropconnect"])
 def test_build_vanilla_keras_mcdropout(
     num_hidden_layers: int,
     units: int,
     activation: Union[str, tf.keras.layers.Activation],
-    dropout_prob,
+    rate: Union[Sequence[float], float],
     dropout:str
 ) -> None:
     example_data = empty_dataset([1], [1])
@@ -27,7 +27,7 @@ def test_build_vanilla_keras_mcdropout(
         num_hidden_layers,
         units,
         activation,
-        dropout_prob,
+        rate,
         dropout
     )
     if dropout == "standard":
@@ -45,7 +45,7 @@ def test_build_vanilla_keras_mcdropout(
             elif dropout == "standard":
                 if i % 2 == 0:
                     assert isinstance(layer, tf.keras.layers.Dropout)
-                    assert layer.rate == dropout_prob
+                    assert layer.rate == rate
                 elif i % 2 == 1:
                     assert isinstance(layer, tf.keras.layers.Dense)
                     assert layer.units == units
