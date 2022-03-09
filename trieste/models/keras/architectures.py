@@ -254,7 +254,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
             {"units": 50, "activation": "relu"},
             {"units": 50, "activation": "relu"},
         ),
-        rate: Sequence[float] | float | int = 0.5
+        rate: Sequence[float] | float = 0.5
     ):
         """
         :param input_tensor_spec: Tensor specification for the input to the network.
@@ -296,14 +296,14 @@ class DropoutNetwork(KerasEnsembleNetwork):
             for p in rate:
                 self._check_probability(p)
             self._rate = rate
-        elif isinstance(rate, (float, int)):
+        elif isinstance(rate, float):
             self._check_probability(rate)
             self._rate = [rate for _ in range(len(self._hidden_layer_args) + 1)]
         else:
             raise TypeError(f"dropout_prob needs to be a sequence, float or int. Instead got {type(rate)}")
 
-    def _check_probability(self, p: float | int) -> None:
-        if not 0 <= p <= 1:
+    def _check_probability(self, p: float) -> None:
+        if not 0 < p < 1:
             raise ValueError(
                 f"Invalid probability {p} received."
             )

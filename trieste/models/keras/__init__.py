@@ -21,7 +21,7 @@ to `False`.
 """
 
 from . import config
-from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork, DropConnectNetwork
+from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork, DropConnectNetwork, DropoutNetwork
 from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_mcdropout
 from .interface import KerasPredictor
 from .layers import DropConnect, MCDropoutLayer
