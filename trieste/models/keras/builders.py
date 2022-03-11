@@ -87,8 +87,8 @@ def build_vanilla_keras_mcdropout(
     num_hidden_layers: int = 3,
     units: int = 50,
     activation: str | tf.keras.layers.Activation = "relu",
-    rate: Sequence[float | int] | float | int = 0.5,
-    dropout: str = "standard"
+    rate: Sequence[float] | float = 0.5,
+    dropout: DropoutNetwork = DropoutNetwork
 ) -> DropoutNetwork:
     
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
@@ -97,24 +97,11 @@ def build_vanilla_keras_mcdropout(
     for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
-    if dropout == "standard":
-        keras_mcdropout = DropoutNetwork(
-            input_tensor_spec,
-            output_tensor_spec,
-            hidden_layer_args,
-            rate
-        )
-    elif dropout == "dropconnect":
-        keras_mcdropout = DropConnectNetwork(
-            input_tensor_spec,
-            output_tensor_spec,
-            hidden_layer_args,
-            rate
-        )
-    else:
-        raise ValueError(
-            f"""dropout should be set to either 'standard' for MCDropout or 'dropconnect' for MCDropConnect.
-            Instead got {dropout}."""
-        )
+    keras_mcdropout = dropout(
+        input_tensor_spec,
+        output_tensor_spec,
+        hidden_layer_args,
+        rate
+    )
 
     return keras_mcdropout

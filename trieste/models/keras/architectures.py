@@ -19,13 +19,12 @@ This file contains implementations of neural network architectures with Keras.
 from __future__ import annotations
 
 from abc import abstractmethod
-from multiprocessing.sharedctypes import Value
 from typing import Any, Sequence
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from .layers import DropConnect, MCDropoutLayer
+from .layers import DropConnect
 
 
 class KerasEnsemble:
@@ -304,9 +303,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
 
     def _check_probability(self, p: float) -> None:
         if not 0 < p < 1:
-            raise ValueError(
-                f"Invalid probability {p} received."
-            )
+            raise ValueError(f"Invalid probability {p} received.")
 
     def _gen_input_tensor(self) -> tf.keras.Input:
 
@@ -320,9 +317,8 @@ class DropoutNetwork(KerasEnsembleNetwork):
     def _gen_hidden_layers(self, input_tensor: tf.Tensor) -> tf.Tensor:
 
         for index, hidden_layer_args in enumerate(self._hidden_layer_args):
-            layer_name = f"{self.network_name}dense_{index}"
             dropout = tf.keras.layers.Dropout(self._rate[index])
-            layer = tf.keras.layers.Dense(**hidden_layer_args, name=layer_name)
+            layer = tf.keras.layers.Dense(**hidden_layer_args)
             dropout_tensor = dropout(input_tensor) 
             input_tensor = layer(dropout_tensor)
         return input_tensor
@@ -369,8 +365,7 @@ class DropConnectNetwork(DropoutNetwork):
     def _gen_hidden_layers(self, input_tensor: tf.Tensor) -> tf.Tensor:
 
         for index, hidden_layer_args in enumerate(self._hidden_layer_args):
-            layer_name = f"{self.network_name}dense_{index}"
-            layer = DropConnect(**hidden_layer_args, rate=self._rate[index], name=layer_name)
+            layer = DropConnect(**hidden_layer_args, rate=self._rate[index])
             input_tensor = layer(input_tensor)
         return input_tensor
     
