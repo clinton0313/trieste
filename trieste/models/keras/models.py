@@ -337,7 +337,8 @@ class DeepDropout(KerasPredictor, TrainableProbabilisticModel):
     def __init__(
         self,
         model: DropoutNetwork,
-        optimizer: Optional[KerasOptimizer] = None
+        optimizer: Optional[KerasOptimizer] = None,
+        passes: int = 300
     ) -> None:
 
         super().__init__(optimizer)
@@ -363,6 +364,7 @@ class DeepDropout(KerasPredictor, TrainableProbabilisticModel):
             metrics=[self.optimizer.metrics],
         )
 
+        self.passes = passes
         self._model = model
 
     @property
@@ -402,14 +404,13 @@ class DeepDropout(KerasPredictor, TrainableProbabilisticModel):
         :return: The predicted mean and variance of the observations at the specified
             ``query_points``.
         """
-        T = 100
-        stochastic_passes = tf.stack([self.model.call(query_points) for _ in range(T)], axis=0)
+        stochastic_passes = tf.stack([self.model.call(query_points) for _ in range(self.passes)], axis=0)
         predicted_means = tf.math.reduce_mean(stochastic_passes, axis=0)
 
         predicted_vars = (
             tf.subtract(
                 tf.divide(
-                    tf.reduce_sum(tf.math.multiply(stochastic_passes, stochastic_passes), axis=0), T
+                    tf.reduce_sum(tf.math.multiply(stochastic_passes, stochastic_passes), axis=0), self.passes
                 ), tf.math.square(predicted_means)
             )
         )
