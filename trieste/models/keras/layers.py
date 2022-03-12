@@ -1,5 +1,3 @@
-from typing import Union
-
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.python.ops import nn_ops, math_ops, sparse_ops, embedding_ops, gen_math_ops, standard_ops
