@@ -317,8 +317,9 @@ class DropoutNetwork(KerasEnsembleNetwork):
     def _gen_hidden_layers(self, input_tensor: tf.Tensor) -> tf.Tensor:
 
         for index, hidden_layer_args in enumerate(self._hidden_layer_args):
+            layer_name = f"{self.network_name}dense_{index}"
             dropout = tf.keras.layers.Dropout(self._rate[index])
-            layer = tf.keras.layers.Dense(**hidden_layer_args)
+            layer = tf.keras.layers.Dense(**hidden_layer_args, name=layer_name)
             dropout_tensor = dropout(input_tensor) 
             input_tensor = layer(dropout_tensor)
         return input_tensor
@@ -365,7 +366,8 @@ class DropConnectNetwork(DropoutNetwork):
     def _gen_hidden_layers(self, input_tensor: tf.Tensor) -> tf.Tensor:
 
         for index, hidden_layer_args in enumerate(self._hidden_layer_args):
-            layer = DropConnect(**hidden_layer_args, rate=self._rate[index])
+            layer_name = f"{self.network_name}dense_{index}"
+            layer = DropConnect(**hidden_layer_args, rate=self._rate[index], name=layer_name)
             input_tensor = layer(input_tensor)
         return input_tensor
     
@@ -375,3 +377,64 @@ class DropConnectNetwork(DropoutNetwork):
         output_tensor = output_layer(input_tensor)
         return output_tensor
 
+class MCDropoutNetwork(tf.keras.Model):
+    def __init__(
+        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 50, "activation": "relu"},
+            {"units": 50, "activation": "relu"},
+            {"units": 50, "activation": "relu"},
+        ),
+        rate: Sequence[float] | float = 0.5
+    ):
+        super().__init__()
+        self.input_tensor_spec = input_tensor_spec
+        self.output_tensor_spec = output_tensor_spec
+        self._hidden_layer_args = hidden_layer_args
+        self.rate = rate
+        super().build(input_tensor_spec)
+    
+    @property
+    def flattened_output_shape(self) -> int:
+        return int(np.prod(self.output_tensor_spec.shape))
+
+    @property
+    def rate(self) -> Sequence[float]:
+        return self._rate
+    
+    @rate.setter
+    def rate(self, rate):
+        if isinstance(rate, Sequence):
+            if not len(rate) == len(self._hidden_layer_args) + 1:
+                raise ValueError(
+                    f"""Requires a dropout probability for each hidden layer and the output layer. 
+                    Got {len(rate)} dropout probabilities for {len(self._hidden_layer_args) + 1} layers."""
+                )
+            for p in rate:
+                self._check_probability(p)
+            self._rate = rate
+        elif isinstance(rate, float):
+            self._check_probability(rate)
+            self._rate = [rate for _ in range(len(self._hidden_layer_args) + 1)]
+        else:
+            raise TypeError(f"dropout_prob needs to be a sequence, float or int. Instead got {type(rate)}")
+
+    def _check_probability(self, p: float) -> None:
+        if not 0 < p < 1:
+            raise ValueError(
+                f"Invalid probability {p} received."
+            )
+    
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+
+        for index, hidden_layer_args in enumerate(self._hidden_layer_args):
+            inputs = tf.keras.layers.Dropout(self._rate[index])(inputs)
+            inputs = tf.keras.layers.Dense(**hidden_layer_args)(inputs)
+        
+        inputs = tf.keras.layers.Dropout(self._rate[-1])(inputs)
+        output = tf.keras.layers.Dense(units=self.flattened_output_shape)(inputs)
+
+        return output
+       
