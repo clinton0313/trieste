@@ -302,7 +302,7 @@ class DropoutNetwork(KerasEnsembleNetwork):
             raise TypeError(f"dropout_prob needs to be a sequence, float or int. Instead got {type(rate)}")
 
     def _check_probability(self, p: float) -> None:
-        if not 0 < p < 1:
+        if not 0 <= p < 1:
             raise ValueError(f"Invalid probability {p} received.")
 
     def _gen_input_tensor(self) -> tf.keras.Input:
@@ -380,7 +380,6 @@ class DropConnectNetwork(DropoutNetwork):
 class MCDropoutNetwork(tf.keras.Model):
     def __init__(
         self,
-        input_tensor_spec: tf.TensorSpec,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
             {"units": 50, "activation": "relu"},
@@ -390,15 +389,13 @@ class MCDropoutNetwork(tf.keras.Model):
         rate: Sequence[float] | float = 0.5
     ):
         super().__init__()
-        self.input_tensor_spec = input_tensor_spec
         self.output_tensor_spec = output_tensor_spec
         self._hidden_layer_args = hidden_layer_args
         self.rate = rate
-        super().build(input_tensor_spec)
-    
-    @property
-    def flattened_output_shape(self) -> int:
-        return int(np.prod(self.output_tensor_spec.shape))
+        self.flattened_output_shape =  int(np.prod(self.output_tensor_spec.shape))
+
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
 
     @property
     def rate(self) -> Sequence[float]:
@@ -422,19 +419,28 @@ class MCDropoutNetwork(tf.keras.Model):
             raise TypeError(f"dropout_prob needs to be a sequence, float or int. Instead got {type(rate)}")
 
     def _check_probability(self, p: float) -> None:
-        if not 0 < p < 1:
-            raise ValueError(
-                f"Invalid probability {p} received."
-            )
+        if not 0 <= p < 1:
+            raise ValueError(f"Invalid probability {p} received.")
     
+    def _gen_hidden_layers(self) -> tf.keras.Model:
+
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for index, hidden_layer_args in enumerate(self._hidden_layer_args):
+            hidden_layers.add(tf.keras.layers.Dropout(self._rate[index]))
+            hidden_layers.add(tf.keras.layers.Dense(**hidden_layer_args))
+        return hidden_layers
+
+    def _gen_output_layer(self) -> tf.keras.Model:
+
+        output_layer = tf.keras.Sequential(name="output_layer")
+        output_layer.add(tf.keras.layers.Dropout(self._rate[-1]))
+        output_layer.add(tf.keras.layers.Dense(units=self.flattened_output_shape))
+        return output_layer
+
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
 
-        for index, hidden_layer_args in enumerate(self._hidden_layer_args):
-            inputs = tf.keras.layers.Dropout(self._rate[index])(inputs)
-            inputs = tf.keras.layers.Dense(**hidden_layer_args)(inputs)
-        
-        inputs = tf.keras.layers.Dropout(self._rate[-1])(inputs)
-        output = tf.keras.layers.Dense(units=self.flattened_output_shape)(inputs)
+        hidden_output = self.hidden_layers(inputs)
+        output = self.output_layer(hidden_output)
 
         return output
        

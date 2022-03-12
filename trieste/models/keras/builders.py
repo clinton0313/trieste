@@ -26,7 +26,7 @@ from typing import Union, Sequence
 import tensorflow as tf
 
 from ...data import Dataset
-from .architectures import DropConnectNetwork, GaussianNetwork, KerasEnsemble, DropoutNetwork
+from .architectures import DropConnectNetwork, GaussianNetwork, KerasEnsemble, DropoutNetwork, MCDropoutNetwork
 from .utils import get_tensor_spec_from_data
 
 
@@ -88,20 +88,21 @@ def build_vanilla_keras_mcdropout(
     units: int = 50,
     activation: str | tf.keras.layers.Activation = "relu",
     rate: Sequence[float] | float = 0.5,
-    dropout: DropoutNetwork = DropoutNetwork
-) -> DropoutNetwork:
+    dropout: MCDropoutNetwork = MCDropoutNetwork
+) -> MCDropoutNetwork:
     
-    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
+    _, output_tensor_spec = get_tensor_spec_from_data(data)
 
     hidden_layer_args = []
     for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
     keras_mcdropout = dropout(
-        input_tensor_spec,
         output_tensor_spec,
         hidden_layer_args,
         rate
     )
+    
+    keras_mcdropout.build(data.query_points.shape)
 
     return keras_mcdropout
