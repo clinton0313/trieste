@@ -44,8 +44,7 @@ def test_dense_forward(layer:Dense, x, activation, units):
     assert (tf.equal(model.predict(x), model(x))).numpy().all(), "Model predict is not the same as a forward pass"
     assert (tf.equal(dense_model(x), model(x))).numpy().all(), "Forward pass calculations are wrong"
 
-# @random_seed
-@pytest.mark.parametrize("rate", [0, 1])
+@pytest.mark.parametrize("rate", [0., (1 - 1e-12)])
 @pytest.mark.parametrize("dropout_layer", [DropConnect(units=3)])
 def test_fit(dropout_layer, x, units, activation, rate):
     '''Tests that the fit method with dropout is working properly'''
@@ -63,8 +62,8 @@ def test_fit(dropout_layer, x, units, activation, rate):
     dense_model.compile(Adam(), MeanAbsoluteError())
 
     bias = drop_model.get_weights()[1]
-    weights = tf.zeros(shape=drop_model.get_weights()[0].shape) if rate == 1 \
-        else drop_model.get_weights()[0]
+    weights = drop_model.get_weights()[0] if rate == 0 \
+        else tf.zeros(shape=drop_model.get_weights()[0].shape)
     dense.set_weights([weights, bias])
 
     drop_fit = drop_model.fit(x, y)
@@ -72,7 +71,6 @@ def test_fit(dropout_layer, x, units, activation, rate):
 
     npt.assert_approx_equal(drop_fit.history["loss"][0], dense_fit.history["loss"][0], significant=3,
         err_msg=f"Expected {dropout_layer} to drop {rate} variables and get the same fit as an equivalent dense layer")
-    
 
 
 @pytest.mark.parametrize("rate", [0.1, 0.3, 0.5, 0.7, 0.9])
