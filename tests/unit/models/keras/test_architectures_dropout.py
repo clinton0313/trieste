@@ -1,5 +1,5 @@
 #%%
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Union
 
 import numpy as np
 import numpy.testing as npt
@@ -9,14 +9,13 @@ import tensorflow as tf
 from tests.util.misc import empty_dataset
 from trieste.models.keras import (
     DropConnectNetwork,
-    DropoutNetwork,
     get_tensor_spec_from_data,
-    negative_log_likelihood,
 )
+from trieste.models.keras.architectures import  DropoutNetwork, DropConnectNetwork
 from trieste.models.keras.layers import DropConnect
 
 @pytest.fixture(name="dropout_network", params=[DropoutNetwork, DropConnectNetwork])
-def _dropout_network_fixture(request: Any) -> DropoutNetwork:
+def _dropout_network_fixture(request: Any) ->  DropoutNetwork:
     return request.param
 
 @pytest.fixture(name="query_point_shape", params = [[1], [5]])
@@ -38,7 +37,7 @@ def _observation_shape_fixture(request: Any) -> List[int]:
 @pytest.mark.parametrize("units", [10, 50])
 @pytest.mark.parametrize("activation", ["relu", tf.keras.activations.tanh])
 def test_dropout_network_build_seems_correct(
-    dropout_network: DropoutNetwork, 
+    dropout_network:  DropoutNetwork, 
     query_point_shape: List[int], 
     observation_shape: List[int], 
     num_hidden_layers: int,
@@ -53,7 +52,6 @@ def test_dropout_network_build_seems_correct(
     hidden_layer_args = [{"units": units, "activation": activation} for _ in range(num_hidden_layers)]
     
     dropout_nn = dropout_network(
-        inputs, 
         outputs,
         hidden_layer_args,
         rate
@@ -63,36 +61,33 @@ def test_dropout_network_build_seems_correct(
         rate = [rate for _ in range(num_hidden_layers + 1)]
 
     # basics
-    assert isinstance(dropout_nn.model, tf.keras.Model)
-    assert dropout_nn.model.built
-
-    # check input and output shapes
-    assert dropout_nn.model.input_shape[1:] == tf.TensorShape(query_point_shape)
-    assert dropout_nn.model.output_shape[1:] == tf.TensorShape(observation_shape)
+    assert isinstance(dropout_nn, tf.keras.Model)
 
     # check the model has not been compiled
-    assert dropout_nn.model.compiled_loss is None
-    assert dropout_nn.model.compiled_metrics is None
-    assert dropout_nn.model.optimizer is None
+    assert dropout_nn.compiled_loss is None
+    assert dropout_nn.compiled_metrics is None
+    assert dropout_nn.optimizer is None
 
-    # check input layer
-    assert isinstance(dropout_nn.model.layers[0], tf.keras.layers.InputLayer)
-    
     # check correct number of layers and proerply constructed
+    assert len(dropout_nn.layers) == 2
+
     if isinstance(dropout_nn, DropConnectNetwork):
-        assert len(dropout_nn.model.layers) == 2 + num_hidden_layers
+        assert len(dropout_nn.layers[0].layers) == num_hidden_layers
         
-        for layer in dropout_nn.model.layers[1:-1]:
+        for layer in dropout_nn.layers[0].layers:
             assert isinstance(layer, DropConnect)
             assert layer.units == units
             assert layer.activation == activation or layer.activation.__name__ == activation
         
-        assert isinstance(dropout_nn.model.layers[-1], DropConnect)
+        assert isinstance(dropout_nn.layers[-1], DropConnect)
+        assert dropout_nn.layers[-1].units == int(np.prod(outputs.shape))
+        assert dropout_nn.layers[-1].activation == tf.keras.activations.linear
     
-    elif isinstance(dropout_nn, DropoutNetwork):
-        assert len(dropout_nn.model.layers) == 1 + 2 * (num_hidden_layers + 1)
+    elif isinstance(dropout_nn,  DropoutNetwork):
+        assert len(dropout_nn.layers[0].layers) == num_hidden_layers * 2
+        assert len(dropout_nn.layers[1].layers) == 2
         
-        for i, layer in enumerate(dropout_nn.model.layers[1:-1]):
+        for i, layer in enumerate(dropout_nn.layers[1].layers):
             if i % 2 == 0:
                 isinstance(layer, tf.keras.layers.Dropout)
                 layer.rate == rate[int(i/2)]
@@ -101,13 +96,15 @@ def test_dropout_network_build_seems_correct(
                 assert layer.units == units
                 assert layer.activation == activation or layer.activation.__name__ == activation
         
-        assert isinstance(dropout_nn.model.layers[-1], tf.keras.layers.Dense)
-    
-    # check output layer activation
-    assert dropout_nn.model.layers[-1].activation == tf.keras.activations.linear
+        assert isinstance(dropout_nn.layers[1].layers[0], tf.keras.layers.Dropout)
+        assert dropout_nn.layers[1].layers[0].rate == rate[-1]
 
+        assert isinstance(dropout_nn.layers[1].layers[-1], tf.keras.layers.Dense)
+        assert dropout_nn.layers[1].layers[-1].units == int(np.prod(outputs.shape))
+        assert dropout_nn.layers[1].layers[-1].activation == tf.keras.activations.linear
+    
 def test_dropout_network_can_be_compiled(
-    dropout_network: DropoutNetwork, 
+    dropout_network:  DropoutNetwork, 
     query_point_shape: List[int], 
     observation_shape: List[int]
  ) -> None:
@@ -116,25 +113,25 @@ def test_dropout_network_can_be_compiled(
     example_data = empty_dataset(query_point_shape, observation_shape)
     inputs, outputs = get_tensor_spec_from_data(example_data)
 
-    dropout_nn = dropout_network(inputs, outputs)
+    dropout_nn = dropout_network(outputs)
 
-    dropout_nn.model.compile(tf.optimizers.Adam(), tf.losses.MeanSquaredError())
+    dropout_nn.compile(tf.optimizers.Adam(), tf.losses.MeanSquaredError())
 
-    assert dropout_nn.model.compiled_loss is not None
-    assert dropout_nn.model.compiled_metrics is not None
-    assert dropout_nn.model.optimizer is not None
+    assert dropout_nn.compiled_loss is not None
+    assert dropout_nn.compiled_metrics is not None
+    assert dropout_nn.optimizer is not None
 
 
-def test_dropout(dropout_network: DropoutNetwork) -> None:
+def test_dropout(dropout_network:  DropoutNetwork) -> None:
     '''Tests the ability of architecture to dropout.'''
 
     example_data = empty_dataset([1], [1])
     inputs, outputs = get_tensor_spec_from_data(example_data)
 
-    dropout_nn = dropout_network(inputs, outputs, rate=0.999999999)
-    dropout_nn.model.compile(tf.optimizers.Adam(), tf.losses.MeanSquaredError())
+    dropout_nn = dropout_network(outputs, rate=0.999999999)
+    dropout_nn.compile(tf.optimizers.Adam(), tf.losses.MeanSquaredError())
 
-    outputs = [dropout_nn.model(tf.constant([1]), training=True) for _ in range(100)]
+    outputs = [dropout_nn(tf.constant([[1.]]), training=True) for _ in range(100)]
     npt.assert_almost_equal(0., np.mean(outputs), err_msg=f"{dropout_network} not dropping up to randomness")
 
 

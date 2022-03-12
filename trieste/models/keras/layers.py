@@ -1,5 +1,3 @@
-from typing import Union
-
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.python.ops import nn_ops, math_ops, sparse_ops, embedding_ops, gen_math_ops, standard_ops
@@ -9,7 +7,7 @@ from tensorflow.python.eager import context
 
 
 class DropConnect(Dense):
-    def __init__(self, rate: Union[float, int]=0.5, *args, **kwargs):
+    def __init__(self, rate:float =0.5, *args, **kwargs):
         """
         :param units: Number of units to use in the layer.
         :param rate: The probability of dropout applied to each weight of a Dense Keras layer.
@@ -17,7 +15,7 @@ class DropConnect(Dense):
         "param **kwargs: Keyword arguments passed to Dense Keras class
         """
         self.rate = rate
-        super(DropConnect, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
     
     @property
     def rate(self):
@@ -25,7 +23,6 @@ class DropConnect(Dense):
 
     @rate.setter
     def rate(self, rate):
-        assert 0 <= rate <= 1, f"prob needs to be a valid probability instead got {rate}"
         self._rate = rate
         
     def call(self, inputs, training = False):
@@ -34,8 +31,7 @@ class DropConnect(Dense):
 
         #Drop Connect Code to mask the kernel
         if training:
-            mask = tf.cast(tf.random.uniform(shape=self.kernel.shape) >= self.rate, dtype=self.kernel.dtype)
-            kernel = mask * self.kernel
+            kernel = tf.nn.dropout(self.kernel, self.rate)
         else:
             kernel = self.kernel
 
@@ -68,9 +64,3 @@ class DropConnect(Dense):
         if self.activation is not None:
             outputs = self.activation(outputs)
         return outputs
-
-        
-class MCDropout(Dropout):
-    def call(self, x, **kwargs):
-        kargs = {k:v for k,v in kwargs.items() if k != "training"}
-        return super().call(x, training=True, **kargs)
