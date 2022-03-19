@@ -1,13 +1,13 @@
-from typing import Union, Sequence
+from typing import Sequence, Union
 
 import pytest
 import tensorflow as tf
 import tensorflow_probability as tfp
 
 from tests.util.misc import empty_dataset
-from trieste.models.keras.architectures import DropoutNetwork, DropConnectNetwork
-from trieste.models.keras.layers import DropConnect
+from trieste.models.keras.architectures import DropConnectNetwork, DropoutNetwork
 from trieste.models.keras.builders import build_vanilla_keras_mcdropout
+from trieste.models.keras.layers import DropConnect
 
 
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
@@ -18,29 +18,24 @@ def test_build_vanilla_keras_mcdropout(
     num_hidden_layers: int,
     units: int,
     activation: Union[str, tf.keras.layers.Activation],
-    rate: Union[Sequence[float], float],
-    dropout:str
+    rate: float,
+    dropout: str,
 ) -> None:
     example_data = empty_dataset([1], [1])
     mcdropout = build_vanilla_keras_mcdropout(
-        example_data,
-        num_hidden_layers,
-        units,
-        activation,
-        rate,
-        dropout
+        example_data, num_hidden_layers, units, activation, rate, dropout
     )
 
     assert mcdropout.built
     assert isinstance(mcdropout, dropout)
     assert len(mcdropout.layers) == 2
 
-    #Check Hidden Layers
+    # Check Hidden Layers
     if num_hidden_layers > 0:
         for i, layer in enumerate(mcdropout.layers[0].layers):
             if dropout == DropConnectNetwork:
                 assert len(mcdropout.layers[0].layers) == num_hidden_layers
-                assert isinstance(layer, DropConnect) 
+                assert isinstance(layer, DropConnect)
                 assert layer.units == units
                 assert layer.activation == activation or layer.activation.__name__ == activation
             elif dropout == DropoutNetwork:
@@ -53,7 +48,7 @@ def test_build_vanilla_keras_mcdropout(
                     assert layer.units == units
                     assert layer.activation == activation or layer.activation.__name__ == activation
 
-    #Check Output Layers
+    # Check Output Layers
     if dropout == DropConnectNetwork:
         assert isinstance(mcdropout.layers[1], DropConnect)
         assert mcdropout.layers[1].rate == rate

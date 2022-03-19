@@ -7,9 +7,9 @@ import tensorflow as tf
 from time import time
 from tqdm import tqdm
 
-from tests.util.misc import branin_dataset, random_seed
-from trieste.models.keras import build_vanilla_keras_mcdropout
-from trieste.models.keras.models import DeepDropout
+from misc import branin_dataset
+from trieste.models.keras import build_vanilla_keras_mcdropout, DropoutNetwork, DropConnectNetwork
+from trieste.models.keras.models import MCDropout
 from trieste.models.optimizer import KerasOptimizer
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -20,7 +20,7 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 
 def integration_test(passes, lr, params):
-    example_data = branin_dataset(1000)
+    example_data = branin_dataset(10000)
     deep_dropout = build_vanilla_keras_mcdropout(
         example_data, 
         **params
@@ -30,14 +30,17 @@ def integration_test(passes, lr, params):
     fit_args = {
         "batch_size": 16, 
         "epochs": 1000,
-        "callbacks": [tf.keras.callbacks.EarlyStopping(monitor="loss", patience=20)],
+        "callbacks": [
+            tf.keras.callbacks.EarlyStopping(monitor="loss", patience=80, restore_best_weights=True),
+            tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.3, patience=15, min_lr = 1e-8, verbose=1)
+            ],
         "verbose": 0
     }
 
-    model = DeepDropout(
+    model = MCDropout(
         deep_dropout,
         KerasOptimizer(optimizer, fit_args),
-        passes=passes
+        num_passes=passes
     )
 
     start = time()
@@ -66,8 +69,8 @@ def cv(num_passes, lrs, param_dict, savefile, func=integration_test):
         for passes in num_passes:
             for v in tqdm(itertools.product(*values)):
                 params = dict(zip(keys, v))
-                if params in tested_params:
-                    continue
+                # if params in tested_params:
+                #     continue
                 mae, elapsed = func(passes, lr, params)
                 r = {
                     "mae": mae,
@@ -81,16 +84,16 @@ def cv(num_passes, lrs, param_dict, savefile, func=integration_test):
                     pickle.dump(results, outfile)
                 tqdm.write(f"Saved results {r}")
 
-num_passes = [100, 300]
-lrs = [0.001, 0.0001]
+num_passes = [200]
+lrs = [0.001]
 param_dict = {
-    "num_hidden_layers":[5, 10, 15],
-    "units":[100, 300, 500, 700],
+    "num_hidden_layers":[5, 10],
+    "units":[100, 300, 500],
     "activation": ["relu"],
-    "rate": [0.1, 0.2, 0.3, 0.5, 0.5],
-    "dropout": ["standard", "dropconnect"]
+    "rate": [0.05, 0.1, 0.2 ],
+    "dropout": [DropConnectNetwork, DropoutNetwork]
 }
 
-cv(num_passes=num_passes, lrs=lrs, param_dict=param_dict, savefile="results.pkl")
+cv(num_passes=num_passes, lrs=lrs, param_dict=param_dict, savefile="large_sample_results.pkl")
 
 #%%

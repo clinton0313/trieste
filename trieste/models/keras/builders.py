@@ -20,16 +20,12 @@ universally good solutions.
 
 from __future__ import annotations
 
-from typing import Union, Sequence
+from typing import Sequence, Union
 
 import tensorflow as tf
 
 from ...data import Dataset
-from .architectures import (
-    GaussianNetwork,
-    KerasEnsemble,
-    DropoutNetwork,
-)
+from .architectures import DropoutNetwork, GaussianNetwork, KerasEnsemble
 from .utils import get_tensor_spec_from_data
 
 
@@ -85,26 +81,23 @@ def build_vanilla_keras_ensemble(
 
     return keras_ensemble
 
+
 def build_vanilla_keras_mcdropout(
     data: Dataset,
     num_hidden_layers: int = 3,
     units: int = 50,
     activation: str | tf.keras.layers.Activation = "relu",
-    rate: Sequence[float] | float = 0.5,
-    dropout:  DropoutNetwork =  DropoutNetwork
-) ->  DropoutNetwork:
-    
+    rate: float = 0.5,
+    dropout: DropoutNetwork = DropoutNetwork,
+) -> DropoutNetwork:
+
     _, output_tensor_spec = get_tensor_spec_from_data(data)
 
     hidden_layer_args = []
     for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
-    keras_mcdropout = dropout(
-        output_tensor_spec,
-        hidden_layer_args,
-        rate
-    )
+    keras_mcdropout = dropout(output_tensor_spec, hidden_layer_args, rate)
 
     keras_mcdropout.build(data.query_points.shape)
 

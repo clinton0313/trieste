@@ -18,7 +18,12 @@ import pytest
 import tensorflow as tf
 
 from tests.util.misc import branin_dataset, random_seed
-from trieste.models.keras import DeepEnsemble, MCDropout, build_vanilla_keras_ensemble, build_vanilla_keras_mcdropout
+from trieste.models.keras import (
+    DeepEnsemble,
+    MCDropout,
+    build_vanilla_keras_ensemble,
+    build_vanilla_keras_mcdropout,
+)
 from trieste.models.optimizer import KerasOptimizer
 
 
@@ -51,6 +56,7 @@ def test_neural_network_ensemble_predictions_close_to_actuals(keras_float: None)
     # somewhat arbitrary accuracy level, seems good for the range of branin values
     assert mean_abs_deviation < 2
 
+
 @pytest.mark.slow
 @pytest.mark.parametrize("dataset_size", [1000])
 @random_seed
@@ -76,5 +82,5 @@ def test_dropout_network_predictions_close_to_actuals(dataset_size: int) -> None
 
     predicted_means, _ = model.predict(example_data.query_points)
     mean_abs_deviation = tf.reduce_mean(tf.abs(predicted_means - example_data.observations))
-    
+
     assert mean_abs_deviation < 4

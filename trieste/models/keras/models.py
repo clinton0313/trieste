@@ -28,7 +28,7 @@ from ..interfaces import (
     TrajectorySampler,
 )
 from ..optimizer import KerasOptimizer
-from .architectures import KerasEnsemble, DropoutNetwork
+from .architectures import DropoutNetwork, KerasEnsemble
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler
 from .utils import negative_log_likelihood, sample_with_replacement
@@ -224,7 +224,7 @@ class DeepEnsemble(
             tf.math.reduce_mean(
                 [dist.variance() + dist.mean() ** 2 for dist in ensemble_distributions], axis=0
             )
-            - predicted_means ** 2
+            - predicted_means**2
         )
 
         return predicted_means, predicted_vars
@@ -333,12 +333,13 @@ class DeepEnsemble(
         x, y = self.prepare_dataset(dataset)
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
+
 class MCDropout(KerasPredictor, TrainableProbabilisticModel):
     def __init__(
         self,
         model: DropoutNetwork,
         optimizer: Optional[KerasOptimizer] = None,
-        passes: int = 300
+        num_passes: int = 300,
     ) -> None:
 
         super().__init__(optimizer)
@@ -358,20 +359,20 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         if self.optimizer.loss is None:
             self.optimizer.loss = "mse"
 
-        model.model.compile(
+        model.compile(
             self.optimizer.optimizer,
             loss=[self.optimizer.loss],
             metrics=[self.optimizer.metrics],
         )
 
-        self.passes = passes
+        self.num_passes = num_passes
         self._model = model
 
     @property
     def model(self) -> tf.keras.Model:
-        return self._model.model
+        return self._model
 
-    def optimize(self, dataset:Dataset) -> None:
+    def optimize(self, dataset: Dataset) -> None:
         """
         Optimize the underlying Keras ensemble model with the specified ``dataset``.
 
@@ -389,7 +390,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         """
         x, y = dataset.astuple()
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
-        
+
     def update(self, dataset: Dataset) -> None:
         """
         Neural networks are parametric models and do not need to update data.
@@ -407,46 +408,45 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         :param num_samples: The number of samples at each point.
         :return: The samples, with shape [..., S, N].
         """
-        return tf.stack([self.model(query_points, training=True) for _ in range(num_samples)], axis=0)
+        return tf.stack(
+            [self.model(query_points, training=True) for _ in range(num_samples)], axis=0
+        )
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
         Returns mean and variance of the MC Dropout.
 
         Following <cite data-cite="gal2015simple"/>, we make T stochastic forward passes
-        through the trained network of L hidden layers M_l and average the results to derive 
+        through the trained network of L hidden layers M_l and average the results to derive
         the mean and variance. These are respectively given by
 
         .. math:: \mathbb{E}_{q\left(\mathbf{y}^{*} \mid \mathbf{x}^{*}\right)}
-            \left(\mathbf{y}^{*}\right) \approx \frac{1}{T} \sum_{t=1}^{T} 
-            \widehat{\mathbf{y}}^{*}\left(\mathrm{x}^{*}, \widehat{\mathbf{M}}_{1}^{t}, 
+            \left(\mathbf{y}^{*}\right) \approx \frac{1}{T} \sum_{t=1}^{T}
+            \widehat{\mathbf{y}}^{*}\left(\mathrm{x}^{*}, \widehat{\mathbf{M}}_{1}^{t},
             \ldots, \widehat{\mathbf{M}}_{L}^{t}\right)
 
         .. math:: \frac{1}{T} \operatorname{Var}_{q\left(\mathbf{y}^{*} \mid \mathbf{x}^{*}\right)}
-            \left(\mathbf{y}^{*}\right) \approx\sum_{t=1}^{T} \widehat{\mathbf{y}}^{*}\left(\mathbf{x}^{*}, 
-            \widehat{\mathbf{M}}_{1}^{t}, \ldots, \widehat{\mathbf{M}}_{L}^{t}\right)^{T} 
-            \widehat{\mathbf{y}}^{*}\left(\mathbf{x}^{*}, \widehat{\mathbf{M}}_{1}^{t}, \ldots, 
-            \widehat{\mathbf{M}}_{L}^{t}\right)-\mathbb{E}_{q\left(\mathbf{y}^{*} \mid 
-            \mathbf{x}^{*}\right)}\left(\mathbf{y}^{*}\right)^{T} \mathbb{E}_{q\left(\mathbf{y}^{*} 
+            \left(\mathbf{y}^{*}\right) \approx\sum_{t=1}^{T} \widehat{\mathbf{y}}^{*}\left(\mathbf{x}^{*},
+            \widehat{\mathbf{M}}_{1}^{t}, \ldots, \widehat{\mathbf{M}}_{L}^{t}\right)^{T}
+            \widehat{\mathbf{y}}^{*}\left(\mathbf{x}^{*}, \widehat{\mathbf{M}}_{1}^{t}, \ldots,
+            \widehat{\mathbf{M}}_{L}^{t}\right)-\mathbb{E}_{q\left(\mathbf{y}^{*} \mid
+            \mathbf{x}^{*}\right)}\left(\mathbf{y}^{*}\right)^{T} \mathbb{E}_{q\left(\mathbf{y}^{*}
             \mid \mathbf{x}^{*}\right)}\left(\mathbf{y}^{*}\right)
 
         :param query_points: The points at which to make predictions.
         :return: The predicted mean and variance of the observations at the specified
             ``query_points``.
         """
-<<<<<<< HEAD
-        stochastic_passes = tf.stack([self.model.call(query_points) for _ in range(self.passes)], axis=0)
-=======
-        T = 100
-        stochastic_passes = tf.stack([self.model(query_points, training=True) for _ in range(T)], axis=0)
->>>>>>> clinton/pr_fixes
+        stochastic_passes = tf.stack(
+            [self.model(query_points) for _ in range(self.num_passes)], axis=0
+        )
         predicted_means = tf.math.reduce_mean(stochastic_passes, axis=0)
 
-        predicted_vars = (
-            tf.subtract(
-                tf.divide(
-                    tf.reduce_sum(tf.math.multiply(stochastic_passes, stochastic_passes), axis=0), self.passes
-                ), tf.math.square(predicted_means)
-            )
+        predicted_vars = tf.subtract(
+            tf.divide(
+                tf.reduce_sum(tf.math.multiply(stochastic_passes, stochastic_passes), axis=0),
+                self.num_passes,
+            ),
+            tf.math.square(predicted_means),
         )
         return predicted_means, predicted_vars
