@@ -32,11 +32,11 @@ class DropConnect(Dense):
         super().__init__(*args, **kwargs)
 
     @property
-    def rate(self):
+    def rate(self) -> float:
         return self._rate
 
     @rate.setter
-    def rate(self, rate):
+    def rate(self, rate: float):
         if not 0.0 <= rate < 1.0:
             raise ValueError(f"Rate needs to be a valid probability, instead got {rate}")
         else:

@@ -339,7 +339,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         self,
         model: DropoutNetwork,
         optimizer: Optional[KerasOptimizer] = None,
-        num_passes: int = 300,
+        num_passes: int = 200,
     ) -> None:
 
         super().__init__(optimizer)
@@ -348,10 +348,13 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
             self.optimizer.fit_args = {
                 "verbose": 0,
                 "epochs": 1000,
-                "batch_size": 16,
+                "batch_size": 32,
                 "callbacks": [
                     tf.keras.callbacks.EarlyStopping(
-                        monitor="loss", patience=50, restore_best_weights=True
+                        monitor="loss", patience=80, restore_best_weights=True
+                    ),
+                    tf.keras.callbacks.ReduceLROnPlateau(
+                        monitor="loss", factor=0.3, patience=15
                     )
                 ],
             }

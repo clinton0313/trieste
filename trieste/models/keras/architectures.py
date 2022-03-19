@@ -250,11 +250,13 @@ class DropoutNetwork(tf.keras.Model):
         self,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
-            {"units": 50, "activation": "relu"},
-            {"units": 50, "activation": "relu"},
-            {"units": 50, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"}
         ),
-        rate: float = 0.5,
+        rate: float = 0.05,
     ):
         """
         :param output_tensor_spec: Tensor specification for the output of the network.
@@ -287,21 +289,21 @@ class DropoutNetwork(tf.keras.Model):
         self.output_layer = self._gen_output_layer()
 
     @property
-    def rate(self) -> Sequence[float]:
+    def rate(self) -> float:
         return self._rate
 
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
-            hidden_layers.add(tf.keras.layers.Dropout(self._rate))
+            hidden_layers.add(tf.keras.layers.Dropout(self.rate))
             hidden_layers.add(tf.keras.layers.Dense(**hidden_layer_args))
         return hidden_layers
 
     def _gen_output_layer(self) -> tf.keras.Model:
 
         output_layer = tf.keras.Sequential(name="output_layer")
-        output_layer.add(tf.keras.layers.Dropout(self._rate))
+        output_layer.add(tf.keras.layers.Dropout(self.rate))
         output_layer.add(tf.keras.layers.Dense(units=self.flattened_output_shape))
         return output_layer
 
@@ -330,13 +332,13 @@ class DropConnectNetwork(DropoutNetwork):
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
-            hidden_layers.add(DropConnect(**hidden_layer_args, rate=self._rate))
+            hidden_layers.add(DropConnect(**hidden_layer_args, rate=self.rate))
         return hidden_layers
 
     def _gen_output_layer(self) -> tf.keras.Model:
 
         output_layer = DropConnect(
-            units=self.flattened_output_shape, rate=self._rate, name="output_layer"
+            units=self.flattened_output_shape, rate=self.rate, name="output_layer"
         )
 
         return output_layer

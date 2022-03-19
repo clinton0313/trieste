@@ -20,12 +20,13 @@ import tensorflow as tf
 from tests.util.misc import branin_dataset, random_seed
 from trieste.models.keras import (
     DeepEnsemble,
+    DropoutNetwork,
+    DropConnectNetwork,
     MCDropout,
     build_vanilla_keras_ensemble,
     build_vanilla_keras_mcdropout,
 )
 from trieste.models.optimizer import KerasOptimizer
-
 
 @pytest.mark.slow
 @random_seed
@@ -58,29 +59,45 @@ def test_neural_network_ensemble_predictions_close_to_actuals(keras_float: None)
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("dataset_size", [1000])
+@pytest.mark.parametrize(
+    "dropout_network, max_error, rate", 
+    [(DropoutNetwork, 10., 0.03), (DropConnectNetwork, 3., 0.05)]
+    )
 @random_seed
-def test_dropout_network_predictions_close_to_actuals(dataset_size: int) -> None:
+def test_dropout_network_predictions_close_to_actuals(
+    dropout_network: DropoutNetwork, 
+    max_error: float,
+    rate: float
+) -> None:
 
-    example_data = branin_dataset(dataset_size)
+    tf.keras.backend.set_floatx("float64")
+    example_data = branin_dataset(1000)
 
-    dropout_nn = build_vanilla_keras_mcdropout(example_data)
-    optimizer = tf.keras.optimizers.Adam()
+    dropout_nn = build_vanilla_keras_mcdropout(
+        data=example_data, 
+        rate=rate,
+        dropout_network=dropout_network
+    )
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     fit_args = {
-        "batch_size": 20,
+        "batch_size": 32,
         "epochs": 1000,
-        "callbacks": [tf.keras.callbacks.EarlyStopping(monitor="loss", patience=20)],
-        "verbose": 0,
+        "callbacks": [
+            tf.keras.callbacks.EarlyStopping(monitor="loss", patience=80), 
+            tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.3, patience=15)
+            ],
+        "verbose": 0
     }
 
     model = MCDropout(
-        dropout_nn,
-        KerasOptimizer(optimizer, fit_args),
-        False,
+        model=dropout_nn,
+        optimizer=KerasOptimizer(optimizer, fit_args),
+        num_passes=200
     )
     model.optimize(example_data)
 
     predicted_means, _ = model.predict(example_data.query_points)
     mean_abs_deviation = tf.reduce_mean(tf.abs(predicted_means - example_data.observations))
 
-    assert mean_abs_deviation < 4
+    # Abitrary accuracy levels given the dropout rates that hinder overfitting to the data
+    assert mean_abs_deviation < max_error

@@ -60,7 +60,7 @@ def build_cubic_model(data: Dataset, dropout: str = "standard") -> MCDropout:
         units=num_nodes,
         activation=activation,
         rate=rate,
-        dropout=dropout,
+        dropout_network=dropout,
     )
 
     fit_args = {

@@ -20,7 +20,7 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 
 def integration_test(passes, lr, params):
-    example_data = branin_dataset(10000)
+    example_data = branin_dataset(1000)
     deep_dropout = build_vanilla_keras_mcdropout(
         example_data, 
         **params
@@ -90,7 +90,7 @@ param_dict = {
     "num_hidden_layers":[5, 10],
     "units":[100, 300, 500],
     "activation": ["relu"],
-    "rate": [0.05, 0.1, 0.2 ],
+    "rate": [0.05, 0.1 ],
     "dropout": [DropConnectNetwork, DropoutNetwork]
 }
 

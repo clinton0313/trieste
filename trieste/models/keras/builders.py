@@ -84,20 +84,40 @@ def build_vanilla_keras_ensemble(
 
 def build_vanilla_keras_mcdropout(
     data: Dataset,
-    num_hidden_layers: int = 3,
-    units: int = 50,
+    num_hidden_layers: int = 5,
+    units: int = 500,
     activation: str | tf.keras.layers.Activation = "relu",
-    rate: float = 0.5,
-    dropout: DropoutNetwork = DropoutNetwork,
+    rate: float = 0.05,
+    dropout_network: DropoutNetwork = DropoutNetwork,
 ) -> DropoutNetwork:
 
+    """
+    Builds a simple dropout network, in Keras where each network has the same
+    architecture: number of hidden layers, nodes in hidden layers and activation function.
+
+    Default number of hlayers, units, rate, and activation function seem to work well in practice, 
+    in regression type of problems at least. Number of hidden layers and units per layer should be 
+    modified according to the dataset size and complexity of the function - the default values seem 
+    to work well for small datasets common in Bayesian optimization. The training is highly sensitive 
+    to the rate of dropout applied. 
+
+    :param dataset: Data for training, used for extracting input and output tensor specifications.
+    :param num_hidden_layers: The number of hidden dropout layers in each network.
+    :param units: The number of nodes in each hidden layer.
+    :param activation: The activation function in each hidden layer.
+    :param rate: The rate of dropout of each layer.
+    :param dropout_network: The type of dropout network used. Accepts either :class: `DropoutNetwork` which 
+        performs dropout for the inputs of each layer or :class: `DropConnectNetwork` which performs
+        dropout for the weights of each layer. 
+    :return: Keras MCDropout model.
+    """
     _, output_tensor_spec = get_tensor_spec_from_data(data)
 
     hidden_layer_args = []
     for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
-    keras_mcdropout = dropout(output_tensor_spec, hidden_layer_args, rate)
+    keras_mcdropout = dropout_network(output_tensor_spec, hidden_layer_args, rate)
 
     keras_mcdropout.build(data.query_points.shape)
 
