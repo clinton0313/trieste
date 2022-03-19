@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.layers import Dense
 from tensorflow.python.eager import context
 from tensorflow.python.framework import sparse_tensor
 from tensorflow.python.ops import (
@@ -10,12 +10,16 @@ from tensorflow.python.ops import (
     sparse_ops,
     standard_ops,
 )
+
+
 class DropConnect(Dense):
     """
-    This layer creates is a fully connected Dense layer that employs dropout to the weights of each unit 
-    rather than the unit inputs themselves as is done in standard Dropout. This layer is meant ot be used 
-    as layers in :class:`~trieste.models.keras.architectures.DropConnectNetwork` architecture,
+    This layer creates is a fully connected Dense layer that employs dropout to the
+    weights of each unit rather than the unit inputs themselves as is done in standard
+    Dropout. This layer is meant to be used as layers in
+    :class:`~trieste.models.keras.architectures.DropConnectNetwork` architecture,
     """
+
     def __init__(self, rate: float = 0.5, *args, **kwargs):
         """
         :param units: Number of units to use in the layer.
@@ -33,7 +37,7 @@ class DropConnect(Dense):
 
     @rate.setter
     def rate(self, rate):
-        if not 0. <= rate < 1.:
+        if not 0.0 <= rate < 1.0:
             raise ValueError(f"Rate needs to be a valid probability, instead got {rate}")
         else:
             self._rate = rate
@@ -54,7 +58,7 @@ class DropConnect(Dense):
             # We use embedding_lookup_sparse as a more efficient matmul operation for
             # large sparse input tensors. The op will result in a sparse gradient, as
             # opposed to sparse_ops.sparse_tensor_dense_matmul which results in dense
-            # gradients. This can lead to sigfinicant speedups, see b/171762937.      
+            # gradients. This can lead to sigfinicant speedups, see b/171762937.
             if isinstance(inputs, sparse_tensor.SparseTensor):
                 # We need to fill empty rows, as the op assumes at least one id per row.
                 inputs, _ = sparse_ops.sparse_fill_empty_rows(inputs, 0)

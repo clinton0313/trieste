@@ -10,7 +10,6 @@ from tensorflow.keras.losses import MeanAbsoluteError
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
-from tests.util.misc import empty_dataset
 from trieste.models.keras.layers import DropConnect
 
 
@@ -95,7 +94,7 @@ def test_fit(
         drop_fit.history["loss"][0],
         dense_fit.history["loss"][0],
         significant=3,
-        err_msg=f"Expected {layer} to drop {rate} variables and get the same fit as an equivalent dense layer",
+        err_msg=f"Expected {layer} to drop {rate} variables and get the same fit as a dense layer",
     )
 
 
@@ -109,12 +108,11 @@ def test_dropout_rate(rate: float, drop_layer: tf.keras.layers.Layer) -> None:
     simulations = [np.sum(drop_layer(x1, training=True).numpy() == 0.0) for _ in range(sims)]
 
     # Test dropout up to twice the variance
-    assert (
-        np.abs(np.sum(simulations) - rate * sims) <= 1.5 * rate * (1 - rate) * sims
-    ), f"Expected to dropout around {rate} of the passes but only dropped {np.sum(simulations)/len(simulations)}"
+    assert np.abs(np.sum(simulations) - rate * sims) <= 1.5 * rate * (1 - rate) * sims
+
 
 @pytest.mark.parametrize("rate", [1.5, -1.0])
 def test_dropout_rate_raises_value_error(rate: float, units: int) -> None:
     """Tests that value error is raised when given wrong probability rates"""
     with pytest.raises(ValueError):
-        dummy_layer = DropConnect(rate=rate, units=units)
+        _ = DropConnect(rate=rate, units=units)

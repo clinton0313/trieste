@@ -20,7 +20,7 @@ universally good solutions.
 
 from __future__ import annotations
 
-from typing import Sequence, Union
+from typing import Union
 
 import tensorflow as tf
 

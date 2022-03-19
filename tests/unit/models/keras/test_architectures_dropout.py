@@ -1,15 +1,13 @@
-#%%
 from typing import Any, List, Union
 
 import numpy as np
 import numpy.testing as npt
 import pytest
 import tensorflow as tf
-
 from tensorflow.python.framework.errors_impl import InvalidArgumentError
+
 from tests.util.misc import empty_dataset
-from trieste.models.keras import DropConnectNetwork, get_tensor_spec_from_data
-from trieste.models.keras.architectures import DropConnectNetwork, DropoutNetwork
+from trieste.models.keras import DropConnectNetwork, DropoutNetwork, get_tensor_spec_from_data
 from trieste.models.keras.layers import DropConnect
 
 
@@ -28,9 +26,7 @@ def _observation_shape_fixture(request: Any) -> List[int]:
     return request.param
 
 
-@pytest.mark.parametrize(
-    "num_hidden_layers, rate", [(1, 0.3), (3, 0.7), (5, 0.9)]
-)
+@pytest.mark.parametrize("num_hidden_layers, rate", [(1, 0.3), (3, 0.7), (5, 0.9)])
 @pytest.mark.parametrize("units", [10, 50])
 @pytest.mark.parametrize("activation", ["relu", tf.keras.activations.tanh])
 def test_dropout_network_build_seems_correct(
@@ -132,13 +128,11 @@ def test_dropout(dropout_network: DropoutNetwork) -> None:
 
 
 @pytest.mark.parametrize("rate", [1.5, -1.0])
-def test_dropout_rate_raises_invalidargument_error(dropout_network: DropoutNetwork, rate: Any) -> None:
+def test_dropout_rate_raises_invalidargument_error(
+    dropout_network: DropoutNetwork, rate: Any
+) -> None:
     """Tests that value error is raised when given wrong probability rates"""
     with pytest.raises(InvalidArgumentError):
         example_data = empty_dataset([1], [1])
         _, outputs = get_tensor_spec_from_data(example_data)
-        dummy_network = dropout_network(outputs, rate=rate)
-
-
-
-# %%
+        _ = dropout_network(outputs, rate=rate)

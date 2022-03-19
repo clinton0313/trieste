@@ -1,8 +1,7 @@
-from typing import Sequence, Union
+from typing import Union
 
 import pytest
 import tensorflow as tf
-import tensorflow_probability as tfp
 
 from tests.util.misc import empty_dataset
 from trieste.models.keras.architectures import DropConnectNetwork, DropoutNetwork

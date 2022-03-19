@@ -24,6 +24,7 @@ from typing import Any, Sequence
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+
 from .layers import DropConnect
 
 
@@ -235,14 +236,16 @@ class GaussianNetwork(KerasEnsembleNetwork):
 
         return input_tensor, output_tensor
 
+
 class DropoutNetwork(tf.keras.Model):
     """
     This class builds a standard dropout neural network using Keras. The network
     architecture is a multilayer fully-connected feed-forward network, with Dropout layers
-    preceding each fully connected dense layer. The network is meant to be passed to 
+    preceding each fully connected dense layer. The network is meant to be passed to
     :class:`MCDropout` which will define the predict method to make this a probabilistic model.
-    Otherwise this class will only use dropout in training. 
+    Otherwise this class will only use dropout in training.
     """
+
     def __init__(
         self,
         output_tensor_spec: tf.TensorSpec,
@@ -251,7 +254,7 @@ class DropoutNetwork(tf.keras.Model):
             {"units": 50, "activation": "relu"},
             {"units": 50, "activation": "relu"},
         ),
-        rate: float = 0.5
+        rate: float = 0.5,
     ):
         """
         :param output_tensor_spec: Tensor specification for the output of the network.
@@ -263,20 +266,22 @@ class DropoutNetwork(tf.keras.Model):
             hidden layers in the network. Default value is two hidden layers, 50 nodes each, with
             ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
         :param rate: Probability of dropout assigned to each layer of a fully connected network.
-            If scalar, the same probability will be assigned to each layer. Otherwise accepts a list of 
-            probabilities corresponding to each layer. 
+            If scalar, the same probability will be assigned to each layer. Otherwise accepts a
+            list of probabilities corresponding to each layer.
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
         super().__init__()
         self.output_tensor_spec = output_tensor_spec
         self._hidden_layer_args = hidden_layer_args
 
-        tf.debugging.assert_greater_equal(rate, 0., f"Rate needs to be a valid probability, instead got {rate}")
-        tf.debugging.assert_less_equal(rate, 1., f"Rate needs to be a valid probability, instead got {rate}")
-        if not 0. <= rate < 1.:
-            raise ValueError(f"Rate needs to be a valid probability, instead got {rate}")
+        tf.debugging.assert_greater_equal(
+            rate, 0.0, f"Rate needs to be a valid probability, instead got {rate}"
+        )
+        tf.debugging.assert_less_equal(
+            rate, 1.0, f"Rate needs to be a valid probability, instead got {rate}"
+        )
         self._rate = rate
-        self.flattened_output_shape =  int(np.prod(self.output_tensor_spec.shape))
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
 
         self.hidden_layers = self._gen_hidden_layers()
         self.output_layer = self._gen_output_layer()
@@ -284,7 +289,7 @@ class DropoutNetwork(tf.keras.Model):
     @property
     def rate(self) -> Sequence[float]:
         return self._rate
-        
+
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
@@ -307,32 +312,31 @@ class DropoutNetwork(tf.keras.Model):
 
         return output
 
+
 class DropConnectNetwork(DropoutNetwork):
     """
     This class builds a variation of a dropout network using Keras. The network
     architecture is a multilayer fully-connected feed-forward network of :class: `DropConnect`
-    layers. This is a generalization of standard dropout where each weight is dropped out 
-    with a certain probability. This network is meant to be passed to :class:`MCDropout` which 
-    will define the predict method to make this a probabilistic model. Otherwise this class only 
-    uses dropout in training. 
+    layers. This is a generalization of standard dropout where each weight is dropped out
+    with a certain probability. This network is meant to be passed to :class:`MCDropout` which
+    will define the predict method to make this a probabilistic model. Otherwise this class only
+    uses dropout in training.
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
-            hidden_layers.add(DropConnect(**hidden_layer_args, rate = self._rate))
+            hidden_layers.add(DropConnect(**hidden_layer_args, rate=self._rate))
         return hidden_layers
 
     def _gen_output_layer(self) -> tf.keras.Model:
 
         output_layer = DropConnect(
-            units=self.flattened_output_shape, 
-            rate = self._rate, 
-            name="output_layer"
+            units=self.flattened_output_shape, rate=self._rate, name="output_layer"
         )
 
         return output_layer
