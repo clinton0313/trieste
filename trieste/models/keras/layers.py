@@ -10,15 +10,19 @@ from tensorflow.python.ops import (
     sparse_ops,
     standard_ops,
 )
-
-
 class DropConnect(Dense):
+    """
+    This layer creates is a fully connected Dense layer that employs dropout to the weights of each unit 
+    rather than the unit inputs themselves as is done in standard Dropout. This layer is meant ot be used 
+    as layers in :class:`~trieste.models.keras.architectures.DropConnectNetwork` architecture,
+    """
     def __init__(self, rate: float = 0.5, *args, **kwargs):
         """
         :param units: Number of units to use in the layer.
         :param rate: The probability of dropout applied to each weight of a Dense Keras layer.
         :param *args: Args passed to Dense Keras class.
         "param **kwargs: Keyword arguments passed to Dense Keras class
+        :raise ValueError: ``rate`` is not a valid probability
         """
         self.rate = rate
         super().__init__(*args, **kwargs)
@@ -44,11 +48,25 @@ class DropConnect(Dense):
         else:
             kernel = self.kernel
 
-        # Code below from Tensorflow Dense Class
+        # Code and comments below from Tensorflow Dense Class
         rank = inputs.shape.rank
         if rank == 2 or rank is None:
+            # We use embedding_lookup_sparse as a more efficient matmul operation for
+            # large sparse input tensors. The op will result in a sparse gradient, as
+            # opposed to sparse_ops.sparse_tensor_dense_matmul which results in dense
+            # gradients. This can lead to sigfinicant speedups, see b/171762937.      
             if isinstance(inputs, sparse_tensor.SparseTensor):
+                # We need to fill empty rows, as the op assumes at least one id per row.
                 inputs, _ = sparse_ops.sparse_fill_empty_rows(inputs, 0)
+                # We need to do some munging of our input to use the embedding lookup as
+                # a matrix multiply. We split our input matrix into separate ids and
+                # weights tensors. The values of the ids tensor should be the column
+                # indices of our input matrix and the values of the weights tensor
+                # can continue to the actual matrix weights.
+                # The column arrangement of ids and weights
+                # will be summed over and does not matter. See the documentation for
+                # sparse_ops.sparse_tensor_dense_matmul a more detailed explanation
+                # of the inputs to both ops.
                 ids = sparse_tensor.SparseTensor(
                     indices=inputs.indices,
                     values=inputs.indices[:, 1],
