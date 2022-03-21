@@ -242,8 +242,8 @@ class DropoutNetwork(tf.keras.Model):
     This class builds a standard dropout neural network using Keras. The network
     architecture is a multilayer fully-connected feed-forward network, with Dropout layers
     preceding each fully connected dense layer. The network is meant to be passed to
-    :class:`MCDropout` which will define the predict method to make this a probabilistic model.
-    Otherwise this class will only use dropout in training.
+    :class:`~trieste.models.keras.models.MCDropout` which will define the predict method 
+    to make this a probabilistic model. Otherwise this class will only use dropout in training.
     """
 
     def __init__(
@@ -260,17 +260,18 @@ class DropoutNetwork(tf.keras.Model):
         rate: float = 0.05,
     ):
         """
+        :param input_tensor_spec: Tensor specification for the input of the network. 
         :param output_tensor_spec: Tensor specification for the output of the network.
         :param hidden_layer_args: Specification for building dense hidden layers. Each element in
             the sequence should be a dictionary containing arguments (keys) and their values for a
             :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
             available arguments. Objects in the sequence will sequentially be used to add
-            :class:`~tf.keras.layers.Dense` layers. Length of this sequence determines the number of
-            hidden layers in the network. Default value is two hidden layers, 50 nodes each, with
-            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
-        :param rate: Probability of dropout assigned to each layer of a fully connected network.
-            If scalar, the same probability will be assigned to each layer. Otherwise accepts a
-            list of probabilities corresponding to each layer.
+            :class:`~tf.keras.layers.Dense` layers with :class:`~tf.keras.layers.Dropout` layers 
+            added before each :class:`~tf.keras.layers.Dense` layer. Length of this sequence 
+            determines the number of hidden layers in the network. Default value is five hidden 
+            layers, 500 nodes each, with ReLu activation functions. Empty sequence needs to be passed 
+            to have no hidden layers.
+        :param rate: Probability of dropout assigned to each `~tf.keras.layers.Dropout` layer.
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
         super().__init__()
@@ -332,16 +333,28 @@ class DropoutNetwork(tf.keras.Model):
 class DropConnectNetwork(DropoutNetwork):
     """
     This class builds a variation of a dropout network using Keras. The network
-    architecture is a multilayer fully-connected feed-forward network of :class: `DropConnect`
-    layers. This is a generalization of standard dropout where each weight is dropped out
-    with a certain probability. This network is meant to be passed to :class:`MCDropout` which
-    will define the predict method to make this a probabilistic model. Otherwise this class only
-    uses dropout in training.
+    architecture is a multilayer fully-connected feed-forward network of 
+    :class: `~trieste.models.keras.layers.DropConnect` layers. This is a generalization of 
+    standard dropout where each weight is dropped out with a certain probability. This network 
+    is meant to be passed to :class:`~trieste.models.keras.models.MCDropout` which will define 
+    the predict method to make this a probabilistic model. Otherwise this class only uses dropout 
+    in training.
     """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        """
+        :param input_tensor_spec: Tensor specification for the input of the network. 
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~trieste.models.keras.layers.DropConnect` hidden layer. Check Keras Dense layer 
+            API for available arguments. Length of this sequence determines the number of
+            hidden layers in the network. Default value is five hidden layers, 500 nodes each, with
+            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :param rate: Probability of dropout assigned to each layer of a fully connected network.
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
