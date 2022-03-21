@@ -46,7 +46,7 @@ def test_dropout_network_build_seems_correct(
         {"units": units, "activation": activation} for _ in range(num_hidden_layers)
     ]
 
-    dropout_nn = dropout_network(outputs, hidden_layer_args, rate)
+    dropout_nn = dropout_network(inputs, outputs, hidden_layer_args, rate)
 
     if not isinstance(rate, list):
         rate = [rate for _ in range(num_hidden_layers + 1)]
@@ -103,7 +103,7 @@ def test_dropout_network_can_be_compiled(
     example_data = empty_dataset(query_point_shape, observation_shape)
     inputs, outputs = get_tensor_spec_from_data(example_data)
 
-    dropout_nn = dropout_network(outputs)
+    dropout_nn = dropout_network(inputs, outputs)
 
     dropout_nn.compile(tf.optimizers.Adam(), tf.losses.MeanSquaredError())
 
@@ -116,16 +116,15 @@ def test_dropout(dropout_network: DropoutNetwork) -> None:
     """Tests the ability of architecture to dropout."""
 
     example_data = empty_dataset([1], [1])
-    _, outputs = get_tensor_spec_from_data(example_data)
+    inputs, outputs = get_tensor_spec_from_data(example_data)
 
-    dropout_nn = dropout_network(outputs, rate=0.999999999)
+    dropout_nn = dropout_network(inputs, outputs, rate=0.999999999)
     dropout_nn.compile(tf.optimizers.Adam(), tf.losses.MeanSquaredError())
 
     outputs = [dropout_nn(tf.constant([[1.0]]), training=True) for _ in range(100)]
     npt.assert_almost_equal(
         0.0, np.mean(outputs), err_msg=f"{dropout_network} not dropping up to randomness"
     )
-
 
 @pytest.mark.parametrize("rate", [1.5, -1.0])
 def test_dropout_rate_raises_invalidargument_error(
@@ -134,5 +133,15 @@ def test_dropout_rate_raises_invalidargument_error(
     """Tests that value error is raised when given wrong probability rates"""
     with pytest.raises(InvalidArgumentError):
         example_data = empty_dataset([1], [1])
-        _, outputs = get_tensor_spec_from_data(example_data)
-        _ = dropout_network(outputs, rate=rate)
+        inputs, outputs = get_tensor_spec_from_data(example_data)
+        _ = dropout_network(inputs, outputs, rate=rate)
+
+
+@pytest.mark.parametrize("dtype", [tf.float32, tf.float64])
+def test_dtype(dropout_network: DropoutNetwork, dtype: tf.DType) -> None:
+    '''Tests that network can infer data type from the data'''
+    x = tf.constant([[1]], dtype=tf.float16)
+    inputs, outputs = tf.TensorSpec([1], dtype), tf.TensorSpec([1], dtype)
+    dropout_nn = dropout_network(inputs, outputs)
+
+    assert dropout_nn(x).dtype == dtype

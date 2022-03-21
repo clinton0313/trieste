@@ -70,7 +70,6 @@ def test_dropout_network_predictions_close_to_actuals(
     rate: float
 ) -> None:
 
-    tf.keras.backend.set_floatx("float64")
     example_data = branin_dataset(1000)
 
     dropout_nn = build_vanilla_keras_mcdropout(

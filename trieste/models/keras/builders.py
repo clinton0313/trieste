@@ -111,13 +111,18 @@ def build_vanilla_keras_mcdropout(
         dropout for the weights of each layer. 
     :return: Keras MCDropout model.
     """
-    _, output_tensor_spec = get_tensor_spec_from_data(data)
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
 
     hidden_layer_args = []
     for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
-    keras_mcdropout = dropout_network(output_tensor_spec, hidden_layer_args, rate)
+    keras_mcdropout = dropout_network(
+        input_tensor_spec, 
+        output_tensor_spec, 
+        hidden_layer_args, 
+        rate
+    )
 
     keras_mcdropout.build(data.query_points.shape)
 

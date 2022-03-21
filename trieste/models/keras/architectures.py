@@ -248,6 +248,7 @@ class DropoutNetwork(tf.keras.Model):
 
     def __init__(
         self,
+        input_tensor_spec: tf.TensorSpec,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
             {"units": 500, "activation": "relu"},
@@ -273,7 +274,9 @@ class DropoutNetwork(tf.keras.Model):
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
         super().__init__()
+        self.input_tensor_spec = input_tensor_spec
         self.output_tensor_spec = output_tensor_spec
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
         self._hidden_layer_args = hidden_layer_args
 
         tf.debugging.assert_greater_equal(
@@ -283,7 +286,6 @@ class DropoutNetwork(tf.keras.Model):
             rate, 1.0, f"Rate needs to be a valid probability, instead got {rate}"
         )
         self._rate = rate
-        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
 
         self.hidden_layers = self._gen_hidden_layers()
         self.output_layer = self._gen_output_layer()
@@ -296,15 +298,27 @@ class DropoutNetwork(tf.keras.Model):
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
-            hidden_layers.add(tf.keras.layers.Dropout(self.rate))
-            hidden_layers.add(tf.keras.layers.Dense(**hidden_layer_args))
+            hidden_layers.add(tf.keras.layers.Dropout(
+                rate=self.rate, 
+                dtype=self.input_tensor_spec.dtype
+            ))
+            hidden_layers.add(tf.keras.layers.Dense(
+                dtype=self.input_tensor_spec.dtype, 
+                **hidden_layer_args
+            ))
         return hidden_layers
 
     def _gen_output_layer(self) -> tf.keras.Model:
 
         output_layer = tf.keras.Sequential(name="output_layer")
-        output_layer.add(tf.keras.layers.Dropout(self.rate))
-        output_layer.add(tf.keras.layers.Dense(units=self.flattened_output_shape))
+        output_layer.add(tf.keras.layers.Dropout(
+            rate=self.rate, 
+            dtype=self.input_tensor_spec.dtype
+        ))
+        output_layer.add(tf.keras.layers.Dense(
+            units=self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype
+        ))
         return output_layer
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
@@ -332,13 +346,20 @@ class DropConnectNetwork(DropoutNetwork):
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
-            hidden_layers.add(DropConnect(**hidden_layer_args, rate=self.rate))
+            hidden_layers.add(DropConnect(
+                rate=self.rate,
+                dtype=self.input_tensor_spec.dtype,
+                **hidden_layer_args
+            ))
         return hidden_layers
 
     def _gen_output_layer(self) -> tf.keras.Model:
 
         output_layer = DropConnect(
-            units=self.flattened_output_shape, rate=self.rate, name="output_layer"
+            units=self.flattened_output_shape, 
+            rate=self.rate, 
+            dtype=self.input_tensor_spec.dtype,
+            name="output_layer"
         )
 
         return output_layer
