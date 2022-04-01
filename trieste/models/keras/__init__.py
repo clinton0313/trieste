@@ -26,5 +26,5 @@ from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_mcdropou
 from .interface import KerasPredictor
 from .layers import DropConnect, MCDropoutLayer
 from .models import DeepEnsemble, MCDropout
-from .sampler import EnsembleTrajectorySampler
+from .sampler import EnsembleTrajectorySampler, DropoutTrajectorySampler
 from .utils import get_tensor_spec_from_data, negative_log_likelihood, sample_with_replacement

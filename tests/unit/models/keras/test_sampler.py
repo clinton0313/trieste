@@ -19,8 +19,8 @@ import pytest
 import tensorflow as tf
 
 from tests.util.misc import empty_dataset, random_seed
-from tests.util.models.keras.models import trieste_deep_ensemble_model
-from trieste.models.keras import EnsembleTrajectorySampler
+from tests.util.models.keras.models import trieste_deep_ensemble_model, trieste_deep_mcdropout_model
+from trieste.models.keras import EnsembleTrajectorySampler, DropoutTrajectorySampler
 
 _ENSEMBLE_SIZE = 3
 
@@ -39,7 +39,6 @@ def test_ensemble_trajectory_sampler_returns_trajectory_function_with_correctly_
     trajectory = sampler.get_trajectory()
 
     assert trajectory(test_data).shape == (num_evals, 1)
-
 
 def test_ensemble_trajectory_sampler_returns_deterministic_trajectory() -> None:
     example_data = empty_dataset([1], [1])
@@ -100,3 +99,18 @@ def test_ensemble_trajectory_sampler_resample_provides_new_samples_without_retra
     npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_2))
     npt.assert_array_less(1e-4, tf.abs(evals_2 - evals_3))
     npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_3))
+
+@pytest.mark.parametrize("num_evals", [10, 20])
+def test_dropout_trajectory_sampler_returns_trajectory_function_with_correctly_shaped_output(
+    num_evals: int,
+) -> None:
+    example_data = empty_dataset([1], [1])
+    test_data = tf.linspace([-10.0], [10.0], num_evals)
+    test_data = tf.expand_dims(test_data, -2)  # [N, 1, d]
+
+    model, _, _ = trieste_deep_mcdropout_model(example_data, _ENSEMBLE_SIZE)
+
+    sampler = DropoutTrajectorySampler(model)
+    trajectory = sampler.get_trajectory()
+
+    assert trajectory(test_data).shape == (num_evals, 1)

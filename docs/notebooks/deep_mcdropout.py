@@ -87,7 +87,7 @@ plt.scatter(inputs, outputs, marker=".", alpha=0.6, color="red", label="data")
 plt.plot(
     test_points, objective(test_points, False), color="blue", label="function"
 )
-y_hat, y_var = model.predict(test_points)
+y_hat, y_var = model.predict(query_points=test_points, T=100)
 y_hat_minus_3sd = y_hat - 3 * tf.math.sqrt(y_var)
 y_hat_plus_3sd = y_hat + 3 * tf.math.sqrt(y_var)
 plt.plot(test_points, y_hat, color="gray", label="model $\mu$")

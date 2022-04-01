@@ -18,7 +18,7 @@ Utilities for creating (Keras) neural network models to be used in the tests.
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Tuple, Sequence
 
 import tensorflow as tf
 
@@ -27,6 +27,9 @@ from trieste.models.keras import (
     DeepEnsemble,
     GaussianNetwork,
     KerasEnsemble,
+    DropoutNetwork,
+    DropConnectNetwork,
+    MCDropout,
     get_tensor_spec_from_data,
 )
 from trieste.models.optimizer import KerasOptimizer
@@ -78,3 +81,63 @@ def trieste_deep_ensemble_model(
     model = DeepEnsemble(keras_ensemble, optimizer_wrapper, bootstrap_data)
 
     return model, keras_ensemble, optimizer_wrapper
+
+def trieste_keras_mcdropout_model(
+    example_data: Dataset,
+    rate: Sequence[float | int] | float | int = 0.1,
+    dropout: str = "standard"
+) -> DropoutNetwork:
+
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
+
+    if dropout == "standard":
+        keras_mcdropout = DropoutNetwork(
+            input_tensor_spec,
+            output_tensor_spec,
+            hidden_layer_args=[
+                {"units": 50, "activation": "relu"},
+                {"units": 50, "activation": "relu"},
+            ],
+            rate=0.1
+        )
+    elif dropout == "dropconnect":
+        keras_mcdropout = DropConnectNetwork(
+            input_tensor_spec,
+            output_tensor_spec,
+            hidden_layer_args=[
+                {"units": 50, "activation": "relu"},
+                {"units": 50, "activation": "relu"},
+            ],
+            rate=0.1
+        )
+    else:
+        raise ValueError(
+            f"""dropout should be set to either 'standard' for MCDropout or 'dropconnect' for MCDropConnect.
+            Instead got {dropout}."""
+        )
+
+    return keras_mcdropout
+
+def trieste_deep_mcdropout_model(
+    example_data:Dataset, 
+    rate: Sequence[float | int] | float | int = 0.1,
+    dropout:str="standard"
+) -> MCDropout:
+
+    dropout_nn = trieste_keras_mcdropout_model(
+        example_data, 
+        rate=rate,
+        dropout=dropout
+    )
+
+    optimizer = tf.keras.optimizers.Adam(0.01)
+    fit_args = {
+        "batch_size": 10,
+        "epochs": 100,
+        "verbose": 0,
+    }
+    optimizer_wrapper = KerasOptimizer(optimizer, fit_args)
+
+    model = MCDropout(dropout_nn, optimizer_wrapper)
+
+    return model, dropout_nn, optimizer_wrapper

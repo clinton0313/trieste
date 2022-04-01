@@ -27,6 +27,7 @@ from ..interfaces import (
     TrajectoryFunction,
     TrajectoryFunctionClass,
     TrajectorySampler,
+    TrainableProbabilisticModel
 )
 
 
@@ -106,3 +107,80 @@ class ensemble_trajectory(TrajectoryFunctionClass):
         Efficiently resample in-place without retracing.
         """
         self._network_index.assign(self._model.sample_index(1)[0])
+
+
+
+class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
+    """
+    This class builds functions that approximate a trajectory by using the predicted means
+    of the stochastic forward passes as a trajectory.
+    """
+
+    def __init__(self, model: TrainableProbabilisticModel):
+        """
+        :param model: The MC dropout model to sample from.
+        """
+        if not isinstance(model, TrainableProbabilisticModel):
+            raise NotImplementedError(
+                f"DropoutTrajectorySampler works with trainable Probabilistic Models; "
+                f"received {model.__repr__()}"
+            )
+
+        super().__init__(model)
+
+        self._model = model
+
+    def __repr__(self) -> str:
+        """"""
+        return f"{self.__class__.__name__}({self._model!r}"
+
+    def get_trajectory(self) -> TrajectoryFunction:
+        """
+        Generate an approximate function draw (trajectory) by using the predicted means
+    of the stochastic forward passes as a trajectory.
+
+        :return: A trajectory function representing an approximate trajectory
+            from the model, taking an input of shape `[N, 1, D]` and returning shape `[N, 1]`.
+        """
+        return dropout_trajectory(self._model)
+
+    def resample_trajectory(self, trajectory: TrajectoryFunction) -> TrajectoryFunction:
+        """
+        Efficiently resample a :const:`TrajectoryFunction` in-place to avoid function retracing
+        with every new sample.
+
+        :param trajectory: The trajectory function to be resampled.
+        :return: The new resampled trajectory function.
+        """
+        tf.debugging.Assert(isinstance(trajectory, dropout_trajectory), [])
+        trajectory.resample()  # type: ignore
+        return trajectory
+
+
+class dropout_trajectory(TrajectoryFunctionClass):
+    """
+    Generate an approximate function draw (trajectory) by using the predicted means
+    of the stochastic forward passes as a trajectory.
+    """
+
+    def __init__(self, model: TrainableProbabilisticModel):
+        """
+        :param model: The model of the objective function.
+        """
+        self._model = model
+
+    @tf.function
+    def __call__(self, x: TensorType) -> TensorType:  # [N, 1, d] -> [N, 1]
+        """Call trajectory function."""
+        tf.debugging.assert_shapes(
+            [(x, [..., 1, None])],
+            message="This trajectory only supports batch sizes of one.",
+        )
+        x = tf.squeeze(x, -2)  # [N, D]
+        return self._model.predict(x)[0]
+
+    def resample(self) -> None:
+        """
+        Efficiently resample in-place without retracing.
+        """
+        pass
