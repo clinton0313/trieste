@@ -19,13 +19,13 @@ This file contains implementations of neural network architectures with Keras.
 from __future__ import annotations
 
 from abc import abstractmethod
-from multiprocessing.sharedctypes import Value
 from typing import Any, Sequence
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from .layers import DropConnect, MCDropoutLayer
+
+from .layers import DropConnect
 
 
 class KerasEnsemble:
@@ -237,12 +237,13 @@ class GaussianNetwork(KerasEnsembleNetwork):
         return input_tensor, output_tensor
 
 
-class DropoutNetwork(KerasEnsembleNetwork):
+class DropoutNetwork(tf.keras.Model):
     """
     This class builds a standard dropout neural network using Keras. The network
     architecture is a multilayer fully-connected feed-forward network, with Dropout layers
-    preceding each fully connected dense layer. The network is meant to be passed to 
-    :class:`MCDropout` which will define the predict method to make this a probabilistic model.
+    preceding each fully connected dense layer. The network is meant to be passed to
+    :class:`~trieste.models.keras.models.MCDropout` which will define the predict method 
+    to make this a probabilistic model. Otherwise this class will only use dropout in training.
     """
 
     def __init__(
@@ -250,133 +251,128 @@ class DropoutNetwork(KerasEnsembleNetwork):
         input_tensor_spec: tf.TensorSpec,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
-            {"units": 50, "activation": "relu"},
-            {"units": 50, "activation": "relu"},
-            {"units": 50, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"},
+            {"units": 500, "activation": "relu"}
         ),
-        rate: Sequence[float] | float = 0.5
+        rate: float = 0.05,
     ):
         """
-        :param input_tensor_spec: Tensor specification for the input to the network.
+        :param input_tensor_spec: Tensor specification for the input of the network. 
         :param output_tensor_spec: Tensor specification for the output of the network.
         :param hidden_layer_args: Specification for building dense hidden layers. Each element in
             the sequence should be a dictionary containing arguments (keys) and their values for a
             :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
             available arguments. Objects in the sequence will sequentially be used to add
-            :class:`~tf.keras.layers.Dense` layers. Length of this sequence determines the number of
-            hidden layers in the network. Default value is two hidden layers, 50 nodes each, with
-            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
-        :param rate: Probability of dropout assigned to each layer of a fully connected network.
-            If scalar, the same probability will be assigned to each layer. Otherwise accepts a list of 
-            probabilities corresponding to each layer. 
+            :class:`~tf.keras.layers.Dense` layers with :class:`~tf.keras.layers.Dropout` layers 
+            added before each :class:`~tf.keras.layers.Dense` layer. Length of this sequence 
+            determines the number of hidden layers in the network. Default value is five hidden 
+            layers, 500 nodes each, with ReLu activation functions. Empty sequence needs to be passed 
+            to have no hidden layers.
+        :param rate: Probability of dropout assigned to each `~tf.keras.layers.Dropout` layer.
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
-        super().__init__(input_tensor_spec, output_tensor_spec)
-
+        super().__init__()
+        self.input_tensor_spec = input_tensor_spec
+        self.output_tensor_spec = output_tensor_spec
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
         self._hidden_layer_args = hidden_layer_args
-        self.rate = rate
-        self._model = self._build_model()
 
-    @property
-    def model(self) -> tf.keras.Model:
-        return self._model
-
-    @property
-    def rate(self) -> Sequence[float]:
-        return self._rate
-    
-    @rate.setter
-    def rate(self, rate):
-        if isinstance(rate, Sequence):
-            if not len(rate) == len(self._hidden_layer_args) + 1:
-                raise ValueError(
-                    f"""Requires a dropout probability for each hidden layer and the output layer. 
-                    Got {len(rate)} dropout probabilities for {len(self._hidden_layer_args) + 1} layers."""
-                )
-            for p in rate:
-                self._check_probability(p)
-            self._rate = rate
-        elif isinstance(rate, float):
-            self._check_probability(rate)
-            self._rate = [rate for _ in range(len(self._hidden_layer_args) + 1)]
-        else:
-            raise TypeError(f"dropout_prob needs to be a sequence, float or int. Instead got {type(rate)}")
-
-    def _check_probability(self, p: float) -> None:
-        if not 0 < p < 1:
-            raise ValueError(
-                f"Invalid probability {p} received."
-            )
-
-    def _gen_input_tensor(self) -> tf.keras.Input:
-
-        input_tensor = tf.keras.Input(
-            shape=self.input_tensor_spec.shape,
-            dtype=self.input_tensor_spec.dtype,
-            name=self.input_layer_name
+        tf.debugging.assert_greater_equal(
+            rate, 0.0, f"Rate needs to be a valid probability, instead got {rate}"
         )
-        return input_tensor
+        tf.debugging.assert_less_equal(
+            rate, 1.0, f"Rate needs to be a valid probability, instead got {rate}"
+        )
+        self._rate = rate
 
-    def _gen_hidden_layers(self, input_tensor: tf.Tensor) -> tf.Tensor:
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
 
-        for index, hidden_layer_args in enumerate(self._hidden_layer_args):
-            layer_name = f"{self.network_name}dense_{index}"
-            dropout = tf.keras.layers.Dropout(self._rate[index])
-            layer = tf.keras.layers.Dense(**hidden_layer_args, name=layer_name)
-            dropout_tensor = dropout(input_tensor) 
-            input_tensor = layer(dropout_tensor)
-        return input_tensor
+    @property
+    def rate(self) -> float:
+        return self._rate
 
-    def _gen_output_layer(self, input_tensor: tf.Tensor) -> tf.Tensor:
+    def _gen_hidden_layers(self) -> tf.keras.Model:
 
-        dropout = tf.keras.layers.Dropout(self._rate[-1])
-        output_layer = tf.keras.layers.Dense(units=self.flattened_output_shape, name=self.output_layer_name)
-        dropout_tensor = dropout(input_tensor)
-        output_tensor = output_layer(dropout_tensor)
-        return output_tensor
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
+            hidden_layers.add(tf.keras.layers.Dropout(
+                rate=self.rate, 
+                dtype=self.input_tensor_spec.dtype
+            ))
+            hidden_layers.add(tf.keras.layers.Dense(
+                dtype=self.input_tensor_spec.dtype, 
+                **hidden_layer_args
+            ))
+        return hidden_layers
 
-    def connect_layers(self) -> tuple[tf.Tensor, tf.Tensor]:
-        """
-        Connect all layers in the network. We start by generating an input tensor based on input
-        tensor specification. Next we generate a sequence of hidden dense layers  and an output layer 
-        based on hidden layer arguments, output tensor specification, and the type of dropout network.
+    def _gen_output_layer(self) -> tf.keras.Model:
 
-        :return: Input and output tensor of the sequence of layers.
-        """
-        input_tensor = self._gen_input_tensor()
-        hidden_tensor = self._gen_hidden_layers(input_tensor)
-        output_tensor = self._gen_output_layer(hidden_tensor)
+        output_layer = tf.keras.Sequential(name="output_layer")
+        output_layer.add(tf.keras.layers.Dropout(
+            rate=self.rate, 
+            dtype=self.input_tensor_spec.dtype
+        ))
+        output_layer.add(tf.keras.layers.Dense(
+            units=self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype
+        ))
+        return output_layer
 
-        return input_tensor, output_tensor
-    
-    def _build_model(self) -> tf.keras.Model:
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
 
-        inputs, outputs = self.connect_layers()
-        return tf.keras.Model(inputs=inputs, outputs=outputs)
+        hidden_output = self.hidden_layers(inputs)
+        output = self.output_layer(hidden_output)
+
+        return output
+
 
 class DropConnectNetwork(DropoutNetwork):
     """
     This class builds a variation of a dropout network using Keras. The network
-    architecture is a multilayer fully-connected feed-forward network of :class: `DropConnect`
-    layers. This is a generalization of standard dropout where each weight is dropped out 
-    with a certain probability. This network is meant to be passed to :class:`MCDropout` which 
-    will define the predict method to make this a probabilistic model.
+    architecture is a multilayer fully-connected feed-forward network of 
+    :class: `~trieste.models.keras.layers.DropConnect` layers. This is a generalization of 
+    standard dropout where each weight is dropped out with a certain probability. This network 
+    is meant to be passed to :class:`~trieste.models.keras.models.MCDropout` which will define 
+    the predict method to make this a probabilistic model. Otherwise this class only uses dropout 
+    in training.
     """
 
     def __init__(self, *args, **kwargs):
-        super(DropConnectNetwork, self).__init__(*args, **kwargs)
-    
-    def _gen_hidden_layers(self, input_tensor: tf.Tensor) -> tf.Tensor:
+        super().__init__(*args, **kwargs)
+        """
+        :param input_tensor_spec: Tensor specification for the input of the network. 
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~trieste.models.keras.layers.DropConnect` hidden layer. Check Keras Dense layer 
+            API for available arguments. Length of this sequence determines the number of
+            hidden layers in the network. Default value is five hidden layers, 500 nodes each, with
+            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :param rate: Probability of dropout assigned to each layer of a fully connected network.
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
+    def _gen_hidden_layers(self) -> tf.keras.Model:
 
-        for index, hidden_layer_args in enumerate(self._hidden_layer_args):
-            layer_name = f"{self.network_name}dense_{index}"
-            layer = DropConnect(**hidden_layer_args, rate=self._rate[index], name=layer_name)
-            input_tensor = layer(input_tensor)
-        return input_tensor
-    
-    def _gen_output_layer(self, input_tensor: tf.Tensor) -> tf.Tensor:
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
+            hidden_layers.add(DropConnect(
+                rate=self.rate,
+                dtype=self.input_tensor_spec.dtype,
+                **hidden_layer_args
+            ))
+        return hidden_layers
 
-        output_layer = DropConnect(units=self.flattened_output_shape, rate=self._rate[-1], name=self.output_layer_name)
-        output_tensor = output_layer(input_tensor)
-        return output_tensor
+    def _gen_output_layer(self) -> tf.keras.Model:
 
+        output_layer = DropConnect(
+            units=self.flattened_output_shape, 
+            rate=self.rate, 
+            dtype=self.input_tensor_spec.dtype,
+            name="output_layer"
+        )
+
+        return output_layer
