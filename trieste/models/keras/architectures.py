@@ -324,6 +324,9 @@ class DropoutNetwork(tf.keras.Model):
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
 
+        if inputs.shape.rank == 1:
+            inputs = tf.expand_dims(inputs, axis=-1)
+
         hidden_output = self.hidden_layers(inputs)
         output = self.output_layer(hidden_output)
 
