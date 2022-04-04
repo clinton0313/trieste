@@ -138,10 +138,20 @@ def test_dropout_rate_raises_invalidargument_error(
 
 
 @pytest.mark.parametrize("dtype", [tf.float32, tf.float64])
-def test_dtype(dropout_network: DropoutNetwork, dtype: tf.DType) -> None:
+def test_dropout_network_dtype(dropout_network: DropoutNetwork, dtype: tf.DType) -> None:
     '''Tests that network can infer data type from the data'''
     x = tf.constant([[1]], dtype=tf.float16)
     inputs, outputs = tf.TensorSpec([1], dtype), tf.TensorSpec([1], dtype)
     dropout_nn = dropout_network(inputs, outputs)
 
     assert dropout_nn(x).dtype == dtype
+
+def test_dropout_network_accepts_scalars(dropout_network: DropoutNetwork) -> None:
+    '''Tests that network can handle scalar inputs with ndim = 1 instead of 2'''
+    example_data = empty_dataset([1, 1], [1, 1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    dropout_nn = dropout_network(inputs, outputs)
+
+    test_points = tf.linspace(-1, 1, 100)
+
+    assert dropout_nn(test_points).shape == (100, 1)
