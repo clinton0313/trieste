@@ -453,3 +453,4 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
             tf.math.square(predicted_means),
         )
         return predicted_means, predicted_vars
+        
