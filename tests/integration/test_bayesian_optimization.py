@@ -51,14 +51,17 @@ from trieste.models import TrainableProbabilisticModel, TrajectoryFunctionClass
 from trieste.models.gpflow import (
     GaussianProcessRegression,
     GPflowPredictor,
+    RandomSubSampleInducingPointSelector,
+    SparseGaussianProcessRegression,
     SparseVariational,
     VariationalGaussianProcess,
     build_gpr,
+    build_sgpr,
     build_svgp,
 )
 from trieste.models.gpflux import DeepGaussianProcess, build_vanilla_deep_gp
 from trieste.models.keras import DeepEnsemble, build_vanilla_keras_ensemble
-from trieste.models.optimizer import BatchOptimizer, KerasOptimizer
+from trieste.models.optimizer import KerasOptimizer, Optimizer
 from trieste.objectives import (
     BRANIN_MINIMIZERS,
     BRANIN_SEARCH_SPACE,
@@ -249,10 +252,10 @@ def test_bayesian_optimizer_with_vgp_finds_minima_of_simple_quadratic(use_natgra
 def test_bayesian_optimizer_with_svgp_finds_minima_of_scaled_branin() -> None:
     _test_optimizer_finds_minimum(
         SparseVariational,
-        50,
+        40,
         EfficientGlobalOptimization[SearchSpace, SparseVariational](),
         optimize_branin=True,
-        model_args={"optimizer": BatchOptimizer(tf.optimizers.Adam(0.01))},
+        model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
     )
     _test_optimizer_finds_minimum(
         SparseVariational,
@@ -261,7 +264,7 @@ def test_bayesian_optimizer_with_svgp_finds_minima_of_scaled_branin() -> None:
             builder=ParallelContinuousThompsonSampling(), num_query_points=5
         ),
         optimize_branin=True,
-        model_args={"optimizer": BatchOptimizer(tf.optimizers.Adam(0.01))},
+        model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
     )
 
 
@@ -271,7 +274,35 @@ def test_bayesian_optimizer_with_svgp_finds_minima_of_simple_quadratic() -> None
         SparseVariational,
         5,
         EfficientGlobalOptimization[SearchSpace, SparseVariational](),
-        model_args={"optimizer": BatchOptimizer(tf.optimizers.Adam(0.1))},
+        model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
+    )
+
+
+@random_seed
+@pytest.mark.slow
+def test_bayesian_optimizer_with_sgpr_finds_minima_of_scaled_branin() -> None:
+    _test_optimizer_finds_minimum(
+        SparseGaussianProcessRegression,
+        9,
+        EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](),
+        optimize_branin=True,
+    )
+    _test_optimizer_finds_minimum(
+        SparseGaussianProcessRegression,
+        11,
+        EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](
+            builder=ParallelContinuousThompsonSampling(), num_query_points=5
+        ),
+        optimize_branin=True,
+    )
+
+
+@random_seed
+def test_bayesian_optimizer_with_sgpr_finds_minima_of_simple_quadratic() -> None:
+    _test_optimizer_finds_minimum(
+        SparseGaussianProcessRegression,
+        5,
+        EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](),
     )
 
 
@@ -310,6 +341,14 @@ def test_bayesian_optimizer_with_dgp_finds_minima_of_simple_quadratic(
             DiscreteThompsonSampling(1000, 3, thompson_sampler=ThompsonSamplerFromTrajectory()),
             id="DiscreteThompsonSampling/ThompsonSamplerFromTrajectory",
         ),
+        pytest.param(
+            11,
+            EfficientGlobalOptimization(
+                ParallelContinuousThompsonSampling(),
+                num_query_points=10,
+            ),
+            id="ParallelContinuousThompsonSampling",
+        ),
     ],
 )
 def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_scaled_branin(
@@ -335,6 +374,14 @@ def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_scaled_branin(
             5,
             DiscreteThompsonSampling(500, 1, thompson_sampler=ThompsonSamplerFromTrajectory()),
             id="DiscreteThompsonSampling/ThompsonSamplerFromTrajectory",
+        ),
+        pytest.param(
+            5,
+            EfficientGlobalOptimization(
+                ParallelContinuousThompsonSampling(),
+                num_query_points=3,
+            ),
+            id="ParallelContinuousThompsonSampling",
         ),
     ],
 )
@@ -389,6 +436,14 @@ def _test_optimizer_finds_minimum(
         gpr = build_gpr(initial_data, search_space, likelihood_variance=likelihood_variance)
         model = GaussianProcessRegression(gpr, **model_args)
 
+    elif model_type is SparseGaussianProcessRegression:
+        sgpr = build_sgpr(initial_data, search_space, num_inducing_points=50)
+        model = SparseGaussianProcessRegression(
+            sgpr,
+            **model_args,
+            inducing_point_selector=RandomSubSampleInducingPointSelector(search_space),
+        )
+
     elif model_type is VariationalGaussianProcess:
         empirical_variance = tf.math.reduce_variance(initial_data.observations)
         kernel = gpflow.kernels.Matern52(variance=empirical_variance, lengthscales=[0.2, 0.2])
@@ -398,8 +453,12 @@ def _test_optimizer_finds_minimum(
         model = VariationalGaussianProcess(vgp, **model_args)
 
     elif model_type is SparseVariational:
-        svgp = build_svgp(initial_data, search_space)
-        model = SparseVariational(svgp, **model_args)
+        svgp = build_svgp(initial_data, search_space, num_inducing_points=50)
+        model = SparseVariational(
+            svgp,
+            **model_args,
+            inducing_point_selector=RandomSubSampleInducingPointSelector(search_space),
+        )
 
     elif model_type is DeepGaussianProcess:
         track_state = False
@@ -412,7 +471,7 @@ def _test_optimizer_finds_minimum(
         keras_ensemble = build_vanilla_keras_ensemble(initial_data, 5, 3, 25)
         fit_args = {
             "batch_size": 20,
-            "epochs": 1000,
+            "epochs": 100,
             "callbacks": [
                 tf.keras.callbacks.EarlyStopping(
                     monitor="loss", patience=25, restore_best_weights=True
@@ -430,21 +489,14 @@ def _test_optimizer_finds_minimum(
         summary_writer = tf.summary.create_file_writer(tmpdirname)
         with tensorboard_writer(summary_writer):
 
-            dataset = (
-                BayesianOptimizer(observer, search_space)
-                .optimize(
-                    num_steps or 2,
-                    initial_data,
-                    cast(TrainableProbabilisticModelType, model),
-                    acquisition_rule,
-                    track_state=track_state,
-                )
-                .try_get_final_dataset()
+            result = BayesianOptimizer(observer, search_space).optimize(
+                num_steps or 2,
+                initial_data,
+                cast(TrainableProbabilisticModelType, model),
+                acquisition_rule,
+                track_state=track_state,
             )
-
-            arg_min_idx = tf.squeeze(tf.argmin(dataset.observations, axis=0))
-            best_y = dataset.observations[arg_min_idx]
-            best_x = dataset.query_points[arg_min_idx]
+            best_x, best_y, _ = result.try_get_optimal_point()
 
             if num_steps is None:
                 # this test is just being run to check for crashes, not performance

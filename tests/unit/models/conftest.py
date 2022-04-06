@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, Callable
+from typing import Any, Callable, Generator
 
 import pytest
 import tensorflow as tf
@@ -34,6 +34,7 @@ from trieste.data import Dataset
 from trieste.models.gpflow import (
     GaussianProcessRegression,
     GPflowPredictor,
+    SparseGaussianProcessRegression,
     SparseVariational,
     VariationalGaussianProcess,
 )
@@ -45,10 +46,11 @@ from trieste.types import TensorType
     name="gpflow_interface_factory",
     params=[
         (GaussianProcessRegression, gpr_model),
-        (GaussianProcessRegression, sgpr_model),
+        (SparseGaussianProcessRegression, sgpr_model),
         (VariationalGaussianProcess, vgp_model),
         (SparseVariational, svgp_model),
     ],
+    ids=lambda mf: mf[1].__name__,
 )
 def _gpflow_interface_factory(request: Any) -> ModelFactoryType:
     def model_interface_factory(
@@ -95,9 +97,8 @@ def _two_layer_model_fixture(request: Any) -> Callable[[TensorType], DeepGP]:
 
 
 # Teardown fixture to set keras floatx to float64 then return it to previous value at test finish
-# pytest uses yield in a funny way, so we use type ignore
-@pytest.fixture(name="keras_float")  # type: ignore
-def _keras_float() -> None:
+@pytest.fixture(name="keras_float")
+def _keras_float() -> Generator[None, None, None]:
     current_float = tf.keras.backend.floatx()
     tf.keras.backend.set_floatx("float64")
     yield
