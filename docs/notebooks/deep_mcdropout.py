@@ -1,4 +1,3 @@
-
 # %%
 import os
 
@@ -22,11 +21,13 @@ tf.keras.backend.set_floatx("float64")
 from trieste.space import Box
 from trieste.data import Dataset
 
+
 def objective(x, error=True):
     y = tf.pow(x, 3)
     if error:
         y += tf.random.normal(x.shape, 0, 3, dtype=x.dtype)
     return y
+
 
 num_points = 20
 # we define the [-4,4] interval using a `Box` search space that has convenient sampling methods
@@ -46,19 +47,20 @@ from trieste.models.keras import (
 )
 from trieste.models.optimizer import KerasOptimizer
 
-def build_cubic_model(data:Dataset, dropout:str="standard") -> MCDropout:
+
+def build_cubic_model(data: Dataset, dropout: str = "standard") -> MCDropout:
     num_hidden_layers = 3
     num_nodes = 50
     activation = "relu"
     rate = 0.2
 
     dropout_nn = build_vanilla_keras_mcdropout(
-        data, 
+        data,
         num_hidden_layers=num_hidden_layers,
         units=num_nodes,
         activation=activation,
         rate=rate,
-        dropout=dropout
+        dropout_network=dropout,
     )
 
     fit_args = {
@@ -69,6 +71,7 @@ def build_cubic_model(data:Dataset, dropout:str="standard") -> MCDropout:
     optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.01), fit_args)
 
     return MCDropout(dropout_nn, optimizer)
+
 
 # building and optimizing the model
 model = build_cubic_model(data, "standard")
@@ -84,10 +87,8 @@ test_points = tf.linspace(-6, 6, 1000)
 # generating a plot with ground truth function, mean prediction and 3 standard
 # deviations around it
 plt.scatter(inputs, outputs, marker=".", alpha=0.6, color="red", label="data")
-plt.plot(
-    test_points, objective(test_points, False), color="blue", label="function"
-)
-y_hat, y_var = model.predict(query_points=test_points, T=100)
+plt.plot(test_points, objective(test_points, False), color="blue", label="function")
+y_hat, y_var = model.predict(test_points)
 y_hat_minus_3sd = y_hat - 3 * tf.math.sqrt(y_var)
 y_hat_plus_3sd = y_hat + 3 * tf.math.sqrt(y_var)
 plt.plot(test_points, y_hat, color="gray", label="model $\mu$")
@@ -103,4 +104,3 @@ plt.ylim([-100, 100])
 plt.show()
 
 # %%
-
