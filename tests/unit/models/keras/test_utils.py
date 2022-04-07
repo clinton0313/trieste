@@ -12,13 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import numpy as np
+import numpy.testing as npt
 import pytest
 import tensorflow as tf
 
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
 from trieste.data import Dataset
-from trieste.models.keras.utils import get_tensor_spec_from_data, sample_with_replacement
+from trieste.models.keras.utils import (
+    deep_evidential_regression_loss,
+    get_tensor_spec_from_data,
+    normal_inverse_gamma_sum_of_squares, 
+    sample_with_replacement,
+    normal_inverse_gamma_negative_log_likelihood,
+    normal_inverse_gamma_regularizer,
+    normal_inverse_gamma_sum_of_squares,
+    deep_evidential_regression_loss
+)
+from trieste.types import TensorType
+from typing import Callable
 
 
 def test_get_tensor_spec_from_data_raises_for_incorrect_dataset() -> None:
@@ -102,3 +115,110 @@ def test_sample_with_replacement_seems_correct(rank: int) -> None:
     x = tf.cast(x[:, 0], dtype=tf.float32)
     assert (tf.reduce_mean(mean) - tf.reduce_mean(x)) < 1
     assert tf.math.abs(tf.math.reduce_std(mean) - tf.math.reduce_std(x) / 10.0) < 0.1
+
+
+@pytest.mark.parametrize(
+    "y_true, gamma, lamb, alpha, beta, true_loss",
+    [
+        (1., 1., 0.5, 0.4, 0.3, 0.86625844), #With gamma function as paper: 1.5965598
+        (1.8, 2., 0.3, 0.1, 0.7, 1.4777126) #With gamma function as paper: 3.3321915
+    ]
+)
+def test_normal_inverse_gamma_negative_log_likelihood_is_accurate(
+    y_true: float,
+    gamma: float,
+    lamb: float,
+    alpha: float,
+    beta: float,
+    true_loss: float
+) -> None:
+    loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, lamb, alpha, beta)
+    npt.assert_approx_equal(loss, true_loss)
+
+@pytest.mark.parametrize(
+    "y_true, gamma, lamb, alpha, beta, true_loss",
+    [
+        (1., 1., 0.5, 0.4, 0.3, 0.4054652),
+        (1.8, 2., 0.3, 0.1, 0.7, 1.203083)
+    ]
+)
+def test_normal_inverse_gamma_sum_of_squares_is_accurate(
+    y_true: float,
+    gamma: float,
+    lamb: float,
+    alpha: float,
+    beta: float,
+    true_loss: float
+) -> None:
+    loss = normal_inverse_gamma_sum_of_squares(y_true, gamma, lamb, alpha, beta)
+    npt.assert_approx_equal(loss, true_loss)
+
+@pytest.mark.parametrize(
+    "y_true, gamma, lamb, alpha, true_loss",
+    [
+        (3., 1., 0.5, 0.4, 2.6),
+        (1.8, 2., 0.3, 0.1, 0.1)
+    ]
+)
+def test_normal_inverse_gamma_regularizer_is_accurate(
+    y_true: float,
+    gamma: float,
+    lamb: float,
+    alpha: float,
+    true_loss: float
+) -> None:
+    loss = normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
+    npt.assert_approx_equal(loss, true_loss)
+
+@pytest.mark.parametrize(
+    "y_true, y_pred, use_sos, true_loss",
+    [
+        (
+            tf.constant([[1.], [1.8]]),
+            tf.constant([
+                [1., 0.5, 0.4, 0.3],
+                [2., 0.3, 0.1, 0.7]
+            ]),
+            False,
+            1.2219855 #If using the gamma functions from paper 2.4643755
+        ),
+        (
+            tf.constant([[1.], [1.8]]),
+            tf.constant([
+                [1., 0.5, 0.4, 0.3],
+                [2., 0.3, 0.1, 0.7]
+            ]),
+            True,
+            0.85427415
+        )
+    ]
+)
+def test_deep_evidential_regression_loss_is_accurate(
+    y_true: TensorType,
+    y_pred: TensorType,
+    use_sos: bool,
+    true_loss: float
+) -> None:
+    if use_sos:
+        loss = deep_evidential_regression_loss(y_true, y_pred)
+    else:
+        loss = deep_evidential_regression_loss(
+            y_true, 
+            y_pred, 
+            loss_fn = normal_inverse_gamma_negative_log_likelihood
+        )
+    npt.assert_approx_equal(loss, true_loss)
+
+@pytest.mark.parametrize(
+    "y_pred",
+    [
+        tf.zeros((10, 3)),
+        tf.ones((300,))
+    ]
+)
+def test_deep_evidential_regression_loss_asserts_shape(
+    y_pred: TensorType,
+) -> None:
+    y_true = tf.zeros((y_pred.shape[0],))
+    with pytest.raises(ValueError):
+        deep_evidential_regression_loss(y_true, y_pred)

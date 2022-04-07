@@ -118,9 +118,9 @@ def normal_inverse_gamma_negative_log_likelihood(
     :param beta: The beta parameter of the Gamma distribution.
     :return: The loss values
     '''
-    negative_log_likelihood = -1 * (
-            (0.5 + alpha)*tf.math.log(2)
-            + alpha*tf.math.log(beta)
+    negative_log_likelihood = -(
+            tf.math.log(2**(0.5 + alpha))
+            + tf.math.log(beta**alpha)
             + 0.5 *tf.math.log(lamb/ (2 * np.math.pi * ( 1 + lamb)))
             - (0.5 + alpha) * tf.math.log(2 * beta + lamb * (gamma - y_true)**2 / (1 + lamb))
             # + tf.math.lgamma(alpha)
@@ -196,13 +196,12 @@ def deep_evidential_regression_loss(
         y_true = tf.expand_dims(y_true, axis=-1)
     if y_pred.shape.rank == 1:
         y_pred = tf.expand_dims(y_pred, axis=0)
-    assert y_pred.shape[1] == 4, f"Expects four parameters for the evidential output instead got {y_pred.shape[1]}"
+    tf.debugging.assert_shapes([(y_pred, (y_pred.shape[0], 4))])
 
     gamma, lamb, alpha, beta = tf.split(y_pred, 4, axis=-1)
 
     loss = loss_fn(y_true, gamma, lamb, alpha, beta)
+    regularization = normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
 
-    regularizer = normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha, beta)
-
-    return tf.reduce_mean(loss + coeff * regularizer, axis=0)
+    return tf.reduce_mean(loss + coeff * regularization, axis=0)
     
