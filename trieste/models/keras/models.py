@@ -441,7 +441,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
             ``query_points``.
         """
         stochastic_passes = tf.stack(
-            [self.model(query_points) for _ in range(self.num_passes)], axis=0
+            [self.model(query_points, training=True) for _ in range(self.num_passes)], axis=0
         )
         predicted_means = tf.math.reduce_mean(stochastic_passes, axis=0)
 

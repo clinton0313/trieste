@@ -1,4 +1,7 @@
 # %%
+%load_ext autoreload
+%autoreload 2
+
 import os
 
 from trieste.models.keras.architectures import DropConnectNetwork
@@ -50,60 +53,60 @@ from trieste.models.keras import (
 from trieste.models.optimizer import KerasOptimizer
 
 
-def build_cubic_model(data: Dataset) -> MCDropout:
-    num_hidden_layers = 3
-    num_nodes = 300
-    activation = "relu"
-    rate = 0.2
+# def build_cubic_model(data: Dataset) -> MCDropout:
+#     num_hidden_layers = 3
+#     num_nodes = 300
+#     activation = "relu"
+#     rate = 0.2
 
-    dropout_nn = build_vanilla_keras_mcdropout(
-        data,
-        num_hidden_layers=num_hidden_layers,
-        units=num_nodes,
-        activation=activation,
-        rate=rate,
-        dropout_network=DropConnectNetwork
-    )
+#     dropout_nn = build_vanilla_keras_mcdropout(
+#         data,
+#         num_hidden_layers=num_hidden_layers,
+#         units=num_nodes,
+#         activation=activation,
+#         rate=rate,
+#         dropout_network=DropConnectNetwork
+#     )
 
-    fit_args = {
-        "batch_size": 10,
-        "epochs": 1000,
-        "verbose": 0,
-    }
-    optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.01), fit_args)
+#     fit_args = {
+#         "batch_size": 10,
+#         "epochs": 1000,
+#         "verbose": 0,
+#     }
+#     optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.01), fit_args)
 
-    return MCDropout(dropout_nn, optimizer, num_passes=100)
+#     return MCDropout(dropout_nn, optimizer, num_passes=100)
 
 
-# building and optimizing the model
-model = build_cubic_model(data)
-model.optimize(data)
+# # building and optimizing the model
+# model = build_cubic_model(data)
+# model.optimize(data)
 
-# %% [markdown]
-# Let's illustrate the results
-# %%
-import matplotlib.pyplot as plt
+# # %% [markdown]
+# # Let's illustrate the results
+# # %%
+# import matplotlib.pyplot as plt
 
-test_points = tf.linspace(-6, 6, 1000)
+# test_points = tf.linspace(-6, 6, 1000)
 
-# generating a plot with ground truth function, mean prediction and 3 standard
-# deviations around it
-plt.scatter(inputs, outputs, marker=".", alpha=0.6, color="red", label="data")
-plt.plot(test_points, objective(test_points, False), color="blue", label="function")
-y_hat, y_var = model.predict(test_points)
-y_hat_minus_3sd = y_hat - 3 * tf.math.sqrt(y_var)
-y_hat_plus_3sd = y_hat + 3 * tf.math.sqrt(y_var)
-plt.plot(test_points, y_hat, color="gray", label="model $\mu$")
-plt.fill_between(
-    test_points,
-    tf.squeeze(y_hat_minus_3sd),
-    tf.squeeze(y_hat_plus_3sd),
-    color="gray",
-    alpha=0.5,
-    label="$\mu -/+ 3SD$",
-)
-plt.ylim([-100, 100])
-plt.show()
+# # generating a plot with ground truth function, mean prediction and 3 standard
+# # deviations around it
+# plt.scatter(inputs, outputs, marker=".", alpha=0.6, color="red", label="data")
+# plt.plot(test_points, objective(test_points, False), color="blue", label="function")
+# y_hat, y_var = model.predict(test_points)
+# y_hat_minus_3sd = y_hat - 3 * tf.math.sqrt(y_var)
+# y_hat_plus_3sd = y_hat + 3 * tf.math.sqrt(y_var)
+# plt.plot(test_points, y_hat, color="gray", label="model $\mu$")
+# plt.fill_between(
+#     test_points,
+#     tf.squeeze(y_hat_minus_3sd),
+#     tf.squeeze(y_hat_plus_3sd),
+#     color="gray",
+#     alpha=0.5,
+#     label="$\mu -/+ 3SD$",
+# )
+# plt.ylim([-100, 100])
+# plt.show()
 
 
 # %%
@@ -158,25 +161,25 @@ initial_data = observer(initial_query_points)
 # %%
 def build_model(data: Dataset) -> MCDropout:
     num_hidden_layers = 5
-    num_nodes = 500
+    num_nodes = 700
 
     dropout_network = build_vanilla_keras_mcdropout(
-        data, num_hidden_layers, num_nodes, rate=0.2
+        data, num_hidden_layers, num_nodes, rate=0.001
     )
 
     fit_args = {
         "batch_size": 32,
         "epochs": 1000,
         "callbacks": [
-            tf.keras.callbacks.EarlyStopping(monitor="loss", patience=80), 
-            tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.3, patience=15)
+            tf.keras.callbacks.EarlyStopping(monitor="loss", patience=100), 
+            tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.3, patience=20)
             ],
         "verbose": 0
     }
 
     optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.001), fit_args)
 
-    return MCDropout(dropout_network, optimizer)
+    return MCDropout(dropout_network, optimizer, num_passes=100)
 
 
 # building and optimizing the model
@@ -202,12 +205,16 @@ acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
 # Note that the optimization might take a while!
 
 # %%
+
+from time import time
 bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
 
 num_steps = 25
 
 # The Keras interface does not currently support using `track_state=True` which saves the model
 # in each iteration. This will be addressed in a future update.
+
+start = time()
 result = bo.optimize(
     num_steps,
     initial_data,
@@ -216,6 +223,8 @@ result = bo.optimize(
     track_state=False,
 )
 dataset = result.try_get_final_dataset()
+
+print(f"This took {round(time() - start, 3)} seconds!")
 
 
 # %% [markdown]

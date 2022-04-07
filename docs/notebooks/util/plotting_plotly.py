@@ -14,6 +14,7 @@
 
 from typing import Callable, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -51,8 +52,8 @@ def format_point_markers(
     :param c_best: color for the best BO points
     :return: 2 string vectors col_pts, mark_pts containing marker styles and colors
     """
-
-    col_pts = np.repeat(c_pass, num_pts).astype("<U15")
+    cm = plt.get_cmap("RdYlGn")
+    col_pts = list(np.arange(num_pts)) #np.repeat(c_pass, num_pts).astype("<U15")
     mark_pts = np.repeat(m_init, num_pts).astype("<U15")
     mark_pts[num_init:] = m_add
     if mask_fail is not None:
