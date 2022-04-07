@@ -377,6 +377,10 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         self.num_passes = num_passes
         self._model = model
 
+    def __repr__(self) -> str:
+        """"""
+        return f"MCDropout({self.model!r}, {self.optimizer!r})"
+
     @property
     def model(self) -> tf.keras.Model:
         return self._model

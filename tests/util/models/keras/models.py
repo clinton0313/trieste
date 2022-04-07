@@ -82,7 +82,7 @@ def trieste_deep_ensemble_model(
 
     return model, keras_ensemble, optimizer_wrapper
 
-def trieste_keras_mcdropout_model(
+def trieste_dropout_network_model(
     example_data: Dataset,
     rate: Sequence[float | int] | float | int = 0.1,
     dropout: DropoutNetwork = DropoutNetwork
@@ -97,18 +97,18 @@ def trieste_keras_mcdropout_model(
             {"units": 50, "activation": "relu"},
             {"units": 50, "activation": "relu"},
         ],
-        rate=0.1
+        rate=rate
     )
 
     return keras_mcdropout
 
-def trieste_deep_mcdropout_model(
+def trieste_mcdropout_model(
     example_data:Dataset, 
     rate: Sequence[float | int] | float | int = 0.1,
     dropout:DropoutNetwork=DropoutNetwork
 ) -> MCDropout:
 
-    dropout_nn = trieste_keras_mcdropout_model(
+    dropout_nn = trieste_dropout_network_model(
         example_data, 
         rate=rate,
         dropout=dropout

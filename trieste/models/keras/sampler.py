@@ -207,7 +207,7 @@ class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
         trajectory.resample()  # type: ignore
         return trajectory
 
-
+# @tf.function
 class dropout_trajectory(TrajectoryFunctionClass):
     """
     Generate an approximate function draw (trajectory) by using the predicted means
@@ -247,14 +247,14 @@ class dropout_trajectory(TrajectoryFunctionClass):
             This trajectory only supports batch sizes of {self._batch_size}.
             If you wish to change the batch size you must get a new trajectory
             by calling the get_trajectory method of the trajectory sampler.
-            """,
+            """
         )
 
         predictions = []
         batch_index = tf.range(0, self._batch_size, 1)
-        _ = self._model.predict(x[:1,0,:1], num_passes=1)
+        _ = self._model.predict(x[:1,0,:], num_passes=1) # [DAV] Somehow first seed doesn't propagate unless I've done a dummy pred before.
         for b, seed in zip(batch_index, tf.unstack(self._seeds)):
-            tf.random.set_seed(seed) # [DAV] A possible local seed?
+            tf.random.set_seed(seed) # [DAV] A possible local seed? One can pass operational seeds to both types of dropouts, but it doesn't seem to fix the prediction
             predictions.append(self._model.predict(x[:,b,:], num_passes=1)[0])
 
         return tf.transpose(tf.squeeze(predictions, axis=-1), perm=[1,0])
