@@ -37,7 +37,7 @@ def format_point_markers(
     m_add="circle",
     c_pass="green",
     c_fail="red",
-    c_best="darkmagenta",
+    c_best="black",
 ):
     """
     Prepares point marker styles according to some BO factors
