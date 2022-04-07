@@ -33,6 +33,7 @@ def _layer_fixture(request: Any):
     return request.param
 
 
+@pytest.mark.mcdropout
 def test_dense_forward(
     layer: Dense, x: tf.Tensor, activation: Union[str, tf.keras.layers.Activation], units: int
 ) -> None:
@@ -57,6 +58,7 @@ def test_dense_forward(
     assert (tf.equal(dense_model(x), model(x))).numpy().all(), "Forward pass calculations are wrong"
 
 
+@pytest.mark.mcdropout
 @pytest.mark.parametrize("rate", [0.0, (1 - 1e-12)])
 def test_fit(
     layer: tf.keras.layers.Layer,
@@ -98,6 +100,7 @@ def test_fit(
     )
 
 
+@pytest.mark.mcdropout
 @pytest.mark.parametrize("rate", [0.1, 0.3, 0.5, 0.7, 0.9])
 @pytest.mark.parametrize("drop_layer", [DropConnect(units=1, use_bias=False)])
 def test_dropout_rate(rate: float, drop_layer: tf.keras.layers.Layer) -> None:
@@ -111,6 +114,7 @@ def test_dropout_rate(rate: float, drop_layer: tf.keras.layers.Layer) -> None:
     assert np.abs(np.sum(simulations) - rate * sims) <= 1.5 * rate * (1 - rate) * sims
 
 
+@pytest.mark.mcdropout
 @pytest.mark.parametrize("rate", [1.5, -1.0])
 def test_dropout_rate_raises_value_error(rate: float, units: int) -> None:
     """Tests that value error is raised when given wrong probability rates"""
