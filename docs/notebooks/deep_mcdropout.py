@@ -44,11 +44,12 @@ from trieste.models.keras import (
     MCDropout,
     KerasPredictor,
     build_vanilla_keras_mcdropout,
+    DropoutNetwork
 )
 from trieste.models.optimizer import KerasOptimizer
 
 
-def build_cubic_model(data: Dataset, dropout: str = "standard") -> MCDropout:
+def build_cubic_model(data: Dataset, dropout: DropoutNetwork = DropoutNetwork) -> MCDropout:
     num_hidden_layers = 3
     num_nodes = 50
     activation = "relu"
@@ -74,7 +75,7 @@ def build_cubic_model(data: Dataset, dropout: str = "standard") -> MCDropout:
 
 
 # building and optimizing the model
-model = build_cubic_model(data, "standard")
+model = build_cubic_model(data, DropoutNetwork)
 model.optimize(data)
 
 # %% [markdown]

@@ -421,7 +421,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
             [self.model(query_points, training=True) for _ in range(num_samples)], axis=0
         )
 
-    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
+    def predict(self, query_points: TensorType, num_passes: tf.int32 = None) -> tuple[TensorType, TensorType]:
         r"""
         Returns mean and variance of the MC Dropout.
 
@@ -446,15 +446,20 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         :return: The predicted mean and variance of the observations at the specified
             ``query_points``.
         """
+        if not num_passes: 
+            passes = self.num_passes
+        else:
+            passes = num_passes
+
         stochastic_passes = tf.stack(
-            [self.model(query_points, training=True) for _ in range(self.num_passes)], axis=0
+            [self.model(query_points, training=True) for _ in range(passes)], axis=0
         )
         predicted_means = tf.math.reduce_mean(stochastic_passes, axis=0)
 
         predicted_vars = tf.subtract(
             tf.divide(
                 tf.reduce_sum(tf.math.multiply(stochastic_passes, stochastic_passes), axis=0),
-                self.num_passes,
+                passes,
             ),
             tf.math.square(predicted_means),
         )

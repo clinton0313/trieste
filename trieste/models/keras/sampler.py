@@ -28,6 +28,7 @@ from ..interfaces import (
     TrajectoryFunction,
     TrajectoryFunctionClass,
     TrajectorySampler,
+    TrainableProbabilisticModel
 )
 
 
@@ -36,7 +37,7 @@ class EnsembleTrajectorySampler(TrajectorySampler[EnsembleModel]):
     This class builds functions that approximate a trajectory by randomly choosing a network from
     the ensemble and using its predicted means as a trajectory.
     """
-
+    
     def __init__(self, model: EnsembleModel, use_samples: bool = False):
         """
         :param model: The ensemble model to sample from.
@@ -129,7 +130,7 @@ class ensemble_trajectory(TrajectoryFunctionClass):
         flat_x, unflatten = flatten_leading_dims(x)  # [N*B, d]
         x_transformed = self._model.prepare_query_points(flat_x)
         ensemble_distributions = self._model.model(x_transformed)
-        
+        # [DAV] *** ValueError: Input 0 of layer model_2_dense_0 is incompatible with the layer: expected axis -1 of input shape to have value 1 but received input with shape (4, 2)
         predictions = []
         batch_index = tf.range(0, self._batch_size, 1)
         if self._use_samples: 
@@ -156,3 +157,110 @@ class ensemble_trajectory(TrajectoryFunctionClass):
         self._indices.assign(self._model.sample_index(self._batch_size))  # [B]
         if self._use_samples:
             self._seeds.assign(tf.random.uniform(shape=(self._batch_size, 2), minval=1, maxval=999999999, dtype=tf.int32))
+
+
+class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
+    """
+    This class builds functions that approximate a trajectory by using the predicted means
+    of the stochastic forward passes as a trajectory.
+    """
+
+    def __init__(self, model: TrainableProbabilisticModel, use_samples: bool = False):
+        """
+        :param model: The MC dropout model to sample from.
+        """
+        if not isinstance(model, TrainableProbabilisticModel):
+            raise NotImplementedError(
+                f"DropoutTrajectorySampler only works with Probabilistic Models; "
+                f"received {model.__repr__()}"
+            )
+
+        super().__init__(model)
+
+        self._model = model
+        self._use_samples = use_samples
+
+    def __repr__(self) -> str:
+        """"""
+        return f"{self.__class__.__name__}({self._model!r}"
+
+    def get_trajectory(self) -> TrajectoryFunction:
+        """
+        Generate an approximate function draw (trajectory) by using the predicted means
+    of the stochastic forward passes as a trajectory.
+
+        :return: A trajectory function representing an approximate trajectory
+            from the model, taking an input of shape `[N, 1, D]` and returning shape `[N, 1]`.
+        """
+
+        return dropout_trajectory(self._model, self._use_samples)
+
+    def resample_trajectory(self, trajectory: TrajectoryFunction) -> TrajectoryFunction:
+        """
+        Efficiently resample a :const:`TrajectoryFunction` in-place to avoid function retracing
+        with every new sample.
+
+        :param trajectory: The trajectory function to be resampled.
+        :return: The new resampled trajectory function.
+        """
+        tf.debugging.Assert(isinstance(trajectory, dropout_trajectory), [])
+        trajectory.resample()  # type: ignore
+        return trajectory
+
+
+class dropout_trajectory(TrajectoryFunctionClass):
+    """
+    Generate an approximate function draw (trajectory) by using the predicted means
+    of the stochastic forward passes as a trajectory. 
+    """
+
+    def __init__(self, model: TrainableProbabilisticModel, use_samples: bool):
+        """
+        :param model: The model of the objective function.
+        """
+        self._model = model
+        self._initialized = tf.Variable(False, trainable=False)
+
+        self._batch_size = tf.Variable(
+            0, dtype=tf.int32, trainable=False
+        )
+
+        self._seeds = tf.Variable(
+            tf.ones([0,0], dtype=tf.int32), shape=[None, None], trainable=False
+        )
+            
+    def __call__(self, x: TensorType) -> TensorType:  # [N, B, d] -> [N, B]
+        """
+        Call trajectory function. It uses `tf.random` seeds to fix the matrix of dropout
+        inputs or weights in the kernel, and performs a single forward pass to return the
+        equivalent to a posterior draw.
+        """
+        if not self._initialized:  # work out desired batch size from input
+            self._batch_size.assign(tf.shape(x)[-2])  # B
+            self.resample() # sample B seeds to fix
+            self._initialized.assign(True)
+
+        tf.debugging.assert_equal(
+            tf.shape(x)[-2],
+            self._batch_size.value(),
+            message=f"""
+            This trajectory only supports batch sizes of {self._batch_size}.
+            If you wish to change the batch size you must get a new trajectory
+            by calling the get_trajectory method of the trajectory sampler.
+            """,
+        )
+
+        predictions = []
+        batch_index = tf.range(0, self._batch_size, 1)
+        _ = self._model.predict(x[:1,0,:1], num_passes=1)
+        for b, seed in zip(batch_index, tf.unstack(self._seeds)):
+            tf.random.set_seed(seed) # [DAV] A possible local seed?
+            predictions.append(self._model.predict(x[:,b,:], num_passes=1)[0])
+
+        return tf.transpose(tf.squeeze(predictions, axis=-1), perm=[1,0])
+
+    def resample(self) -> None:
+        """
+        Efficiently resample in-place without retracing.
+        """
+        self._seeds.assign(tf.random.uniform(shape=(self._batch_size, 1), minval=1, maxval=999999999, dtype=tf.int32))

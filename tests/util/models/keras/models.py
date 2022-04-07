@@ -85,43 +85,27 @@ def trieste_deep_ensemble_model(
 def trieste_keras_mcdropout_model(
     example_data: Dataset,
     rate: Sequence[float | int] | float | int = 0.1,
-    dropout: str = "standard"
+    dropout: DropoutNetwork = DropoutNetwork
 ) -> DropoutNetwork:
 
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
 
-    if dropout == "standard":
-        keras_mcdropout = DropoutNetwork(
-            input_tensor_spec,
-            output_tensor_spec,
-            hidden_layer_args=[
-                {"units": 50, "activation": "relu"},
-                {"units": 50, "activation": "relu"},
-            ],
-            rate=0.1
-        )
-    elif dropout == "dropconnect":
-        keras_mcdropout = DropConnectNetwork(
-            input_tensor_spec,
-            output_tensor_spec,
-            hidden_layer_args=[
-                {"units": 50, "activation": "relu"},
-                {"units": 50, "activation": "relu"},
-            ],
-            rate=0.1
-        )
-    else:
-        raise ValueError(
-            f"""dropout should be set to either 'standard' for MCDropout or 'dropconnect' for MCDropConnect.
-            Instead got {dropout}."""
-        )
+    keras_mcdropout = dropout(
+        input_tensor_spec,
+        output_tensor_spec,
+        hidden_layer_args=[
+            {"units": 50, "activation": "relu"},
+            {"units": 50, "activation": "relu"},
+        ],
+        rate=0.1
+    )
 
     return keras_mcdropout
 
 def trieste_deep_mcdropout_model(
     example_data:Dataset, 
     rate: Sequence[float | int] | float | int = 0.1,
-    dropout:str="standard"
+    dropout:DropoutNetwork=DropoutNetwork
 ) -> MCDropout:
 
     dropout_nn = trieste_keras_mcdropout_model(
