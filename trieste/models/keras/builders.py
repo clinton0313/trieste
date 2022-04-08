@@ -85,9 +85,9 @@ def build_vanilla_keras_ensemble(
 def build_vanilla_keras_mcdropout(
     data: Dataset,
     num_hidden_layers: int = 5,
-    units: int = 500,
+    units: int = 300,
     activation: str | tf.keras.layers.Activation = "relu",
-    rate: float = 0.05,
+    rate: float = 0.1,
     dropout_network: DropoutNetwork = DropoutNetwork,
 ) -> DropoutNetwork:
 
@@ -95,11 +95,13 @@ def build_vanilla_keras_mcdropout(
     Builds a simple dropout network, in Keras where each network has the same
     architecture: number of hidden layers, nodes in hidden layers and activation function.
 
-    Default number of hlayers, units, rate, and activation function seem to work well in practice, 
+    Default number of hidden layers, units, rate, and activation function seem to work well in practice, 
     in regression type of problems at least. Number of hidden layers and units per layer should be 
     modified according to the dataset size and complexity of the function - the default values seem 
     to work well for small datasets common in Bayesian optimization. The training is highly sensitive 
-    to the rate of dropout applied. 
+    to the rate of dropout; a lower rate typically makes the function easier to learn at the expense of 
+    an easier time estimating the uncertainty and vice versa. DropConnectNetwork typically works better 
+    with a higher rate all else equal - a default of around 0.35 seems equivalent. 
 
     :param dataset: Data for training, used for extracting input and output tensor specifications.
     :param num_hidden_layers: The number of hidden dropout layers in each network.
