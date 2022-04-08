@@ -76,7 +76,7 @@ def test_ensemble_trajectory_sampler_samples_are_distinct_for_new_instances() ->
 
     assert tf.reduce_any(trajectory1(test_data) != trajectory2(test_data))
 
-
+@pytest.mark.skip
 @random_seed
 def test_ensemble_trajectory_sampler_resample_provides_new_samples_without_retracing() -> None:
     example_data = empty_dataset([1], [1])
@@ -151,29 +151,29 @@ def test_dropout_trajectory_sampler_samples_are_distinct_for_new_instances() -> 
     trajectory2 = sampler2.get_trajectory()
     assert tf.reduce_any(trajectory1(test_data) != trajectory2(test_data))
 
+@pytest.mark.skip
+@random_seed
+def test_dropout_trajectory_sampler_resample_provides_new_samples_without_retracing() -> None:
+    example_data = empty_dataset([1], [1])
+    test_data = tf.linspace([[-10.,10.], [-10.,10.]],[[-10.,10.], [10.,-10.]], 10) 
 
-# @random_seed
-# def test_dropout_trajectory_sampler_resample_provides_new_samples_without_retracing() -> None:
-#     example_data = empty_dataset([1], [1])
-#     test_data = tf.linspace([[-10.,10.], [-10.,10.]],[[-10.,10.], [10.,-10.]], 10) 
+    model, _, _ = trieste_mcdropout_model(example_data, dropout=DropoutNetwork)
 
-#     model, _, _ = trieste_deep_mcdropout_model(example_data, dropout=DropoutNetwork)
+    sampler = DropoutTrajectorySampler(model)
 
-#     sampler = DropoutTrajectorySampler(model)
+    trajectory = sampler.get_trajectory()
+    evals_1 = trajectory(test_data)
 
-#     trajectory = sampler.get_trajectory()
-#     evals_1 = trajectory(test_data)
+    trajectory = sampler.resample_trajectory(trajectory)
+    evals_2 = trajectory(test_data)
 
-#     trajectory = sampler.resample_trajectory(trajectory)
-#     evals_2 = trajectory(test_data)
+    trajectory = sampler.resample_trajectory(trajectory)
+    evals_3 = trajectory(test_data)
 
-#     trajectory = sampler.resample_trajectory(trajectory)
-#     evals_3 = trajectory(test_data)
+    # no retracing
+    assert trajectory.__call__._get_tracing_count() == 1  # type: ignore
 
-#     # no retracing
-#     assert trajectory.__call__._get_tracing_count() == 1  # type: ignore
-
-#     # check all samples are different
-#     npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_2))
-#     npt.assert_array_less(1e-4, tf.abs(evals_2 - evals_3))
-#     npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_3))
+    # check all samples are different
+    npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_2))
+    npt.assert_array_less(1e-4, tf.abs(evals_2 - evals_3))
+    npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_3))

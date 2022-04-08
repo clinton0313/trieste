@@ -165,7 +165,7 @@ class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
     of the stochastic forward passes as a trajectory.
     """
 
-    def __init__(self, model: TrainableProbabilisticModel, use_samples: bool = False):
+    def __init__(self, model: TrainableProbabilisticModel):
         """
         :param model: The MC dropout model to sample from.
         """
@@ -178,7 +178,6 @@ class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
         super().__init__(model)
 
         self._model = model
-        self._use_samples = use_samples
 
     def __repr__(self) -> str:
         """"""
@@ -193,7 +192,7 @@ class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
             from the model, taking an input of shape `[N, 1, D]` and returning shape `[N, 1]`.
         """
 
-        return dropout_trajectory(self._model, self._use_samples)
+        return dropout_trajectory(self._model)
 
     def resample_trajectory(self, trajectory: TrajectoryFunction) -> TrajectoryFunction:
         """
@@ -214,7 +213,7 @@ class dropout_trajectory(TrajectoryFunctionClass):
     of the stochastic forward passes as a trajectory. 
     """
 
-    def __init__(self, model: TrainableProbabilisticModel, use_samples: bool):
+    def __init__(self, model: TrainableProbabilisticModel):
         """
         :param model: The model of the objective function.
         """
@@ -252,10 +251,10 @@ class dropout_trajectory(TrajectoryFunctionClass):
 
         predictions = []
         batch_index = tf.range(0, self._batch_size, 1)
-        _ = self._model.predict(x[:1,0,:], num_passes=1) # [DAV] Somehow first seed doesn't propagate unless I've done a dummy pred before.
+        _ = self._model.sample(x[:1,0,:], num_samples=1) # [DAV] Somehow first seed doesn't propagate unless I've done a dummy pred before.
         for b, seed in zip(batch_index, tf.unstack(self._seeds)):
             tf.random.set_seed(seed) # [DAV] A possible local seed? One can pass operational seeds to both types of dropouts, but it doesn't seem to fix the prediction
-            predictions.append(self._model.predict(x[:,b,:], num_passes=1)[0])
+            predictions.append(self._model.sample(x[:,b,:], num_samples=1)[0])
 
         return tf.transpose(tf.squeeze(predictions, axis=-1), perm=[1,0])
 

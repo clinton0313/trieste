@@ -35,6 +35,7 @@ from trieste.models.keras import (
     negative_log_likelihood,
     sample_with_replacement,
 )
+from trieste.models.keras.architectures import DropConnectNetwork
 from trieste.models.optimizer import KerasOptimizer, TrainingData
 
 @pytest.fixture(name="ensemble_size", params=[2, 5])
@@ -56,6 +57,15 @@ def _get_example_data(query_point_shape: ShapeLike) -> Dataset:
     obs = fnc_2sin_x_over_3(qp)
     return Dataset(qp, obs)
 
+def _get_linear_data(query_point_shape: ShapeLike) -> Dataset:
+    qp = tf.random.uniform(tf.TensorShape(query_point_shape), minval=-4, maxval=4, dtype=tf.float32)
+    obs = tf.multiply(3, qp)
+    return Dataset(qp, obs)
+
+def _get_linear_data2(query_point_shape: ShapeLike) -> Dataset:
+    qp = tf.random.uniform(tf.TensorShape(query_point_shape), minval=-4, maxval=4, dtype=tf.float32)
+    obs = tf.multiply(-3, qp)
+    return Dataset(qp, obs)
 
 def _ensemblise_data(
     model: KerasEnsemble, data: Dataset, ensemble_size: int, bootstrap: bool = False
@@ -76,6 +86,8 @@ def _ensemblise_data(
 _ENSEMBLE_SIZE = 3
 _RATE = 0.1
 
+
+@pytest.mark.mcdropout
 @pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
 def test_mcdropout_repr(
     optimizer: tf.optimizers.Optimizer,
@@ -83,13 +95,13 @@ def test_mcdropout_repr(
 ) -> None:
     example_data = empty_dataset([1], [1])
 
-    dropout_nn = trieste_dropout_network_model(example_data, _RATE)
-    dropout_nn.compile(optimizer, loss="mse")
+    dropout_network = trieste_dropout_network_model(example_data, _RATE)
+    dropout_network.compile(optimizer, loss="mse")
     optimizer_wrapper = KerasOptimizer(optimizer, loss="mse")
-    model = MCDropout(dropout_nn, optimizer_wrapper)
+    model = MCDropout(dropout_network, optimizer_wrapper)
 
     expected_repr = (
-        f"MCDropout({dropout_nn!r}, {optimizer_wrapper!r})"
+        f"MCDropout({dropout_network!r}, {optimizer_wrapper!r})"
     )
 
     assert type(model).__name__ in repr(model)
@@ -97,19 +109,21 @@ def test_mcdropout_repr(
 
 def test_dropout_network_model_attributes() -> None:
     example_data = empty_dataset([1], [1])
-    model, dropout_nn, optimizer = trieste_mcdropout_model(
+    model, dropout_network, optimizer = trieste_mcdropout_model(
         example_data, rate=_RATE
     )
 
-    dropout_nn.compile(optimizer=optimizer.optimizer, loss=optimizer.loss)
+    dropout_network.compile(optimizer=optimizer.optimizer, loss=optimizer.loss)
 
-    assert model.model is dropout_nn
+    assert model.model is dropout_network
 
+
+@pytest.mark.mcdropout
 def test_dropout_network_default_optimizer_is_correct() -> None:
     example_data = empty_dataset([1], [1])
     # breakpoint()
-    dropout_nn = trieste_dropout_network_model(example_data, _RATE)
-    model = MCDropout(dropout_nn)
+    dropout_network = trieste_dropout_network_model(example_data, _RATE)
+    model = MCDropout(dropout_network)
     default_loss = "mse"
     default_fit_args = {
         "batch_size": 32,
@@ -123,6 +137,8 @@ def test_dropout_network_default_optimizer_is_correct() -> None:
     assert model.optimizer.fit_args == default_fit_args
     assert model.optimizer.loss == default_loss
 
+
+@pytest.mark.mcdropout
 def test_mcdropout_optimizer_changed_correctly() -> None:
     example_data = empty_dataset([1], [1])
 
@@ -135,13 +151,15 @@ def test_mcdropout_optimizer_changed_correctly() -> None:
     custom_loss = negative_log_likelihood
     optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
 
-    dropout_nn = trieste_dropout_network_model(example_data, _RATE)
-    model = MCDropout(dropout_nn, optimizer_wrapper)
+    dropout_network = trieste_dropout_network_model(example_data, _RATE)
+    model = MCDropout(dropout_network, optimizer_wrapper)
 
     assert model.optimizer == optimizer_wrapper
     assert model.optimizer.optimizer == custom_optimizer
     assert model.optimizer.fit_args == custom_fit_args
 
+
+@pytest.mark.mcdropout
 def test_mcdropout_is_compiled() -> None:
     example_data = empty_dataset([1], [1])
     model, _, _ = trieste_mcdropout_model(example_data, _RATE)
@@ -149,3 +167,98 @@ def test_mcdropout_is_compiled() -> None:
     assert model.model.compiled_loss is not None
     assert model.model.compiled_metrics is not None
     assert model.model.optimizer is not None
+
+# @pytest.mark.skip
+# def test_config_builds_mcdropout_and_default_optimizer_is_correct() -> None:
+#     example_data = empty_dataset([1], [1])
+
+#     dropout_network = trieste_dropout_network_model(example_data, _RATE)
+
+#     model_config = {"model": dropout_network}
+#     model = create_model(model_config)
+#     default_fit_args = {
+#         "verbose": 0,
+#         "epochs": 100,
+#         "batch_size": 100,
+#     }
+
+#     assert isinstance(model, MCDropout)
+#     assert isinstance(model.optimizer, KerasOptimizer)
+#     assert isinstance(model.optimizer.optimizer, tf.keras.optimizers.Optimizer)
+#     assert model.optimizer.fit_args == default_fit_args
+
+
+@pytest.mark.mcdropout
+@pytest.mark.parametrize("dataset_size", [10, 100])
+def test_mcdropout_predict_call_shape(dataset_size: int) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+    model, _, _ = trieste_mcdropout_model(example_data, _RATE)
+
+    predicted_means, predicted_vars = model.predict(example_data.query_points)
+
+    assert tf.is_tensor(predicted_vars)
+    assert predicted_vars.shape == example_data.observations.shape
+    assert tf.is_tensor(predicted_means)
+    assert predicted_means.shape == example_data.observations.shape
+
+
+@pytest.mark.mcdropout
+@pytest.mark.parametrize("num_samples", [6, 12])
+@pytest.mark.parametrize("dataset_size", [4, 8])
+def test_mcdropout_sample_call_shape(num_samples: int, dataset_size: int) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+    model, _, _ = trieste_mcdropout_model(example_data, _RATE)
+
+    samples = model.sample(example_data.query_points, num_samples)
+
+    assert tf.is_tensor(samples)
+    assert samples.shape == [num_samples, dataset_size, 1]
+
+@random_seed
+@pytest.mark.mcdropout
+def test_mcdropout_optimize_with_defaults() -> None:
+    example_data = _get_example_data([100, 1])
+
+    dropout_network = trieste_dropout_network_model(example_data, _RATE)
+
+    model = MCDropout(dropout_network)
+
+    model.optimize(example_data)
+    loss = model.model.history.history["loss"]
+
+    assert loss[-1] < loss[0]
+
+# @random_seed
+# @pytest.mark.mcdropout
+# def test_mcdropout_optimize_with_new_data() -> None:
+#     example_data = _get_example_data([20, 1])
+#     updated_data = example_data + _get_example_data([80, 1])
+
+#     dropout_network = trieste_dropout_network_model(example_data, _RATE)
+
+#     model = MCDropout(dropout_network)
+
+#     model.optimize(example_data)
+#     loss_pre = model.model.history.history["loss"]
+#     model.optimize(updated_data)
+#     loss_post = model.model.history.history["loss"]
+#     # breakpoint()
+#     assert loss_post[-1] < loss_pre[-1]
+
+@random_seed
+@pytest.mark.mcdropout
+def test_mcdropout_optimize_with_linear_data() -> None:
+    breakpoint()
+    example_linear = _get_linear_data([50,1])
+    new_points = _get_linear_data2([50,1])
+    new_data = example_linear + new_points
+
+    dropout_network = trieste_dropout_network_model(example_linear, _RATE, DropConnectNetwork)
+
+    model = MCDropout(dropout_network)
+
+    model.optimize(example_linear)
+    loss_pre = model.model.history.history["loss"]
+    model.optimize(new_data)
+    loss_post = model.model.history.history["loss"]
+    

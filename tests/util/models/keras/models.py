@@ -90,17 +90,18 @@ def trieste_dropout_network_model(
 
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
 
-    keras_mcdropout = dropout(
+    dropout_network = dropout(
         input_tensor_spec,
         output_tensor_spec,
         hidden_layer_args=[
-            {"units": 50, "activation": "relu"},
-            {"units": 50, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
         ],
         rate=rate
     )
 
-    return keras_mcdropout
+    return dropout_network
 
 def trieste_mcdropout_model(
     example_data:Dataset, 
@@ -108,7 +109,7 @@ def trieste_mcdropout_model(
     dropout:DropoutNetwork=DropoutNetwork
 ) -> MCDropout:
 
-    dropout_nn = trieste_dropout_network_model(
+    dropout_network = trieste_dropout_network_model(
         example_data, 
         rate=rate,
         dropout=dropout
@@ -122,6 +123,11 @@ def trieste_mcdropout_model(
     }
     optimizer_wrapper = KerasOptimizer(optimizer, fit_args)
 
-    model = MCDropout(dropout_nn, optimizer_wrapper)
+    model = MCDropout(dropout_network, optimizer_wrapper)
 
-    return model, dropout_nn, optimizer_wrapper
+    return model, dropout_network, optimizer_wrapper
+
+class MCDropConnect(MCDropout):
+    '''Placeholder class for Bayesian optimization integration tests.'''
+    def __init__(self, model:DropConnectNetwork, **model_args):
+        super().__init__(model=model, **model_args)
