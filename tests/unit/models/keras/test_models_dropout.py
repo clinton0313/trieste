@@ -67,23 +67,6 @@ def _get_linear_data2(query_point_shape: ShapeLike) -> Dataset:
     obs = tf.multiply(-3, qp)
     return Dataset(qp, obs)
 
-def _ensemblise_data(
-    model: KerasEnsemble, data: Dataset, ensemble_size: int, bootstrap: bool = False
-) -> TrainingData:
-    inputs = {}
-    outputs = {}
-    for index in range(ensemble_size):
-        if bootstrap:
-            resampled_data = sample_with_replacement(data)
-        else:
-            resampled_data = data
-        input_name = model.model.input_names[index]
-        output_name = model.model.output_names[index]
-        inputs[input_name], outputs[output_name] = resampled_data.astuple()
-
-    return inputs, outputs
-
-_ENSEMBLE_SIZE = 3
 _RATE = 0.1
 
 
@@ -121,7 +104,7 @@ def test_dropout_network_model_attributes() -> None:
 @pytest.mark.mcdropout
 def test_dropout_network_default_optimizer_is_correct() -> None:
     example_data = empty_dataset([1], [1])
-    # breakpoint()
+
     dropout_network = trieste_dropout_network_model(example_data, _RATE)
     model = MCDropout(dropout_network)
     default_loss = "mse"
@@ -168,24 +151,25 @@ def test_mcdropout_is_compiled() -> None:
     assert model.model.compiled_metrics is not None
     assert model.model.optimizer is not None
 
-# @pytest.mark.skip
-# def test_config_builds_mcdropout_and_default_optimizer_is_correct() -> None:
-#     example_data = empty_dataset([1], [1])
 
-#     dropout_network = trieste_dropout_network_model(example_data, _RATE)
+@pytest.mark.skip
+def test_config_builds_mcdropout_and_default_optimizer_is_correct() -> None:
+    example_data = empty_dataset([1], [1])
 
-#     model_config = {"model": dropout_network}
-#     model = create_model(model_config)
-#     default_fit_args = {
-#         "verbose": 0,
-#         "epochs": 100,
-#         "batch_size": 100,
-#     }
+    dropout_network = trieste_dropout_network_model(example_data, _RATE)
 
-#     assert isinstance(model, MCDropout)
-#     assert isinstance(model.optimizer, KerasOptimizer)
-#     assert isinstance(model.optimizer.optimizer, tf.keras.optimizers.Optimizer)
-#     assert model.optimizer.fit_args == default_fit_args
+    model_config = {"model": dropout_network}
+    model = create_model(model_config)
+    default_fit_args = {
+        "verbose": 0,
+        "epochs": 100,
+        "batch_size": 100,
+    }
+
+    assert isinstance(model, MCDropout)
+    assert isinstance(model.optimizer, KerasOptimizer)
+    assert isinstance(model.optimizer.optimizer, tf.keras.optimizers.Optimizer)
+    assert model.optimizer.fit_args == default_fit_args
 
 
 @pytest.mark.mcdropout
@@ -214,6 +198,7 @@ def test_mcdropout_sample_call_shape(num_samples: int, dataset_size: int) -> Non
     assert tf.is_tensor(samples)
     assert samples.shape == [num_samples, dataset_size, 1]
 
+
 @random_seed
 @pytest.mark.mcdropout
 def test_mcdropout_optimize_with_defaults() -> None:
@@ -228,37 +213,76 @@ def test_mcdropout_optimize_with_defaults() -> None:
 
     assert loss[-1] < loss[0]
 
-# @random_seed
-# @pytest.mark.mcdropout
-# def test_mcdropout_optimize_with_new_data() -> None:
-#     example_data = _get_example_data([20, 1])
-#     updated_data = example_data + _get_example_data([80, 1])
-
-#     dropout_network = trieste_dropout_network_model(example_data, _RATE)
-
-#     model = MCDropout(dropout_network)
-
-#     model.optimize(example_data)
-#     loss_pre = model.model.history.history["loss"]
-#     model.optimize(updated_data)
-#     loss_post = model.model.history.history["loss"]
-#     # breakpoint()
-#     assert loss_post[-1] < loss_pre[-1]
-
-@random_seed
 @pytest.mark.mcdropout
-def test_mcdropout_optimize_with_linear_data() -> None:
-    breakpoint()
-    example_linear = _get_linear_data([50,1])
-    new_points = _get_linear_data2([50,1])
-    new_data = example_linear + new_points
+def test_mcdropout_learning_rate_resets() -> None:
+    example_data = _get_example_data([100,1])
 
-    dropout_network = trieste_dropout_network_model(example_linear, _RATE, DropConnectNetwork)
+    dropout_network = trieste_dropout_network_model(example_data, _RATE)
 
     model = MCDropout(dropout_network)
 
-    model.optimize(example_linear)
-    loss_pre = model.model.history.history["loss"]
-    model.optimize(new_data)
-    loss_post = model.model.history.history["loss"]
+    model.optimize(example_data)
+    lr1 = model.model.history.history["lr"]
+
+    model.optimize(example_data)
+    lr2 = model.model.history.history["lr"]
+
+    assert lr1[0] == lr2[0]
+
+
+@random_seed
+@pytest.mark.mcdropout
+def test_mcdropout_optimizer_learns_new_data() -> None:
     
+    positive_slope = _get_linear_data([20,1])
+    negative_slope = _get_linear_data2([20,1])
+    new_data = positive_slope + negative_slope
+    qp = tf.constant([[1.]])
+
+    dropout_network = trieste_dropout_network_model(positive_slope, _RATE, DropoutNetwork)
+
+    model = MCDropout(dropout_network)
+
+    model.optimize(positive_slope)
+    pred1, _ = model.predict(qp)
+    model.optimize(new_data)
+    pred2, _ = model.predict(qp)
+
+    assert np.abs(pred1-pred2) > 1
+
+
+@random_seed
+@pytest.mark.parametrize("epochs", [5, 15])
+@pytest.mark.parametrize("learning_rate", [0.01, 0.1])
+@pytest.mark.parametrize("rate", [0.1, 0.2])
+def test_mcdropout_optimize(rate: int, epochs: int, learning_rate: float) -> None:
+    example_data = _get_example_data([20, 1])
+
+    dropout_network = trieste_dropout_network_model(example_data, rate, DropoutNetwork)
+
+    custom_optimizer = tf.optimizers.RMSprop()
+    custom_fit_args = {
+        "verbose": 0,
+        "epochs": epochs,
+        "batch_size": 10,
+        "callbacks": [
+            tf.keras.callbacks.EarlyStopping(
+                monitor="loss", patience=80, restore_best_weights=True
+            ),
+            tf.keras.callbacks.ReduceLROnPlateau(
+                monitor="loss", factor=0.3, patience=15
+            )
+        ]
+    }
+    optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args)
+
+    model = MCDropout(dropout_network, optimizer=optimizer_wrapper, learning_rate=learning_rate)
+
+    model.optimize(example_data)
+
+    lr_hist = model.model.history.history["lr"]
+    loss = model.model.history.history["loss"]
+
+    assert loss[-1] < loss[0]
+    assert len(loss) == epochs
+    npt.assert_almost_equal(lr_hist[0], learning_rate, decimal=3)

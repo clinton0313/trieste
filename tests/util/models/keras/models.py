@@ -87,7 +87,7 @@ def trieste_dropout_network_model(
     rate: Sequence[float | int] | float | int = 0.1,
     dropout: DropoutNetwork = DropoutNetwork
 ) -> DropoutNetwork:
-
+    
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
 
     dropout_network = dropout(
