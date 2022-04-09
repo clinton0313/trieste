@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Union
 
 import gpflow
 import numpy as np
@@ -28,6 +28,7 @@ from trieste.models.keras import (
     GaussianNetwork,
     KerasEnsemble,
     KerasEnsembleNetwork,
+    DeepEvidentialNetwork,
     get_tensor_spec_from_data,
     negative_log_likelihood,
 )
@@ -262,3 +263,122 @@ def test_gaussian_network_is_correctly_constructed(
     assert isinstance(network_built.layers[0], tf.keras.layers.InputLayer)
     assert len(network_built.layers[1:-2]) == num_hidden_layers
     assert isinstance(network_built.layers[-1], tfp.layers.DistributionLambda)
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_network_is_model() -> None:
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    deep_evidential = DeepEvidentialNetwork(inputs, outputs)
+
+    assert isinstance(deep_evidential, tf.keras.Model)
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_network_can_be_compiled() -> None:
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    deep_evidential = DeepEvidentialNetwork(inputs, outputs)
+
+    deep_evidential.compile(tf.optimizers.Adam(), negative_log_likelihood)
+
+    assert deep_evidential.compiled_loss is not None
+    assert deep_evidential.compiled_metrics is not None
+    assert deep_evidential.optimizer is not None
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("n_dims", list(range(10)))
+def test_deep_evidential_network_flattened_output_shape(n_dims: int) -> None:
+
+    shape = np.random.randint(1, 10, (n_dims,))
+    tensor = np.random.randint(0, 1, shape)
+    tensor_spec = tf.TensorSpec(shape)
+
+    deep_evidential = DeepEvidentialNetwork(tensor_spec, tensor_spec)
+    flattened_shape = deep_evidential.flattened_output_shape
+
+    assert flattened_shape == np.size(tensor)
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_network_check_default_hidden_layer_args() -> None:
+    example_data = empty_dataset([1], [1])
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
+
+    deep_evidential = DeepEvidentialNetwork(
+        input_tensor_spec,
+        output_tensor_spec,
+    )
+    default_args = (            
+            {"units": 100, "activation": "relu"},
+            {"units": 100, "activation": "relu"},
+            {"units": 100, "activation": "relu"}
+    )
+
+    assert deep_evidential._hidden_layer_args == default_args
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("n", list(range(0, 10, 2)))
+@pytest.mark.parametrize(
+    "query_point_shape, observation_shape",
+    [
+        ([1], [1]),
+        ([5], [1]),
+        ([5], [2]),
+    ],
+)
+def test_deep_evidential_network_output_shape_is_correct(query_point_shape:int, observation_shape: int, n: int) -> None:
+
+    example_data = empty_dataset(query_point_shape, observation_shape)
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    x = tf.constant(np.random.uniform(1., 10., n))
+
+    deep_evidential = DeepEvidentialNetwork(inputs, outputs)
+    output = deep_evidential(x)
+
+    assert output.shape == (np.size(x), int(np.prod(outputs.shape)) * 4)
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "query_point_shape, observation_shape",
+    [
+        ([1], [1]),
+        ([5], [1]),
+        ([5], [2]),
+    ],
+)
+@pytest.mark.parametrize("units", [3, 5])
+@pytest.mark.parametrize("activation", [tf.keras.activations.tanh, "relu"])
+def test_deep_evidential_network_is_correctly_constructed(
+    query_point_shape: List[int], 
+    observation_shape: List[int], 
+    num_hidden_layers: int,
+    units: int, 
+    activation: Union[str, tf.keras.layers.Activation]
+) -> None:
+
+    example_data = empty_dataset(query_point_shape, observation_shape)
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
+
+    hidden_layer_args = [
+        {"units": units, "activation": activation}
+        for _ in range(num_hidden_layers)
+    ]
+    deep_evidential = DeepEvidentialNetwork(
+        input_tensor_spec,
+        output_tensor_spec,
+        hidden_layer_args,
+    )
+
+    # check layers
+    assert len(deep_evidential.layers) == 2
+    assert isinstance(deep_evidential.layers[0], tf.keras.models.Sequential)
+    assert len(deep_evidential.layers[0].layers) == len(hidden_layer_args)
+    for layer in deep_evidential.layers[0].layers:
+        assert isinstance(layer, tf.keras.layers.Dense)
+        assert layer.units == units
+        assert layer.activation == activation or layer.activation.__name__ == activation
+    assert isinstance(deep_evidential.layers[1], tf.keras.layers.Dense)

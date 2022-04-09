@@ -238,9 +238,9 @@ class GaussianNetwork(KerasEnsembleNetwork):
 class DeepEvidentialNetwork(tf.keras.Model):
     """
     This class builds a fully connected neural network with a deep evidential outputusing Keras. 
-    The network architecture is a multilayer fully-connected feed-forward network, that concatenates
-    four separate feed-forward layers as the final output layer to produce the four parameters for a 
-    Deep Evidential Regression. The network is meant to be passed to 
+    The network architecture is a multilayer fully-connected feed-forward network whose final output layer
+    outputs four parameters corresponding to each observation that is meant to be used with a deep
+    evidential loss function. This network is meant to be used with 
     :class:`~trieste.models.keras.models.DeepEvidentialRegression` which will define the predict method 
     to make this a probabilistic model. 
     """
@@ -272,10 +272,7 @@ class DeepEvidentialNetwork(tf.keras.Model):
         self._hidden_layer_args = hidden_layer_args
 
         self.hidden_layers = self._gen_hidden_layers()
-        self.gamma_output_layer = self._gen_output_layer("gamma_output_layer")
-        self.lambda_output_layer = self._gen_output_layer("lambda_output_layer")
-        self.alpha_output_layer = self._gen_output_layer("alpha_output_layer")
-        self.beta_output_layer = self._gen_output_layer("beta_output_layer")
+        self.output_layer = self._gen_output_layer()
 
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
@@ -285,14 +282,14 @@ class DeepEvidentialNetwork(tf.keras.Model):
                 dtype=self.input_tensor_spec.dtype, 
                 **hidden_layer_args
             ))
+
         return hidden_layers
 
-    def _gen_output_layer(self, layer_name:str) -> tf.keras.layers.Layer:
+    def _gen_output_layer(self) -> tf.keras.layers.Layer:
 
         output_layer = tf.keras.layers.Dense(
-            units=self.flattened_output_shape,
-            dtype=self.input_tensor_spec.dtype,
-            name=layer_name
+            units= 4 * self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype
         )
 
         return output_layer
@@ -303,12 +300,6 @@ class DeepEvidentialNetwork(tf.keras.Model):
             inputs = tf.expand_dims(inputs, axis=-1)
 
         hidden_output = self.hidden_layers(inputs)
-        gamma_output = self.gamma_output_layer(hidden_output)
-        lambda_output = self.lambda_output_layer(hidden_output)
-        alpha_output = self.alpha_output_layer(hidden_output)
-        beta_output = self.beta_output_layer(hidden_output)
+        output = self.output_layer(hidden_output)
 
-        return tf.concat(
-            [gamma_output, lambda_output, alpha_output, beta_output],
-            axis=-1
-        )
+        return output
