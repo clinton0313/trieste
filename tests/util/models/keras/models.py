@@ -27,6 +27,8 @@ from trieste.models.keras import (
     DeepEnsemble,
     GaussianNetwork,
     KerasEnsemble,
+    MCDropout,
+    DropConnectNetwork,
     get_tensor_spec_from_data,
 )
 from trieste.models.optimizer import KerasOptimizer
@@ -78,3 +80,8 @@ def trieste_deep_ensemble_model(
     model = DeepEnsemble(keras_ensemble, optimizer_wrapper, bootstrap_data)
 
     return model, keras_ensemble, optimizer_wrapper
+    
+class MCDropConnect(MCDropout):
+    '''Placeholder class for Bayesian optimization integration tests.'''
+    def __init__(self, model:DropConnectNetwork, **model_args):
+        super().__init__(model=model, **model_args)
