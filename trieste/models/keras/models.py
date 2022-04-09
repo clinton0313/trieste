@@ -373,7 +373,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         self,
         model: DropoutNetwork,
         optimizer: Optional[KerasOptimizer] = None,
-        num_passes: int = 200,
+        num_passes: int = 100,
         learning_rate: float = 0.01
     ) -> None:
         """
@@ -398,16 +398,18 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
                 "batch_size": 32,
                 "callbacks": [
                     tf.keras.callbacks.EarlyStopping(
-                        monitor="loss", patience=80, restore_best_weights=True
+                        monitor="loss", patience=100, restore_best_weights=True
                     ),
                     tf.keras.callbacks.ReduceLROnPlateau(
-                        monitor="loss", factor=0.3, patience=15
+                        monitor="loss", factor=0.3, patience=20
                     )
                 ],
             }
 
         if self.optimizer.loss is None:
             self.optimizer.loss = "mse"
+
+        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
 
         model.compile(
             self.optimizer.optimizer,
@@ -434,7 +436,8 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         Optimization is performed by using the Keras `fit` method, rather than applying the
         optimizer and using the batches supplied with the optimizer wrapper. User can pass
         arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
-        These default to using 100 epochs, batch size 100, and verbose 0. See
+        These default to using 1000 epochs, batch size 100, and verbose 0 with an early stopping
+        callback using a patience of 100 epochs and a learning rate scheduler . See
         https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
         arguments.
 
@@ -445,6 +448,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         """
         self.optimizer.optimizer.learning_rate = self.learning_rate
         x, y = dataset.astuple()
+        self.optimizer.optimizer.learning_rate = self._learning_rate
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
     def update(self, dataset: Dataset) -> None:
