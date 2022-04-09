@@ -23,6 +23,7 @@ import tensorflow as tf
 from _pytest.mark import ParameterSet
 
 from tests.util.misc import random_seed
+from tests.util.models.keras.models import MCDropConnect
 from trieste.acquisition import (
     GIBBON,
     AcquisitionFunctionClass,
@@ -57,7 +58,14 @@ from trieste.models.gpflow import (
     build_svgp,
 )
 from trieste.models.gpflux import DeepGaussianProcess, build_vanilla_deep_gp
-from trieste.models.keras import DeepEnsemble, build_vanilla_keras_ensemble
+from trieste.models.keras import (
+    DeepEnsemble, 
+    MCDropout,
+    DropConnectNetwork,
+    DropoutNetwork,
+    build_vanilla_keras_mcdropout,
+    build_vanilla_keras_ensemble
+)
 from trieste.models.optimizer import BatchOptimizer, KerasOptimizer
 from trieste.objectives import (
     BRANIN_MINIMIZERS,
@@ -344,6 +352,81 @@ def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_simple_quadratic(
     _test_optimizer_finds_minimum(DeepEnsemble, num_steps, acquisition_rule)
 
 
+@random_seed
+@pytest.mark.slow
+@pytest.mark.mcdropout
+@pytest.mark.parametrize(
+    "rate, num_steps, acquisition_rule",
+    [
+        pytest.param(0.25, 5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(0.1, 5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
+    ],
+)
+def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
+    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout]
+) -> None:
+    _test_optimizer_finds_minimum(MCDropout, num_steps, acquisition_rule)
+
+@random_seed
+@pytest.mark.slow
+@pytest.mark.mcdropout
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
+    ],
+)
+def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
+    num_steps: int,
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout],
+) -> None:
+    _test_optimizer_finds_minimum(
+        MCDropout,
+        num_steps,
+        acquisition_rule,
+        optimize_branin=True
+    )
+
+
+@random_seed
+@pytest.mark.slow
+@pytest.mark.mcdropout
+@pytest.mark.parametrize(
+    "rate, num_steps, acquisition_rule",
+    [
+        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
+    ],
+)
+def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_simple_quadratic(
+    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect]
+) -> None:
+    _test_optimizer_finds_minimum(MCDropConnect, num_steps, acquisition_rule)
+
+@random_seed
+@pytest.mark.slow
+@pytest.mark.mcdropout
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
+    ],
+)
+def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_scaled_branin(
+    num_steps: int,
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect],
+) -> None:
+    _test_optimizer_finds_minimum(
+        MCDropConnect,
+        num_steps,
+        acquisition_rule,
+        optimize_branin=True
+    )
+
+
+
 def _test_optimizer_finds_minimum(
     model_type: Type[TrainableProbabilisticModelType],
     num_steps: Optional[int],
@@ -422,6 +505,32 @@ def _test_optimizer_finds_minimum(
         }
         de_optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.001), fit_args)
         model = DeepEnsemble(keras_ensemble, de_optimizer, **model_args)
+
+    elif model_type is MCDropout or model_type is MCDropConnect:
+        track_state = False
+        
+        if model_type is MCDropConnect:
+            dropout_network = build_vanilla_keras_mcdropout(initial_data, rate=0.35, dropout_network=DropConnectNetwork)
+        else:
+            if isinstance(acquisition_rule, EfficientGlobalOptimization):
+                rate=0.25
+            elif isinstance(acquisition_rule, DiscreteThompsonSampling):
+                rate=0.1
+            dropout_network = build_vanilla_keras_mcdropout(initial_data,  rate=rate, dropout_network=DropoutNetwork)
+        
+        fit_args = {
+            "batch_size": 32,
+            "epochs": 1000,
+            "callbacks": [
+                tf.keras.callbacks.EarlyStopping(monitor="loss", patience=80), 
+                tf.keras.callbacks.ReduceLROnPlateau(monitor="loss", factor=0.3, patience=15)
+                ],
+            "verbose": 0
+        }
+
+        mc_optimizer = KerasOptimizer(tf.keras.optimizers.Adam(learning_rate=0.001), fit_args)
+
+        model = MCDropout(dropout_network, mc_optimizer, num_passes=200, **model_args)
 
     else:
         raise ValueError(f"Unsupported model_type '{model_type}'")

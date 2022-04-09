@@ -66,11 +66,12 @@ from trieste.types import State, TensorType
 
 @random_seed
 @pytest.mark.slow
+@pytest.mark.mcdropout
 @pytest.mark.parametrize(
-    "num_steps, acquisition_rule",
+    "rate, num_steps, acquisition_rule",
     [
-        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
+        pytest.param(0.25, 5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(0.1, 5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
     ],
 )
 def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
@@ -80,10 +81,11 @@ def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
 
 @random_seed
 @pytest.mark.slow
+@pytest.mark.mcdropout
 @pytest.mark.parametrize(
     "num_steps, acquisition_rule",
     [
-        # pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
         pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
     ],
 )
@@ -101,8 +103,9 @@ def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
 
 @random_seed
 @pytest.mark.slow
+@pytest.mark.mcdropout
 @pytest.mark.parametrize(
-    "num_steps, acquisition_rule",
+    "rate, num_steps, acquisition_rule",
     [
         pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
         pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
@@ -114,11 +117,12 @@ def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_simple_quadratic(
     _test_optimizer_finds_minimum(MCDropConnect, num_steps, acquisition_rule)
 
 @random_seed
-# @pytest.mark.slow
+@pytest.mark.slow
+@pytest.mark.mcdropout
 @pytest.mark.parametrize(
     "num_steps, acquisition_rule",
     [
-        # pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
         pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
     ],
 )
@@ -217,9 +221,13 @@ def _test_optimizer_finds_minimum(
         track_state = False
         
         if model_type is MCDropConnect:
-            dropout_network = build_vanilla_keras_mcdropout(initial_data, rate=0.2, dropout_network=DropConnectNetwork)
+            dropout_network = build_vanilla_keras_mcdropout(initial_data, rate=0.35, dropout_network=DropConnectNetwork)
         else:
-            dropout_network = build_vanilla_keras_mcdropout(initial_data, rate=0.03, dropout_network=DropoutNetwork)
+            if isinstance(acquisition_rule, EfficientGlobalOptimization):
+                rate=0.25
+            elif isinstance(acquisition_rule, DiscreteThompsonSampling):
+                rate=0.1
+            dropout_network = build_vanilla_keras_mcdropout(initial_data,  rate=rate, dropout_network=DropoutNetwork)
         
         fit_args = {
             "batch_size": 32,
