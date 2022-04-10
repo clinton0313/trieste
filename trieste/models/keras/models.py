@@ -332,3 +332,27 @@ class DeepEnsemble(
 
         x, y = self.prepare_dataset(dataset)
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
+
+
+class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel, HasTrajectorySampler):
+    def __init__(
+        self,
+        model,
+        optimizer,
+    ) -> None:
+        ...
+    
+    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
+        ...
+    
+    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
+        ...
+    
+    def update(self) -> None:
+        pass
+    
+    def optimize(self, dataset: Dataset) -> None:
+        ...
+    
+    def trajectory_sampler(self) -> TrajectorySampler:
+        ...
