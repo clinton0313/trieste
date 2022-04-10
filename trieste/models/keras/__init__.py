@@ -22,7 +22,7 @@ to `False`.
 
 from . import config
 from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork, DeepEvidentialNetwork
-from .builders import build_vanilla_keras_ensemble
+from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_deep_evidential
 from .interface import KerasPredictor
 from .models import DeepEnsemble
 from .sampler import EnsembleTrajectorySampler
