@@ -301,5 +301,13 @@ class DeepEvidentialNetwork(tf.keras.Model):
 
         hidden_output = self.hidden_layers(inputs)
         output = self.output_layer(hidden_output)
+        
+        gamma, lamb, alpha, beta = tf.split(output, 4, axis=-1)
+        #Here we apply the softplus to ensure that are evidential parameters are > 0. 
+        #In the case of alpha we add 1 so that our aleatoric and epistemic uncertainties
+        #will be well behaved. A relu can be used alternatively. 
+        lamb = tf.nn.softplus(lamb)
+        alpha = tf.nn.softplus(alpha) + 1
+        beta = tf.nn.softplus(beta)
 
-        return output
+        return tf.concat([gamma, lamb, alpha, beta], axis=-1)

@@ -20,7 +20,7 @@ import pytest
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from tests.util.misc import empty_dataset
+from tests.util.misc import empty_dataset, random_seed
 from tests.util.models.gpflow.models import gpr_model
 from tests.util.models.keras.models import trieste_keras_ensemble_model
 from tests.util.models.models import fnc_3x_plus_10
@@ -382,3 +382,36 @@ def test_deep_evidential_network_is_correctly_constructed(
         assert layer.units == units
         assert layer.activation == activation or layer.activation.__name__ == activation
     assert isinstance(deep_evidential.layers[1], tf.keras.layers.Dense)
+
+
+@random_seed
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "query_point_shape, query_point",
+    [
+        ([1], [1.]),
+        ([1], [5.]),
+        ([2], [3., 4.]),
+        ([2], [-1., 6.])
+    ]
+)
+def test_deep_evidential_network_ouputs_are_well_behaved(
+    query_point_shape: List[int],
+    query_point: List[float]
+) -> None:
+    example_data = empty_dataset(query_point_shape, [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+
+    deep_evidential = DeepEvidentialNetwork(inputs, outputs, {})
+    positive_input = tf.Variable([query_point])
+    negative_input = -1 * positive_input
+
+    output1 = deep_evidential(positive_input)
+    output2 = deep_evidential(negative_input)
+
+    for output in [output1, output2]:
+        gamma, lamb, alpha, beta = tf.split(output, 4, axis=-1)
+        assert lamb > 0
+        assert alpha > 1
+        assert beta > 0
+
