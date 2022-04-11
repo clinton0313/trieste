@@ -59,10 +59,12 @@ def test_build_vanilla_keras_ensemble(
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
 @pytest.mark.parametrize("num_hidden_layers", [0, 1, 3])
+@pytest.mark.parametrize("evidence_activation", ["relu", "exp"])
 def test_build_vanilla_deep_evidential_network(
     num_hidden_layers: int,
     units: int,
     activation: Union[str, tf.keras.layers.Activation],
+    evidence_activation: str
 ) -> None:
     example_data = empty_dataset([1], [1])
     deep_evidential = build_vanilla_keras_deep_evidential(
@@ -70,6 +72,7 @@ def test_build_vanilla_deep_evidential_network(
         num_hidden_layers,
         units,
         activation,
+        evidence_activation
     )
 
     assert isinstance(deep_evidential, DeepEvidentialNetwork)
@@ -85,3 +88,5 @@ def test_build_vanilla_deep_evidential_network(
     
     assert isinstance(deep_evidential.layers[1], tf.keras.layers.Dense)
     assert deep_evidential.layers[1].units == 4
+
+    assert deep_evidential.evidence_activation == evidence_activation
