@@ -25,7 +25,7 @@ from typing import Union
 import tensorflow as tf
 
 from ...data import Dataset
-from .architectures import GaussianNetwork, KerasEnsemble
+from .architectures import DeepEvidentialNetwork, GaussianNetwork, KerasEnsemble
 from .utils import get_tensor_spec_from_data
 
 
@@ -80,3 +80,34 @@ def build_vanilla_keras_ensemble(
     keras_ensemble = KerasEnsemble(networks)
 
     return keras_ensemble
+
+
+def build_vanilla_keras_deep_evidential(
+    data: Dataset,
+    num_hidden_layers: int = 3,
+    units: int = 100,
+    activation: Union[str, tf.keras.layers.Activation] = "relu"
+) -> DeepEvidentialNetwork:
+
+    """
+    Builds a simple feed-forward neural network in Keras that has an output layer adapted for
+    the deep evidential regression framework. 
+
+    :param dataset: Data for training, used for extracting input and output tensor specifications.
+    :param num_hidden_layers: The number of hidden layers in each network.
+    :param units: The number of nodes in each hidden layer.
+    :param activation: The activation function in each hidden layer.
+    :return: Keras deep evidential regression model.
+    """
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
+
+    hidden_layer_args = []
+    for i in range(num_hidden_layers):
+        hidden_layer_args.append({"units": units, "activation": activation})
+
+    return DeepEvidentialNetwork(
+            input_tensor_spec,
+            output_tensor_spec,
+            hidden_layer_args
+        )
+
