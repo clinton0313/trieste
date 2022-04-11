@@ -352,12 +352,14 @@ def test_deep_evidential_network_output_shape_is_correct(query_point_shape:int, 
 )
 @pytest.mark.parametrize("units", [3, 5])
 @pytest.mark.parametrize("activation", [tf.keras.activations.tanh, "relu"])
+@pytest.mark.parametrize("evidence_activation", ["relu", "exp"])
 def test_deep_evidential_network_is_correctly_constructed(
     query_point_shape: List[int], 
     observation_shape: List[int], 
     num_hidden_layers: int,
     units: int, 
-    activation: Union[str, tf.keras.layers.Activation]
+    activation: Union[str, tf.keras.layers.Activation],
+    evidence_activation:str
 ) -> None:
 
     example_data = empty_dataset(query_point_shape, observation_shape)
@@ -371,9 +373,10 @@ def test_deep_evidential_network_is_correctly_constructed(
         input_tensor_spec,
         output_tensor_spec,
         hidden_layer_args,
+        evidence_activation
     )
 
-    # check layers
+    # Check layers
     assert len(deep_evidential.layers) == 2
     assert isinstance(deep_evidential.layers[0], tf.keras.models.Sequential)
     assert len(deep_evidential.layers[0].layers) == len(hidden_layer_args)
@@ -383,26 +386,41 @@ def test_deep_evidential_network_is_correctly_constructed(
         assert layer.activation == activation or layer.activation.__name__ == activation
     assert isinstance(deep_evidential.layers[1], tf.keras.layers.Dense)
 
+    # Check evidence_activation
+    assert deep_evidential.evidence_activation == evidence_activation
+
 
 @random_seed
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize(
     "query_point_shape, query_point",
     [
+        ([1], [0.]),
         ([1], [1.]),
         ([1], [5.]),
         ([2], [3., 4.]),
         ([2], [-1., 6.])
     ]
 )
+@pytest.mark.parametrize(
+    "evidence_activation",
+    ["softplus", "relu", "exp"]
+)
 def test_deep_evidential_network_ouputs_are_well_behaved(
     query_point_shape: List[int],
-    query_point: List[float]
+    query_point: List[float],
+    evidence_activation: str
 ) -> None:
     example_data = empty_dataset(query_point_shape, [1])
     inputs, outputs = get_tensor_spec_from_data(example_data)
 
-    deep_evidential = DeepEvidentialNetwork(inputs, outputs, {})
+    deep_evidential = DeepEvidentialNetwork(
+        inputs, 
+        outputs, 
+        {},
+        evidence_activation
+    )
+
     positive_input = tf.Variable([query_point])
     negative_input = -1 * positive_input
 
@@ -410,8 +428,20 @@ def test_deep_evidential_network_ouputs_are_well_behaved(
     output2 = deep_evidential(negative_input)
 
     for output in [output1, output2]:
-        gamma, lamb, alpha, beta = tf.split(output, 4, axis=-1)
+        _, lamb, alpha, beta = tf.split(output, 4, axis=-1)
         assert lamb > 0
         assert alpha > 1
         assert beta > 0
 
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_network_raises_on_incorrect_evidential_activation() -> None:
+
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    with pytest.raises(ValueError):
+        _ = DeepEvidentialNetwork(
+            inputs,
+            outputs,
+            evidence_activation="test"
+        )

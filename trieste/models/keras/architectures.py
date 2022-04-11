@@ -254,6 +254,7 @@ class DeepEvidentialNetwork(tf.keras.Model):
             {"units": 100, "activation": "relu"},
             {"units": 100, "activation": "relu"},
         ),
+        evidence_activation: str = "softplus"
     ):
         """
         :param input_tensor_spec: Tensor specification for the input of the network. 
@@ -263,6 +264,9 @@ class DeepEvidentialNetwork(tf.keras.Model):
             :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
             available arguments. Default value is three hidden layers, 100 nodes each, with ReLu 
             activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :param evidence_activation: Activation function to be used to ensure that evidential 
+            outputs alpha, beta and lambda will be well behaved (alpha > 1, beta > 0, lambda > 0).
+            By default the "softplus" is used. Alternatively, "relu" or "exp" can be chosen. 
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
         super().__init__()
@@ -274,6 +278,22 @@ class DeepEvidentialNetwork(tf.keras.Model):
         self.hidden_layers = self._gen_hidden_layers()
         self.output_layer = self._gen_output_layer()
 
+        self.evidence_activation = evidence_activation
+
+    @property
+    def evidence_activation(self):
+        return self._evidence_activation
+    
+    @evidence_activation.setter
+    def evidence_activation(self, evidence_activation):
+        if evidence_activation not in ["softplus", "relu", "exp"]:
+            raise ValueError(
+                f"Evidence activation must be either 'softplus', 'relu' or 'exp',"
+                f"instead got {evidence_activation}."
+            )
+        else:
+            self._evidence_activation = evidence_activation
+    
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
@@ -294,6 +314,16 @@ class DeepEvidentialNetwork(tf.keras.Model):
 
         return output_layer
 
+    def _get_evidence(self, evidence: tf.Tensor) -> tf.Tensor:
+        '''Applies an activation function to ensure all evidential parameters are positive.'''
+
+        if self.evidence_activation == "softplus":
+            return tf.nn.softplus(evidence)
+        elif self.evidence_activation == "relu":
+            return tf.nn.relu(evidence) + 1e-15
+        elif self.evidence_activation == "exp":
+            return tf.math.exp(evidence)
+
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
 
         if inputs.shape.rank == 1:
@@ -303,11 +333,10 @@ class DeepEvidentialNetwork(tf.keras.Model):
         output = self.output_layer(hidden_output)
         
         gamma, lamb, alpha, beta = tf.split(output, 4, axis=-1)
-        #Here we apply the softplus to ensure that are evidential parameters are > 0. 
-        #In the case of alpha we add 1 so that our aleatoric and epistemic uncertainties
-        #will be well behaved. A relu can be used alternatively. 
-        lamb = tf.nn.softplus(lamb)
-        alpha = tf.nn.softplus(alpha) + 1
-        beta = tf.nn.softplus(beta)
+        lamb = self._get_evidence(lamb)
+        beta = self._get_evidence(beta)
+        # We need alpha > 1 so that the aleatoric and epistemic uncertainties will
+        # be positive. 
+        alpha = self._get_evidence(alpha) + 1
 
         return tf.concat([gamma, lamb, alpha, beta], axis=-1)
