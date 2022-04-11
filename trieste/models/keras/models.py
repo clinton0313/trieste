@@ -28,10 +28,17 @@ from ..interfaces import (
     TrajectorySampler,
 )
 from ..optimizer import KerasOptimizer
-from .architectures import KerasEnsemble
+from .architectures import DeepEvidentialNetwork, KerasEnsemble
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler
-from .utils import negative_log_likelihood, sample_with_replacement
+from .utils import (
+    negative_log_likelihood,
+    normal_inverse_gamma_sum_of_squares, 
+    sample_with_replacement,
+    deep_evidential_regression_loss,
+    normal_inverse_gamma_negative_log_likelihood,
+    normal_inverse_gamma_sum_of_squares
+)
 
 
 class DeepEnsemble(
@@ -337,22 +344,79 @@ class DeepEnsemble(
 class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel, HasTrajectorySampler):
     def __init__(
         self,
-        model,
-        optimizer,
+        model: DeepEvidentialNetwork,
+        optimizer: Optional[KerasOptimizer] = None,
     ) -> None:
-        ...
+        
+        super().__init__(optimizer)
+
+        if not self.optimizer.fit_args:
+            self.optimizer.fit_args = {
+                "verbose": 0,
+                "epochs": 1000,
+                "batch_size": 16,
+                "callbacks": [
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor="loss", patience=50, restore_best_weights=True
+                    )
+                ],
+            }
+
+        if self.optimizer.loss is not deep_evidential_regression_loss:
+            print(
+                f"Passed optimizer uses a  {self.optimizer.loss} loss function which is"
+                f"not compatible with deep evidential regression model which requires"
+                f":function: ~trieste.models.keras.utils.deep_evidential_regression_loss ."
+                f"Defaulting to deep evidential regression loss based on the sum of squares"
+            )
+            self.optimizer.loss = deep_evidential_regression_loss
+
+        model.compile(
+            self.optimizer.optimizer,
+            loss=[self.optimizer.loss],
+            metrics=[self.optimizer.metrics],
+        )
+
+        self._model = model
+        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
     
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
-        ...
+
+        evidential_output = self.model(query_points)
+        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+        
+        aleatoric = beta / (alpha - 1)
+        epistemic = beta / ((alpha - 1) * lamb)
+        
+        return gamma, aleatoric + epistemic
     
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
-        ...
+        
+        evidential_output = self.model(query_points)
+        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+
+        sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
+        sigma_samples = sigma_dist.sample(num_samples)
+
+        samples = []
+        for sigma in tf.split(sigma_samples, num_samples, axis=-1):
+            mu_dist = tfp.distributions.Normal(gamma, sigma/lamb)
+            mu = mu_dist.sample(1)
+            observation_dist = tfp.distributions.Normal(mu, sigma)
+            samples.append(observation_dist.sample(1))
+        
+        samples = tf.stack(samples, axis=0)
+        
+        return samples
+
     
     def update(self) -> None:
         pass
     
     def optimize(self, dataset: Dataset) -> None:
-        ...
+        x, y = dataset.astuple()
+        self.optimizer.optimizer.learning_rate = self._learning_rate
+        self.model.fit(x, y, **self.optimizer.fit_args)
     
     def trajectory_sampler(self) -> TrajectorySampler:
         ...
