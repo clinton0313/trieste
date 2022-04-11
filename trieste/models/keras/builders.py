@@ -86,7 +86,8 @@ def build_vanilla_keras_deep_evidential(
     data: Dataset,
     num_hidden_layers: int = 3,
     units: int = 100,
-    activation: Union[str, tf.keras.layers.Activation] = "relu"
+    activation: Union[str, tf.keras.layers.Activation] = "relu",
+    evidence_activation: str = "softplus"
 ) -> DeepEvidentialNetwork:
 
     """
@@ -97,6 +98,9 @@ def build_vanilla_keras_deep_evidential(
     :param num_hidden_layers: The number of hidden layers in each network.
     :param units: The number of nodes in each hidden layer.
     :param activation: The activation function in each hidden layer.
+    :param evidence_activation: Activation function to be used to ensure that evidential 
+            outputs alpha, beta and lambda will be well behaved (alpha > 1, beta > 0, lambda > 0).
+            By default the "softplus" is used. Alternatively, "relu" or "exp" can be chosen. 
     :return: Keras deep evidential regression model.
     """
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
@@ -108,6 +112,7 @@ def build_vanilla_keras_deep_evidential(
     return DeepEvidentialNetwork(
             input_tensor_spec,
             output_tensor_spec,
-            hidden_layer_args
+            hidden_layer_args,
+            evidence_activation
         )
 
