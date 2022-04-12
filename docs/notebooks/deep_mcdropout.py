@@ -1,6 +1,6 @@
 # %%
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 
 import os
 
@@ -161,10 +161,10 @@ initial_data = observer(initial_query_points)
 # %%
 def build_model(data: Dataset) -> MCDropout:
     num_hidden_layers = 5
-    num_nodes = 700
+    num_nodes = 300
 
     dropout_network = build_vanilla_keras_mcdropout(
-        data, num_hidden_layers, num_nodes, rate=0.001
+        data, num_hidden_layers, num_nodes, rate=0.3, dropout_network=DropConnectNetwork
     )
 
     fit_args = {
@@ -190,15 +190,14 @@ model = build_model(initial_data)
 # ## Run the optimization loop
 
 # %%
-from trieste.acquisition.rule import DiscreteThompsonSampling
+from trieste.acquisition.rule import DiscreteThompsonSampling, EfficientGlobalOptimization
 
 grid_size = 2000
 num_samples = 4
 
 # note that `DiscreteThompsonSampling` by default uses `ExactThompsonSampler`
 acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
-
-
+acquisition_rule = EfficientGlobalOptimization(num_query_points=1)
 # %% [markdown]
 # We can now run the Bayesian optimization loop by defining a `BayesianOptimizer` and calling its `optimize` method.
 #
@@ -209,7 +208,7 @@ acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
 from time import time
 bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
 
-num_steps = 25
+num_steps = 30
 
 # The Keras interface does not currently support using `track_state=True` which saves the model
 # in each iteration. This will be addressed in a future update.
@@ -225,7 +224,6 @@ result = bo.optimize(
 dataset = result.try_get_final_dataset()
 
 print(f"This took {round(time() - start, 3)} seconds!")
-
 
 # %% [markdown]
 # ## Explore the results
@@ -269,6 +267,8 @@ fig = add_bo_points_plotly(
 fig.show()
 
 
+
+
 # %% [markdown]
 # We can visualise the model over the objective function by plotting the mean and 95% confidence intervals of its predictive distribution. Since it is not easy to choose the architecture of the deep ensemble we advise to always check with these types of plots whether the model seems to be doing a good job at modelling the objective function. In this case we can see that the model was able to capture the relevant parts of the objective function.
 
@@ -295,7 +295,6 @@ fig = add_bo_points_plotly(
 )
 fig.update_layout(height=800, width=800)
 fig.show()
-
 
 # %% [markdown]
 # Finally, let's plot the regret over time, i.e. difference between the minimum of the objective function and lowest observations found by the Bayesian optimization over time. Below you can see two plots. The left hand plot shows the regret over time: the observations (crosses and dots), the current best (orange line), and the start of the optimization loop (blue line). The right hand plot is a two-dimensional search space that shows where in the search space initial points were located (crosses again) and where Bayesian optimization allocated samples (dots). The best point is shown in each (purple dot) and on the left plot you can see that we come very close to 0 which is the minimum of the objective function.

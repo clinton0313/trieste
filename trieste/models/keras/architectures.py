@@ -251,13 +251,13 @@ class DropoutNetwork(tf.keras.Model):
         input_tensor_spec: tf.TensorSpec,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
-            {"units": 500, "activation": "relu"},
-            {"units": 500, "activation": "relu"},
-            {"units": 500, "activation": "relu"},
-            {"units": 500, "activation": "relu"},
-            {"units": 500, "activation": "relu"}
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"}
         ),
-        rate: float = 0.05,
+        rate: float = 0.1,
     ):
         """
         :param input_tensor_spec: Tensor specification for the input of the network. 
@@ -269,9 +269,10 @@ class DropoutNetwork(tf.keras.Model):
             :class:`~tf.keras.layers.Dense` layers with :class:`~tf.keras.layers.Dropout` layers 
             added before each :class:`~tf.keras.layers.Dense` layer. Length of this sequence 
             determines the number of hidden layers in the network. Default value is five hidden 
-            layers, 500 nodes each, with ReLu activation functions. Empty sequence needs to be passed 
+            layers, 300 nodes each, with ReLu activation functions. Empty sequence needs to be passed 
             to have no hidden layers.
-        :param rate: Probability of dropout assigned to each `~tf.keras.layers.Dropout` layer.
+        :param rate: Probability of dropout assigned to each `~tf.keras.layers.Dropout` layer. By default
+            a rate of 0.1 is used. 
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
         super().__init__()
@@ -344,8 +345,28 @@ class DropConnectNetwork(DropoutNetwork):
     in training.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"}
+        ),
+        rate: float = 0.35,
+        *args,
+        **kwargs
+    ):
+        super().__init__(
+            input_tensor_spec,
+            output_tensor_spec,
+            hidden_layer_args,
+            rate,
+            *args, 
+            **kwargs
+            )
         """
         :param input_tensor_spec: Tensor specification for the input of the network. 
         :param output_tensor_spec: Tensor specification for the output of the network.
@@ -353,9 +374,10 @@ class DropConnectNetwork(DropoutNetwork):
             the sequence should be a dictionary containing arguments (keys) and their values for a
             :class:`~trieste.models.keras.layers.DropConnect` hidden layer. Check Keras Dense layer 
             API for available arguments. Length of this sequence determines the number of
-            hidden layers in the network. Default value is five hidden layers, 500 nodes each, with
+            hidden layers in the network. Default value is five hidden layers, 300 nodes each, with
             ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
         :param rate: Probability of dropout assigned to each layer of a fully connected network.
+            By default a rate of 0.35 is used. 
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
     def _gen_hidden_layers(self) -> tf.keras.Model:

@@ -20,7 +20,7 @@ class DropConnect(Dense):
     :class:`~trieste.models.keras.architectures.DropConnectNetwork` architecture,
     """
 
-    def __init__(self, rate: float = 0.5, *args, **kwargs):
+    def __init__(self, rate: float = 0.3, *args, **kwargs):
         """
         :param units: Number of units to use in the layer.
         :param rate: The probability of dropout applied to each weight of a Dense Keras layer.
