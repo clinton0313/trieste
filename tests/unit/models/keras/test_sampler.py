@@ -104,7 +104,7 @@ def test_ensemble_trajectory_sampler_resample_provides_new_samples_without_retra
     npt.assert_array_less(1e-4, tf.abs(evals_2 - evals_3))
     npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_3))
 
-
+@pytest.mark.mcdropout
 @pytest.mark.parametrize("num_evals", [10, 20])
 def test_dropout_trajectory_sampler_returns_trajectory_function_with_correctly_shaped_output(
     num_evals: int,
@@ -138,6 +138,7 @@ def test_dropout_trajectory_sampler_returns_deterministic_trajectory() -> None:
 
 
 @random_seed
+@pytest.mark.mcdropout
 def test_dropout_trajectory_sampler_samples_are_distinct_for_new_instances() -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([[-10.,10.], [-10.,10.]],[[-10.,10.], [10.,-10.]], 10) 
@@ -153,6 +154,7 @@ def test_dropout_trajectory_sampler_samples_are_distinct_for_new_instances() -> 
 
 @pytest.mark.skip
 @random_seed
+@pytest.mark.mcdropout
 def test_dropout_trajectory_sampler_resample_provides_new_samples_without_retracing() -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([[-10.,10.], [-10.,10.]],[[-10.,10.], [10.,-10.]], 10) 

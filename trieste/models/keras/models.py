@@ -352,7 +352,8 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
     to a re-tooling of the dropout layers of a neural network to also be active during testing, 
     and performing several forward passes through the network with the same input data. The 
     resulting distribution of the outputs of the different passes are then used to estimate the
-    first two moments of the predictive distribution.
+    first two moments of the predictive distribution. Note that increasing the number of passes
+    increases accuracy at the cost of a higher computational burden.
 
     The uncertainty estimations of the original paper have been subject to extensive scrutiny, and
     it has been pointed out that the quality of the uncertainty estimates is tied to parameter
@@ -373,7 +374,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         self,
         model: DropoutNetwork,
         optimizer: Optional[KerasOptimizer] = None,
-        num_passes: int = 200,
+        num_passes: int = 100,
         learning_rate: float = 0.01
     ) -> None:
         """

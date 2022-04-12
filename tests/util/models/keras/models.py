@@ -18,7 +18,7 @@ Utilities for creating (Keras) neural network models to be used in the tests.
 
 from __future__ import annotations
 
-from typing import Tuple, Sequence
+from typing import Tuple
 
 import tensorflow as tf
 
@@ -84,7 +84,7 @@ def trieste_deep_ensemble_model(
 
 def trieste_dropout_network_model(
     example_data: Dataset,
-    rate: Sequence[float | int] | float | int = 0.1,
+    rate: float = 0.1,
     dropout: DropoutNetwork = DropoutNetwork
 ) -> DropoutNetwork:
     
@@ -105,7 +105,7 @@ def trieste_dropout_network_model(
 
 def trieste_mcdropout_model(
     example_data:Dataset, 
-    rate: Sequence[float | int] | float | int = 0.1,
+    rate: float = 0.1,
     dropout:DropoutNetwork=DropoutNetwork
 ) -> MCDropout:
 
