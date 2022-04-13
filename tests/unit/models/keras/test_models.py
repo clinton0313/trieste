@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import numpy.testing as npt
@@ -20,15 +20,27 @@ import pytest
 import tensorflow as tf
 
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
-from tests.util.models.keras.models import trieste_deep_ensemble_model, trieste_keras_ensemble_model
+from tests.util.models.keras.models import (
+    trieste_deep_ensemble_model,
+    trieste_deep_evidential_model, 
+    trieste_keras_ensemble_model
+)
 from tests.util.models.models import fnc_2sin_x_over_3
 from trieste.data import Dataset
 from trieste.models import create_model
 from trieste.models.keras import (
     DeepEnsemble,
+    DeepEvidentialRegression,
     KerasEnsemble,
+    build_vanilla_keras_deep_evidential,
     negative_log_likelihood,
     sample_with_replacement,
+)
+from trieste.models.keras.utils import (
+    build_deep_evidential_regression_loss,
+    deep_evidential_regression_loss, 
+    normal_inverse_gamma_negative_log_likelihood, 
+    normal_inverse_gamma_sum_of_squares
 )
 from trieste.models.optimizer import KerasOptimizer, TrainingData
 
@@ -437,3 +449,253 @@ def test_deep_ensemble_prepare_data_call(
     assert len(inputs.keys()) == ensemble_size
     for member_data in inputs:
         assert tf.reduce_all(inputs[member_data] == x)
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
+def test_deep_evidential_repr(
+    optimizer: tf.optimizers.Optimizer,
+) -> None:
+    example_data = empty_dataset([1], [1])
+
+    evidential_network = build_vanilla_keras_deep_evidential(example_data)
+    evidential_network.compile(optimizer, loss=deep_evidential_regression_loss)
+    optimizer_wrapper = KerasOptimizer(optimizer, loss=deep_evidential_regression_loss)
+    model = DeepEvidentialRegression(evidential_network, optimizer_wrapper)
+
+    expected_repr = (
+        f"DeepEvidentialRegression({evidential_network!r}, {optimizer_wrapper!r})"
+    )
+
+    assert type(model).__name__ in repr(model)
+    assert repr(model) == expected_repr
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_default_optimizer_is_correct() -> None:
+    example_data = empty_dataset([1], [1])
+
+    model = trieste_deep_evidential_model(example_data)
+    default_loss = deep_evidential_regression_loss
+    default_fit_args = {
+                "verbose": 0,
+                "epochs": 1000,
+                "batch_size": 32
+            }
+
+    del model.optimizer.fit_args["callbacks"]
+
+    assert isinstance(model.optimizer, KerasOptimizer)
+    assert isinstance(model.optimizer.optimizer, tf.optimizers.Optimizer)
+    assert model.optimizer.fit_args == default_fit_args
+    assert model.optimizer.loss == default_loss
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_optimizer_changes_to_appropriate_loss() -> None:
+    example_data = empty_dataset([1], [1])
+
+    custom_fit_args = {
+        "verbose": 1,
+        "epochs": 10,
+        "batch_size": 10,
+    }
+    custom_optimizer = tf.optimizers.RMSprop()
+    custom_loss = tf.keras.losses.MeanSquaredError() #Intentional inappropriate loss function
+    optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
+
+    model = trieste_deep_evidential_model(example_data, optimizer_wrapper)
+
+    assert model.optimizer == optimizer_wrapper
+    assert model.optimizer.optimizer == custom_optimizer
+    assert model.optimizer.fit_args == custom_fit_args
+    assert model.optimizer.loss == deep_evidential_regression_loss
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_is_compiled() -> None:
+    example_data = empty_dataset([1], [1])
+    model = trieste_deep_evidential_model(example_data)
+
+    assert model.model.compiled_loss is not None
+    assert model.model.compiled_metrics is not None
+    assert model.model.optimizer is not None
+
+
+@pytest.mark.deep_evidential
+def test_config_builds_deep_evidential_and_default_optimizer_is_correct() -> None:
+    example_data = empty_dataset([1], [1])
+
+    evidential_network = build_vanilla_keras_deep_evidential(example_data)
+
+    model_config = {"model": evidential_network}
+    model = create_model(model_config)
+    default_fit_args = {
+                "verbose": 0,
+                "epochs": 1000,
+                "batch_size": 32
+            }
+
+    del model.optimizer.fit_args["callbacks"]
+
+    assert isinstance(model, DeepEvidentialRegression)
+    assert isinstance(model.optimizer, KerasOptimizer)
+    assert isinstance(model.optimizer.optimizer, tf.keras.optimizers.Optimizer)
+    assert model.optimizer.fit_args == default_fit_args
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("dataset_size", [10, 100])
+def test_deep_evidential_predict_call_shape(dataset_size: int) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+    model = trieste_deep_evidential_model(example_data)
+
+    predicted_means, predicted_vars = model.predict(example_data.query_points)
+
+    assert tf.is_tensor(predicted_vars)
+    assert predicted_vars.shape == example_data.observations.shape
+    assert tf.is_tensor(predicted_means)
+    assert predicted_means.shape == example_data.observations.shape
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("num_samples", [6, 12])
+@pytest.mark.parametrize("dataset_size", [4, 8])
+def test_deep_evidential_sample_call_shape(num_samples: int, dataset_size: int) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+    model = trieste_deep_evidential_model(example_data)
+
+    samples = model.sample(example_data.query_points, num_samples)
+
+    assert tf.is_tensor(samples)
+    assert samples.shape == [num_samples, dataset_size, 1]
+
+
+@random_seed
+@pytest.mark.deep_evidential
+def test_deep_evidential_optimize_with_defaults() -> None:
+    example_data = _get_example_data([100, 1])
+
+    model = trieste_deep_evidential_model(example_data)
+
+    model.optimize(example_data)
+    loss = model.model.history.history["loss"]
+
+    assert loss[-1] < loss[0]
+
+
+@random_seed
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("epochs", [5, 15])
+def test_deep_evidential_optimize(
+    epochs: int,
+) -> None:
+    example_data = _get_example_data([100, 1])
+
+    custom_optimizer = tf.optimizers.RMSprop()
+    custom_fit_args = {
+        "verbose": 0,
+        "epochs": epochs,
+        "batch_size": 10,
+    }
+
+    optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args)
+
+    model = trieste_deep_evidential_model(example_data, optimizer_wrapper)
+
+    model.optimize(example_data)
+    loss = model.model.history.history["loss"]
+
+    assert loss[-1] < loss[0]
+    assert len(loss) == epochs
+
+
+@random_seed
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "base_loss",
+    [
+        normal_inverse_gamma_negative_log_likelihood,
+        normal_inverse_gamma_sum_of_squares
+    ]
+)
+@pytest.mark.parametrize("coeff", [1., 1.5])
+def test_deep_evidential_loss(
+    base_loss: Callable,
+    coeff: float
+) -> None:
+    example_data = _get_example_data([100, 1])
+    example_data = Dataset(tf.constant([[1.]]), tf.constant([[10.]]))
+    loss = build_deep_evidential_regression_loss(base_loss, coeff)
+    optimizer = tf.optimizers.Adam()
+
+    model = trieste_deep_evidential_model(
+        example_data,
+        KerasOptimizer(
+            optimizer,
+            fit_args = {"epochs": 1},
+            loss=loss
+        )
+    )
+
+    y_pred = model.model(example_data.query_points)
+    reference_loss = loss(example_data.observations, y_pred)
+    
+    model.optimize(example_data)
+    model_loss = model.model.history.history["loss"][-1]
+
+    npt.assert_allclose(model_loss, reference_loss, rtol=1e-6)
+
+
+# @random_seed
+# @pytest.mark.deep_evidential
+# def test_deep_evidential_predict(independent_normal: bool) -> None:
+#     example_data = _get_example_data([100, 1])
+
+#     loss = negative_log_likelihood
+#     optimizer = tf.optimizers.Adam()
+
+#     model = DeepEnsemble(
+#         trieste_keras_ensemble_model(example_data, _ENSEMBLE_SIZE, independent_normal),
+#         KerasOptimizer(optimizer, loss=loss),
+#     )
+
+#     reference_model = trieste_keras_ensemble_model(example_data, _ENSEMBLE_SIZE, independent_normal)
+#     reference_model.model.compile(optimizer=optimizer, loss=loss)
+#     reference_model.model.set_weights(model.model.get_weights())
+
+#     predicted_means, predicted_vars = model.predict_ensemble(example_data.query_points)
+#     tranformed_x, tranformed_y = _ensemblise_data(
+#         reference_model, example_data, _ENSEMBLE_SIZE, False
+#     )
+#     ensemble_distributions = reference_model.model(tranformed_x)
+#     reference_means = tf.convert_to_tensor([dist.mean() for dist in ensemble_distributions])
+#     reference_vars = tf.convert_to_tensor([dist.variance() for dist in ensemble_distributions])
+
+#     npt.assert_allclose(predicted_means, reference_means)
+#     npt.assert_allclose(predicted_vars, reference_vars)
+
+
+# @random_seed
+# @pytest.mark.deep_evidential
+# def test_deep_evidential_sample(independent_normal: bool) -> None:
+#     example_data = _get_example_data([100, 1])
+#     model, _, _ = trieste_deep_ensemble_model(
+#         example_data, _ENSEMBLE_SIZE, False, independent_normal
+#     )
+#     num_samples = 100_000
+
+#     samples = model.sample(example_data.query_points, num_samples)
+#     sample_mean = tf.reduce_mean(samples, axis=0)
+#     sample_variance = tf.reduce_mean((samples - sample_mean) ** 2, axis=0)
+
+#     ref_mean, ref_variance = model.predict(example_data.query_points)
+
+#     error = 1 / tf.sqrt(tf.cast(num_samples, tf.float32))
+#     npt.assert_allclose(sample_mean, ref_mean, atol=4 * error)
+#     npt.assert_allclose(sample_variance, ref_variance, atol=8 * error)
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_learning_rate_resets() -> None:
+    ...

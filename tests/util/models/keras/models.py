@@ -17,16 +17,19 @@ Utilities for creating (Keras) neural network models to be used in the tests.
 """
 
 from __future__ import annotations
+from distutils.command.build import build
 
-from typing import Tuple
+from typing import Tuple, Optional
 
 import tensorflow as tf
 
 from trieste.data import Dataset
 from trieste.models.keras import (
     DeepEnsemble,
+    DeepEvidentialRegression,
     GaussianNetwork,
     KerasEnsemble,
+    build_vanilla_keras_deep_evidential,
     get_tensor_spec_from_data,
 )
 from trieste.models.optimizer import KerasOptimizer
@@ -78,3 +81,14 @@ def trieste_deep_ensemble_model(
     model = DeepEnsemble(keras_ensemble, optimizer_wrapper, bootstrap_data)
 
     return model, keras_ensemble, optimizer_wrapper
+
+
+def trieste_deep_evidential_model(
+    example_data: Dataset,
+    optimizer: Optional[KerasOptimizer] = None
+) -> DeepEvidentialRegression:
+
+    evidential_network = build_vanilla_keras_deep_evidential(example_data)
+    model = DeepEvidentialRegression(evidential_network, optimizer)
+
+    return model

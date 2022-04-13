@@ -106,7 +106,7 @@ def build_vanilla_keras_deep_evidential(
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
 
     hidden_layer_args = []
-    for i in range(num_hidden_layers):
+    for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
     return DeepEvidentialNetwork(
@@ -115,4 +115,3 @@ def build_vanilla_keras_deep_evidential(
             hidden_layer_args,
             evidence_activation
         )
-

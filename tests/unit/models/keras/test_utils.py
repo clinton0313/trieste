@@ -13,6 +13,7 @@
 # limitations under the License.
 
 
+from distutils.command.build import build
 import numpy as np
 import numpy.testing as npt
 import pytest
@@ -21,17 +22,17 @@ import tensorflow as tf
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
 from trieste.data import Dataset
 from trieste.models.keras.utils import (
+    build_deep_evidential_regression_loss,
     deep_evidential_regression_loss,
     get_tensor_spec_from_data,
-    normal_inverse_gamma_sum_of_squares, 
-    sample_with_replacement,
     normal_inverse_gamma_negative_log_likelihood,
     normal_inverse_gamma_regularizer,
-    normal_inverse_gamma_sum_of_squares,
-    deep_evidential_regression_loss
+    normal_inverse_gamma_sum_of_squares, 
+    sample_with_replacement,
+
 )
 from trieste.types import TensorType
-from typing import Callable
+from typing import Callable, Union
 
 
 def test_get_tensor_spec_from_data_raises_for_incorrect_dataset() -> None:
@@ -222,3 +223,45 @@ def test_deep_evidential_regression_loss_asserts_shape(
     y_true = tf.zeros((y_pred.shape[0],))
     with pytest.raises(ValueError):
         deep_evidential_regression_loss(y_true, y_pred)
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "loss_fn",
+    [
+        "SOS",
+        normal_inverse_gamma_negative_log_likelihood
+    ]
+)
+@pytest.mark.parametrize("coeff", [0.5, 1.5])
+def test_build_deep_evidential_regression_loss(
+    loss_fn: Union[str, Callable],
+    coeff: float
+) -> None:
+
+    y_pred = tf.constant([[2.], [1.], [1.5], [2.]])
+    y_true = tf.constant([[1.]])
+
+    gamma, lamb, alpha, beta = tf.split(y_pred, 4, axis=-1)
+
+    if isinstance(loss_fn, str):
+        if loss_fn == "SOS":
+            base_loss = normal_inverse_gamma_sum_of_squares
+        elif loss_fn == "NLL":
+            base_loss = normal_inverse_gamma_negative_log_likelihood
+    else:
+        base_loss = loss_fn
+    
+    reference_loss = base_loss(y_true, gamma, lamb, alpha, beta) \
+                    + normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
+    
+    loss = build_deep_evidential_regression_loss(base_loss, coeff)
+    built_loss = loss(y_true, y_pred)
+
+    npt.assert_almost_equal(built_loss, reference_loss)
+
+
+@pytest.mark.deep_evidential
+def build_deep_evidential_regression_loss_raises_value_error() -> None:
+    with pytest.raises(ValueError):
+        build_deep_evidential_regression_loss("test")

@@ -386,7 +386,7 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
         return self._model
 
     def __repr__(self) -> str:
-        return f"DeepEvidential({self.model!r}, {self.optimizer!r})"
+        return f"DeepEvidentialRegression({self.model!r}, {self.optimizer!r})"
 
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:

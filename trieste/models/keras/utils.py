@@ -20,8 +20,8 @@ import tensorflow_probability as tfp
 
 from ...data import Dataset
 from ...types import TensorType
-from typing import Callable
-
+from functools import partial
+from typing import Callable, Union
 
 def get_tensor_spec_from_data(dataset: Dataset) -> tuple[tf.TensorSpec, tf.TensorSpec]:
     r"""
@@ -204,4 +204,38 @@ def deep_evidential_regression_loss(
     regularization = normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
 
     return tf.reduce_mean(loss + coeff * regularization, axis=0)
-    
+
+
+def build_deep_evidential_regression_loss(
+    base_loss: Union[str, Callable],
+    coeff: float = 1,
+) -> Callable:
+
+    """
+    Builds a custom loss function for Deep Evidential Regression model.
+
+    :param base_loss: Base loss function to be added to standard regularizer.
+        Accepts either strings: 'NLL' or 'SOS' for the negative log likelihood 
+        loss and sum of squares based loss. Can also accept the actual functions.
+    :param coeff: Coefficient of the loss regularizer.
+    :return: Loss function for the Deep Evidential Regression model. 
+    """
+
+    if base_loss == "NLL" or base_loss == normal_inverse_gamma_negative_log_likelihood:
+        return partial(
+            deep_evidential_regression_loss,
+            loss_fn = normal_inverse_gamma_negative_log_likelihood,
+            coeff = coeff
+        )
+    elif base_loss == "SOS" or base_loss == normal_inverse_gamma_sum_of_squares:
+        return partial(
+            deep_evidential_regression_loss,
+            loss_fn = normal_inverse_gamma_sum_of_squares,
+            coeff = coeff
+        )
+    else:
+        raise ValueError(
+            f"base_loss paramter expected either 'NLL', 'SOS', or "
+            f"corresponding loss functions from ~trieste.keras.models.utils "
+            f"instead got {base_loss}"
+        )

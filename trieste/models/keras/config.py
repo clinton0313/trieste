@@ -18,13 +18,14 @@ from typing import Any, Dict, Type
 
 from ..config import ModelRegistry
 from ..interfaces import TrainableProbabilisticModel
-from .architectures import KerasEnsemble
-from .models import DeepEnsemble
+from .architectures import DeepEvidentialNetwork, KerasEnsemble
+from .models import DeepEnsemble, DeepEvidentialRegression
 
 # Here we list all the neural network models currently supported by model interfaces
 # and optimizers, and register them for usage with ModelConfig.
 _SUPPORTED_MODELS: Dict[Type[Any], Type[TrainableProbabilisticModel]] = {
     KerasEnsemble: DeepEnsemble,
+    DeepEvidentialNetwork: DeepEvidentialRegression,
 }
 for model_type, model_wrapper in _SUPPORTED_MODELS.items():
     ModelRegistry.register_model(model_type, model_wrapper)
