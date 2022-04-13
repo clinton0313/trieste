@@ -20,7 +20,6 @@ import tensorflow_probability as tfp
 
 from ...data import Dataset
 from ...types import TensorType
-from functools import partial
 from typing import Callable, Union
 
 def get_tensor_spec_from_data(dataset: Dataset) -> tuple[tf.TensorSpec, tf.TensorSpec]:
@@ -207,7 +206,7 @@ def deep_evidential_regression_loss(
 
 
 def build_deep_evidential_regression_loss(
-    base_loss: Union[str, Callable],
+    base_loss: Union[str, Callable] = "SOS",
     coeff: float = 1,
 ) -> Callable:
 
@@ -222,20 +221,22 @@ def build_deep_evidential_regression_loss(
     """
 
     if base_loss == "NLL" or base_loss == normal_inverse_gamma_negative_log_likelihood:
-        return partial(
-            deep_evidential_regression_loss,
-            loss_fn = normal_inverse_gamma_negative_log_likelihood,
-            coeff = coeff
-        )
+        base_loss = normal_inverse_gamma_negative_log_likelihood
     elif base_loss == "SOS" or base_loss == normal_inverse_gamma_sum_of_squares:
-        return partial(
-            deep_evidential_regression_loss,
-            loss_fn = normal_inverse_gamma_sum_of_squares,
-            coeff = coeff
-        )
+        base_loss = normal_inverse_gamma_sum_of_squares
     else:
         raise ValueError(
             f"base_loss paramter expected either 'NLL', 'SOS', or "
             f"corresponding loss functions from ~trieste.keras.models.utils "
             f"instead got {base_loss}"
         )
+    
+    def loss_fn(y_true, y_pred):
+        return deep_evidential_regression_loss(
+            y_true,
+            y_pred,
+            coeff,
+            base_loss
+        )
+    
+    return loss_fn

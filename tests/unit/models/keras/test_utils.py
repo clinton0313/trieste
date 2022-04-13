@@ -239,7 +239,7 @@ def test_build_deep_evidential_regression_loss(
     coeff: float
 ) -> None:
 
-    y_pred = tf.constant([[2.], [1.], [1.5], [2.]])
+    y_pred = tf.constant([[2., 1., 1.5, 2.]])
     y_true = tf.constant([[1.]])
 
     gamma, lamb, alpha, beta = tf.split(y_pred, 4, axis=-1)
@@ -253,7 +253,7 @@ def test_build_deep_evidential_regression_loss(
         base_loss = loss_fn
     
     reference_loss = base_loss(y_true, gamma, lamb, alpha, beta) \
-                    + normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
+                    + coeff * normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
     
     loss = build_deep_evidential_regression_loss(base_loss, coeff)
     built_loss = loss(y_true, y_pred)
@@ -265,3 +265,10 @@ def test_build_deep_evidential_regression_loss(
 def build_deep_evidential_regression_loss_raises_value_error() -> None:
     with pytest.raises(ValueError):
         build_deep_evidential_regression_loss("test")
+
+
+@pytest.mark.deep_evidential
+def build_deep_evidential_regression_loss_has_name() -> None:
+    '''Tensorflow requires that loss function has a __name__ attribute.'''
+    loss = build_deep_evidential_regression_loss()
+    assert loss.__name__ == "loss"

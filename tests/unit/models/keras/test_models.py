@@ -492,7 +492,7 @@ def test_deep_evidential_default_optimizer_is_correct() -> None:
 
 
 @pytest.mark.deep_evidential
-def test_deep_evidential_optimizer_changes_to_appropriate_loss() -> None:
+def test_deep_evidential_optimizer_changes_correctly() -> None:
     example_data = empty_dataset([1], [1])
 
     custom_fit_args = {
@@ -501,7 +501,7 @@ def test_deep_evidential_optimizer_changes_to_appropriate_loss() -> None:
         "batch_size": 10,
     }
     custom_optimizer = tf.optimizers.RMSprop()
-    custom_loss = tf.keras.losses.MeanSquaredError() #Intentional inappropriate loss function
+    custom_loss = deep_evidential_regression_loss
     optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
 
     model = trieste_deep_evidential_model(example_data, optimizer_wrapper)

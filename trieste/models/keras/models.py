@@ -362,13 +362,7 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
                 ],
             }
 
-        if self.optimizer.loss is not deep_evidential_regression_loss:
-            print(
-                f"Passed optimizer uses an impappropriate loss function which is "
-                f"not compatible with deep evidential regression model which requires "
-                f"{deep_evidential_regression_loss}. Defaulting to deep evidential "
-                f"regression loss based on the sum of squares"
-            )
+        if self.optimizer.loss is None:
             self.optimizer.loss = deep_evidential_regression_loss
 
         model.compile(
