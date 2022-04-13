@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from distutils.command.build import build
 from typing import Any, Callable
 
 import numpy as np
@@ -610,6 +611,28 @@ def test_deep_evidential_optimize(
     assert len(loss) == epochs
 
 
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("lr", [1., 0.1])
+def test_deep_evidential_learning_rate_resets(lr: float) -> None:
+
+    example_data = _get_example_data([1,1])
+    model = trieste_deep_evidential_model(
+        example_data,
+        KerasOptimizer(
+            tf.keras.optimizers.Adam(0.01),
+            fit_args = {"epochs": 1}
+        )
+    )
+
+    original_lr = model._learning_rate
+    #Simulate a changed learning rate from a previous optimize call using a scheduler
+    model.optimizer.optimizer.learning_rate = lr
+    #No scheduler is set so optimize should reset the learning rate
+    model.optimize(example_data)
+
+    assert original_lr == model.optimizer.optimizer.learning_rate.numpy()
+
+
 @random_seed
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize(
@@ -645,57 +668,3 @@ def test_deep_evidential_loss(
     model_loss = model.model.history.history["loss"][-1]
 
     npt.assert_allclose(model_loss, reference_loss, rtol=1e-6)
-
-
-# @random_seed
-# @pytest.mark.deep_evidential
-# def test_deep_evidential_predict(independent_normal: bool) -> None:
-#     example_data = _get_example_data([100, 1])
-
-#     loss = negative_log_likelihood
-#     optimizer = tf.optimizers.Adam()
-
-#     model = DeepEnsemble(
-#         trieste_keras_ensemble_model(example_data, _ENSEMBLE_SIZE, independent_normal),
-#         KerasOptimizer(optimizer, loss=loss),
-#     )
-
-#     reference_model = trieste_keras_ensemble_model(example_data, _ENSEMBLE_SIZE, independent_normal)
-#     reference_model.model.compile(optimizer=optimizer, loss=loss)
-#     reference_model.model.set_weights(model.model.get_weights())
-
-#     predicted_means, predicted_vars = model.predict_ensemble(example_data.query_points)
-#     tranformed_x, tranformed_y = _ensemblise_data(
-#         reference_model, example_data, _ENSEMBLE_SIZE, False
-#     )
-#     ensemble_distributions = reference_model.model(tranformed_x)
-#     reference_means = tf.convert_to_tensor([dist.mean() for dist in ensemble_distributions])
-#     reference_vars = tf.convert_to_tensor([dist.variance() for dist in ensemble_distributions])
-
-#     npt.assert_allclose(predicted_means, reference_means)
-#     npt.assert_allclose(predicted_vars, reference_vars)
-
-
-# @random_seed
-# @pytest.mark.deep_evidential
-# def test_deep_evidential_sample(independent_normal: bool) -> None:
-#     example_data = _get_example_data([100, 1])
-#     model, _, _ = trieste_deep_ensemble_model(
-#         example_data, _ENSEMBLE_SIZE, False, independent_normal
-#     )
-#     num_samples = 100_000
-
-#     samples = model.sample(example_data.query_points, num_samples)
-#     sample_mean = tf.reduce_mean(samples, axis=0)
-#     sample_variance = tf.reduce_mean((samples - sample_mean) ** 2, axis=0)
-
-#     ref_mean, ref_variance = model.predict(example_data.query_points)
-
-#     error = 1 / tf.sqrt(tf.cast(num_samples, tf.float32))
-#     npt.assert_allclose(sample_mean, ref_mean, atol=4 * error)
-#     npt.assert_allclose(sample_variance, ref_variance, atol=8 * error)
-
-
-@pytest.mark.deep_evidential
-def test_deep_evidential_learning_rate_resets() -> None:
-    ...
