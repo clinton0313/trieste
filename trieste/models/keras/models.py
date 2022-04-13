@@ -23,21 +23,20 @@ from ...data import Dataset
 from ...types import TensorType
 from ..interfaces import (
     EnsembleModel,
+    EvidentialPriorModel,
     HasTrajectorySampler,
+    EvidentialPriorModel,
     TrainableProbabilisticModel,
     TrajectorySampler,
 )
 from ..optimizer import KerasOptimizer
 from .architectures import DeepEvidentialNetwork, KerasEnsemble
 from .interface import KerasPredictor
-from .sampler import EnsembleTrajectorySampler
+from .sampler import EnsembleTrajectorySampler, DeepEvidentialTrajectorySampler
 from .utils import (
     negative_log_likelihood,
-    normal_inverse_gamma_sum_of_squares, 
     sample_with_replacement,
     deep_evidential_regression_loss,
-    normal_inverse_gamma_negative_log_likelihood,
-    normal_inverse_gamma_sum_of_squares
 )
 
 
@@ -341,13 +340,17 @@ class DeepEnsemble(
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
 
-class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
+class DeepEvidentialRegression(EvidentialPriorModel, KerasPredictor, TrainableProbabilisticModel, HasTrajectorySampler):
     def __init__(
         self,
         model: DeepEvidentialNetwork,
         optimizer: Optional[KerasOptimizer] = None,
     ) -> None:
         
+        """
+        Docstring should mention the stringent loss function requirements. 
+        """
+
         super().__init__(optimizer)
 
         if not self.optimizer.fit_args:
@@ -362,7 +365,7 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
                 ],
             }
 
-        if self.optimizer.loss is None:
+        if self.optimizer.loss is None: 
             self.optimizer.loss = deep_evidential_regression_loss
 
         model.compile(
@@ -383,25 +386,16 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
         return f"DeepEvidentialRegression({self.model!r}, {self.optimizer!r})"
 
 
-    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
-
-        evidential_output = self.model(query_points)
-        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
-        
-        aleatoric = beta / (alpha - 1)
-        epistemic = beta / ((alpha - 1) * lamb)
-        
-        return gamma, aleatoric + epistemic
-    
     def sample_normal_parameters(
         self, 
-        query_points: TensorType, 
+        gamma: TensorType,
+        lamb: TensorType,
+        alpha: TensorType,
+        beta: TensorType, 
         num_samples:int
     ) -> tuple[TensorType, TensorType]:
         '''Samples a mu vector and a sigma vector for the posterior distribution of each observation'''
 
-        evidential_output = self.model(query_points)
-        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
         sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
         sigma_samples = sigma_dist.sample(num_samples)
 
@@ -412,12 +406,15 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
             mu = mu_dist.sample(1)
             mu_samples.append(tf.reshape(mu, (-1, 1)))
         
-        mu_samples = tf.Variable(mu_samples)
+        mu_samples = tf.Variable(mu_samples) 
         
-        return mu_samples, sigma_samples
+        return mu_samples, sigma_samples # [num_samples, len(query_points), 1] x2
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
-        mu, sigma = self.sample_normal_parameters(query_points, num_samples)
+        evidential_output = self.model(query_points)
+        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+
+        mu, sigma = self.sample_normal_parameters(gamma, lamb, alpha, beta, num_samples)
        
         observation_dist = tfp.distributions.Normal(mu, sigma)
         samples = observation_dist.sample(1)
@@ -426,7 +423,7 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
         
         return samples # [num_samples, len(query_points), 1]
 
-    
+
     def update(self) -> None:
         pass
     
@@ -435,5 +432,24 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
         self.optimizer.optimizer.learning_rate = self._learning_rate
         self.model.fit(x, y, **self.optimizer.fit_args)
     
-    def trajectory_sampler(self) -> TrajectorySampler:
-        ...
+
+    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
+
+        evidential_output = self.model(query_points)
+        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+        
+        aleatoric = beta / (alpha - 1)
+        epistemic = beta / ((alpha - 1) * lamb)
+        
+        return gamma, aleatoric + epistemic
+    
+
+    def trajectory_sampler(self) -> TrajectorySampler[DeepEvidentialRegression]:
+        """
+        Return a trajectory sampler. For :class:`DeepEvidentialRegression`, which
+        generates and saves a vector of means and variances for the posterior distribution
+        of outputs and uses them to make normal draws. 
+
+        :return: The trajectory sampler.
+        """
+        return DeepEvidentialTrajectorySampler(self)

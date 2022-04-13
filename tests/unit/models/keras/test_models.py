@@ -570,7 +570,9 @@ def test_deep_evidential_sample_normal_paramaeters_call_shape(
     example_data = _get_example_data([dataset_size, 1])
     model = trieste_deep_evidential_model(example_data)
 
-    mu, sigma = model.sample_normal_parameters(example_data.query_points, num_samples)
+    evidential_output = model.model(example_data.query_points)
+    gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+    mu, sigma = model.sample_normal_parameters(gamma, lamb, alpha, beta, num_samples)
 
     assert tf.is_tensor(mu)
     assert mu.shape == [num_samples, dataset_size, 1]

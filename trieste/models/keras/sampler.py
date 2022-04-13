@@ -20,10 +20,12 @@ of the Trieste's Keras model wrappers.
 from __future__ import annotations
 
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 from ...types import TensorType
 from ..interfaces import (
     EnsembleModel,
+    EvidentialPriorModel,
     TrainableProbabilisticModel,
     TrajectoryFunction,
     TrajectoryFunctionClass,
@@ -109,17 +111,17 @@ class ensemble_trajectory(TrajectoryFunctionClass):
         self._network_index.assign(self._model.sample_index(1)[0])
 
 
-class DeepEvidentialTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
+class DeepEvidentialTrajectorySampler(TrajectorySampler[EvidentialPriorModel]):
     """
     This class builds functions that approximate a trajectory by taking a draw from the posterior
-    distribution.
+    distribution for a :class:~trieste.models.keras.models.DeepEvidentialRegression model. 
     """
 
-    def __init__(self, model: TrainableProbabilisticModel):
+    def __init__(self, model: EvidentialPriorModel):
         """
         :param model: The Deep Evidential model to sample from.
         """
-        if not isinstance(model, TrainableProbabilisticModel):
+        if not isinstance(model, EvidentialPriorModel):
             raise NotImplementedError(
                 f"DeepEvidentialTrajectorySampler only works with Deep Evidential Regression Model; "
                 f"received {model.__repr__()}"
@@ -139,7 +141,8 @@ class DeepEvidentialTrajectorySampler(TrajectorySampler[TrainableProbabilisticMo
     of the stochastic forward passes as a trajectory.
 
         :return: A trajectory function representing an approximate trajectory
-            from the model, taking an input of shape `[N, 1, D]` and returning shape `[N, 1]`.
+            from the model, taking an input of shape `[N, B, D]` and returning shape `[N, B]`. 
+            N is the number of samples in each batch and B is the batch size. 
         """
 
         return deep_evidential_trajectory(self._model)
@@ -162,7 +165,7 @@ class deep_evidential_trajectory(TrajectoryFunctionClass):
     vector from the posterior distributions.
     """
 
-    def __init__(self, model: TrainableProbabilisticModel):
+    def __init__(self, model: EvidentialPriorModel):
         """
         :param model: The model of the objective function.
         """
@@ -172,20 +175,19 @@ class deep_evidential_trajectory(TrajectoryFunctionClass):
         self._batch_size = tf.Variable(
             0, dtype=tf.int32, trainable=False
         )
-
-        self._seeds = tf.Variable(
-            tf.ones([0,0], dtype=tf.int32), shape=[None, None], trainable=False
-        )
+        self._evidential_parameters = None
+        self._mu = tf.Variable(0, trainable=False)
+        self._sigma = tf.Variable(0, trainable=False)
             
     def __call__(self, x: TensorType) -> TensorType:  # [N, B, d] -> [N, B]
         """
-        Call trajectory function. It uses `tf.random` seeds to fix the matrix of dropout
-        inputs or weights in the kernel, and performs a single forward pass to return the
-        equivalent to a posterior draw.
+        Call trajectory function. Makes a draw from the posterior normal distribution
+        of outputs given the predicted evidential parameters. 
         """
         if not self._initialized:  # work out desired batch size from input
             self._batch_size.assign(tf.shape(x)[-2])  # B
-            self.resample() # sample B seeds to fix
+            self._evidential_parameters = self._model(x)
+            self.resample() # Draws a mu and sigma vector
             self._initialized.assign(True)
 
         tf.debugging.assert_equal(
@@ -198,17 +200,19 @@ class deep_evidential_trajectory(TrajectoryFunctionClass):
             """
         )
 
-        predictions = []
-        batch_index = tf.range(0, self._batch_size, 1)
-        _ = self._model.sample(x[:1,0,:], num_samples=1) # [DAV] Somehow first seed doesn't propagate unless I've done a dummy pred before.
-        for b, seed in zip(batch_index, tf.unstack(self._seeds)):
-            tf.random.set_seed(seed) # [DAV] A possible local seed? One can pass operational seeds to both types of dropouts, but it doesn't seem to fix the prediction
-            predictions.append(self._model.sample(x[:,b,:], num_samples=1)[0])
+        dist = tfp.distributions.Normal(self._mu, self._sigma)
+        predictions = dist.sample(1)
 
-        return tf.transpose(tf.squeeze(predictions, axis=-1), perm=[1,0])
+        return tf.reshape(predictions, (-1, self._batch_size))
 
     def resample(self) -> None:
         """
-        Efficiently resample in-place without retracing.
+        Efficiently resample in-place without retracing. By redrawing mu and sigma vectors based off
+        of already saved evidential parameters.
         """
-        self._seeds.assign(tf.random.uniform(shape=(self._batch_size, 1), minval=1, maxval=999999999, dtype=tf.int32))
+        tf.debugging.Assert(
+            self._evidential_parameters is not None,
+            message="Trajectory sampler needs to have been called ot initialize before resampling."
+        )
+        gamma, lamb, alpha, beta = tf.split(self._evidential_parameters, 4, axis = -1)
+        self._mu, self._sigma = self._model.sample_normal_parameters(gamma, lamb, alpha, beta, 1)
