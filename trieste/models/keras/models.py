@@ -411,6 +411,7 @@ class DeepEvidentialRegression(EvidentialPriorModel, KerasPredictor, TrainablePr
         return mu_samples, sigma_samples # [num_samples, len(query_points), 1] x2
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
+
         evidential_output = self.model(query_points)
         gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
 
@@ -425,9 +426,30 @@ class DeepEvidentialRegression(EvidentialPriorModel, KerasPredictor, TrainablePr
 
 
     def update(self) -> None:
+        """
+        Neural networks are parametric models and do not need to update data.
+        `TrainableProbabilisticModel` interface, however, requires an update method, so
+        here we simply pass the execution.
+        """
         pass
     
     def optimize(self, dataset: Dataset) -> None:
+        """
+        Optimize the underlying Keras ensemble model with the specified ``dataset``.
+
+        Optimization is performed by using the Keras `fit` method, rather than applying the
+        optimizer and using the batches supplied with the optimizer wrapper. User can pass
+        arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
+        These default to using 100 epochs, batch size 100, and verbose 0. See
+        https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
+        arguments.
+
+        Note that optimization does not return the result, instead optimization results are
+        stored in a history attribute of the model object.
+
+        :param dataset: The data with which to optimize the model.
+        """
+
         x, y = dataset.astuple()
         self.optimizer.optimizer.learning_rate = self._learning_rate
         self.model.fit(x, y, **self.optimizer.fit_args)

@@ -689,3 +689,13 @@ def test_deep_evidential_loss(
     model_loss = model.model.history.history["loss"][-1]
 
     npt.assert_allclose(model_loss, reference_loss, rtol=1e-6)
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_samples_are_properly_distributed() -> None:
+    ...
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_predictions_are_properly_distributed() -> None:
+    ...
