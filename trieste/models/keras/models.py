@@ -341,7 +341,7 @@ class DeepEnsemble(
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
 
-class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel, HasTrajectorySampler):
+class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
     def __init__(
         self,
         model: DeepEvidentialNetwork,
@@ -354,20 +354,20 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel, HasT
             self.optimizer.fit_args = {
                 "verbose": 0,
                 "epochs": 1000,
-                "batch_size": 16,
+                "batch_size": 32,
                 "callbacks": [
                     tf.keras.callbacks.EarlyStopping(
-                        monitor="loss", patience=50, restore_best_weights=True
+                        monitor="loss", patience=100, restore_best_weights=True
                     )
                 ],
             }
 
         if self.optimizer.loss is not deep_evidential_regression_loss:
             print(
-                f"Passed optimizer uses a  {self.optimizer.loss} loss function which is"
-                f"not compatible with deep evidential regression model which requires"
-                f":function: ~trieste.models.keras.utils.deep_evidential_regression_loss ."
-                f"Defaulting to deep evidential regression loss based on the sum of squares"
+                f"Passed optimizer uses an impappropriate loss function which is "
+                f"not compatible with deep evidential regression model which requires "
+                f"{deep_evidential_regression_loss}. Defaulting to deep evidential "
+                f"regression loss based on the sum of squares"
             )
             self.optimizer.loss = deep_evidential_regression_loss
 
@@ -380,6 +380,15 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel, HasT
         self._model = model
         self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
     
+    @property
+    def model(self) -> tf.keras.Model:
+        """ " Returns compiled Keras ensemble model."""
+        return self._model
+
+    def __repr__(self) -> str:
+        return f"DeepEvidential({self.model!r}, {self.optimizer!r})"
+
+
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
 
         evidential_output = self.model(query_points)
@@ -399,15 +408,16 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel, HasT
         sigma_samples = sigma_dist.sample(num_samples)
 
         samples = []
-        for sigma in tf.split(sigma_samples, num_samples, axis=-1):
+        for sigma in tf.split(sigma_samples, num_samples, axis=0):
             mu_dist = tfp.distributions.Normal(gamma, sigma/lamb)
             mu = mu_dist.sample(1)
             observation_dist = tfp.distributions.Normal(mu, sigma)
-            samples.append(observation_dist.sample(1))
+            sample = observation_dist.sample(1)
+            samples.append(tf.reshape(sample, (-1, 1)))
         
         samples = tf.stack(samples, axis=0)
         
-        return samples
+        return samples # [num_samples, len(query_points), 1]
 
     
     def update(self) -> None:
