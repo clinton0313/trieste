@@ -562,6 +562,25 @@ def test_deep_evidential_predict_call_shape(dataset_size: int) -> None:
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize("num_samples", [6, 12])
 @pytest.mark.parametrize("dataset_size", [4, 8])
+def test_deep_evidential_sample_normal_paramaeters_call_shape(
+    num_samples: int, 
+    dataset_size: int
+) -> None:
+
+    example_data = _get_example_data([dataset_size, 1])
+    model = trieste_deep_evidential_model(example_data)
+
+    mu, sigma = model.sample_normal_parameters(example_data.query_points, num_samples)
+
+    assert tf.is_tensor(mu)
+    assert mu.shape == [num_samples, dataset_size, 1]
+    assert tf.is_tensor(sigma)
+    assert sigma.shape == [num_samples, dataset_size, 1]
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("num_samples", [6, 12])
+@pytest.mark.parametrize("dataset_size", [4, 8])
 def test_deep_evidential_sample_call_shape(num_samples: int, dataset_size: int) -> None:
     example_data = _get_example_data([dataset_size, 1])
     model = trieste_deep_evidential_model(example_data)

@@ -393,23 +393,36 @@ class DeepEvidentialRegression(KerasPredictor, TrainableProbabilisticModel):
         
         return gamma, aleatoric + epistemic
     
-    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
-        
+    def sample_normal_parameters(
+        self, 
+        query_points: TensorType, 
+        num_samples:int
+    ) -> tuple[TensorType, TensorType]:
+        '''Samples a mu vector and a sigma vector for the posterior distribution of each observation'''
+
         evidential_output = self.model(query_points)
         gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
-
         sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
         sigma_samples = sigma_dist.sample(num_samples)
 
-        samples = []
+        mu_samples = []
         for sigma in tf.split(sigma_samples, num_samples, axis=0):
+            sigma = tf.reshape(sigma, (-1, 1))
             mu_dist = tfp.distributions.Normal(gamma, sigma/lamb)
             mu = mu_dist.sample(1)
-            observation_dist = tfp.distributions.Normal(mu, sigma)
-            sample = observation_dist.sample(1)
-            samples.append(tf.reshape(sample, (-1, 1)))
+            mu_samples.append(tf.reshape(mu, (-1, 1)))
         
-        samples = tf.stack(samples, axis=0)
+        mu_samples = tf.Variable(mu_samples)
+        
+        return mu_samples, sigma_samples
+
+    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
+        mu, sigma = self.sample_normal_parameters(query_points, num_samples)
+       
+        observation_dist = tfp.distributions.Normal(mu, sigma)
+        samples = observation_dist.sample(1)
+        
+        samples = tf.reshape(tf.squeeze(samples), (num_samples, len(query_points), 1))
         
         return samples # [num_samples, len(query_points), 1]
 
