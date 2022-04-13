@@ -118,6 +118,7 @@ def test_sample_with_replacement_seems_correct(rank: int) -> None:
     assert tf.math.abs(tf.math.reduce_std(mean) - tf.math.reduce_std(x) / 10.0) < 0.1
 
 
+@pytest.mark.deep_evidential
 @pytest.mark.parametrize(
     "y_true, gamma, lamb, alpha, beta, true_loss",
     [
@@ -136,6 +137,8 @@ def test_normal_inverse_gamma_negative_log_likelihood_is_accurate(
     loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, lamb, alpha, beta)
     npt.assert_approx_equal(loss, true_loss)
 
+
+@pytest.mark.deep_evidential
 @pytest.mark.parametrize(
     "y_true, gamma, lamb, alpha, beta, true_loss",
     [
@@ -154,6 +157,8 @@ def test_normal_inverse_gamma_sum_of_squares_is_accurate(
     loss = normal_inverse_gamma_sum_of_squares(y_true, gamma, lamb, alpha, beta)
     npt.assert_approx_equal(loss, true_loss)
 
+
+@pytest.mark.deep_evidential
 @pytest.mark.parametrize(
     "y_true, gamma, lamb, alpha, true_loss",
     [
@@ -171,6 +176,8 @@ def test_normal_inverse_gamma_regularizer_is_accurate(
     loss = normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
     npt.assert_approx_equal(loss, true_loss)
 
+
+@pytest.mark.deep_evidential
 @pytest.mark.parametrize(
     "y_true, y_pred, use_sos, true_loss",
     [
@@ -210,6 +217,8 @@ def test_deep_evidential_regression_loss_is_accurate(
         )
     npt.assert_approx_equal(loss, true_loss)
 
+
+@pytest.mark.deep_evidential
 @pytest.mark.parametrize(
     "y_pred",
     [
