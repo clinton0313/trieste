@@ -55,10 +55,6 @@ def _rate_fixture(request: Any) -> float:
 def _loss_fixture(request: Any) -> float:
     return "mse"
 
-# @pytest.fixture(name="optimizer")
-# def _optimizer_fixture(request: Any) -> float:
-#     return tf.optimizers.Adam()
-
 @pytest.mark.mcdropout
 @pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
 def test_mcdropout_repr(
@@ -309,6 +305,7 @@ def test_mcdropout_loss_with_different_layers_and_reset_lr(
 
 
 @random_seed
+@pytest.mark.mcdropout
 @pytest.mark.parametrize("num_samples", [50, 100, 200])
 @pytest.mark.parametrize("num_passes", [50, 100, 200])
 def test_mcdropout_predict_num_passes(rate: List, loss: str, num_samples, num_passes) -> None:
@@ -336,3 +333,20 @@ def test_mcdropout_predict_num_passes(rate: List, loss: str, num_samples, num_pa
     npt.assert_allclose(predicted_means, reference_means, atol=0.1)
 
 
+@random_seed
+@pytest.mark.mcdropout
+@pytest.mark.parametrize("num_samples", [1000, 5000, 10000])
+def test_mcdropout_sample(rate: List, num_samples) -> None:
+    example_data = _get_example_data([100, 1])
+    model, _, _ = trieste_mcdropout_model(example_data, rate)
+
+    samples = model.sample(example_data.query_points, num_samples)
+    sample_mean = tf.reduce_mean(samples, axis=0)
+    sample_variance = tf.reduce_mean((samples - sample_mean) ** 2, axis=0)
+
+    ref_mean, ref_variance = model.predict(example_data.query_points)
+
+    error = 1 / tf.sqrt(tf.cast(num_samples, tf.float32))
+
+    npt.assert_allclose(sample_mean, ref_mean, atol=4 * error)
+    npt.assert_allclose(sample_variance, ref_variance, atol=8 * error)

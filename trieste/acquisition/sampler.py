@@ -74,7 +74,7 @@ class ExactThompsonSampler(ThompsonSampler[ProbabilisticModel]):
 
     def sample(self, model: ProbabilisticModel, sample_size: int, at: TensorType) -> TensorType:
         """
-        Return exact samples from either the objective function's minimser or its minimal value
+        Return exact samples from either the objective function's minimiser or its minimal value
         over the candidate set `at`.
 
         :param model: The model to sample from.
