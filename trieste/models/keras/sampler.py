@@ -184,9 +184,18 @@ class deep_evidential_trajectory(TrajectoryFunctionClass):
         Call trajectory function. Makes a draw from the posterior normal distribution
         of outputs given the predicted evidential parameters. 
         """
+
+        tf.debugging.assert_equal(
+            self._model.model.flattened_output_shape,
+            tf.shape(x)[-1],
+            message=f"""
+            IS THIS EVEN THE RIGHT TEST??
+            """
+         )
+
         if not self._initialized:  # work out desired batch size from input
             self._batch_size.assign(tf.shape(x)[-2])  # B
-            self._evidential_parameters = self._model(x)
+            self._evidential_parameters = self._model.model(x)
             self.resample() # Draws a mu and sigma vector
             self._initialized.assign(True)
 
@@ -210,9 +219,7 @@ class deep_evidential_trajectory(TrajectoryFunctionClass):
         Efficiently resample in-place without retracing. By redrawing mu and sigma vectors based off
         of already saved evidential parameters.
         """
-        tf.debugging.Assert(
-            self._evidential_parameters is not None,
-            message="Trajectory sampler needs to have been called ot initialize before resampling."
-        )
+        tf.debugging.Assert(self._evidential_parameters is not None, self._evidential_parameters, \
+            "Trajectory sampler needs to have been called ot initialize before resampling.")
         gamma, lamb, alpha, beta = tf.split(self._evidential_parameters, 4, axis = -1)
         self._mu, self._sigma = self._model.sample_normal_parameters(gamma, lamb, alpha, beta, 1)

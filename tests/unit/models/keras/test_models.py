@@ -562,7 +562,7 @@ def test_deep_evidential_predict_call_shape(dataset_size: int) -> None:
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize("num_samples", [6, 12])
 @pytest.mark.parametrize("dataset_size", [4, 8])
-def test_deep_evidential_sample_normal_paramaeters_call_shape(
+def test_deep_evidential_sample_normal_parameters_call_shape(
     num_samples: int, 
     dataset_size: int
 ) -> None:
@@ -690,12 +690,41 @@ def test_deep_evidential_loss(
 
     npt.assert_allclose(model_loss, reference_loss, rtol=1e-6)
 
-
+@random_seed
 @pytest.mark.deep_evidential
-def test_deep_evidential_samples_are_properly_distributed() -> None:
-    ...
+@pytest.mark.parametrize(
+    "output",
+    [
+        [
+            [30., 1., 6, 1.],
+            [20., 1.5, 5, 0.5]
+        ]
+    ]
+)
+def test_deep_evidential_samples_are_properly_distributed(
+    output: list
+) -> None:
+    num_samples = int(1e5)
+    example_data = empty_dataset([1], [1])
+    evidential_network = build_vanilla_keras_deep_evidential(example_data)
+    deep_evidential = DeepEvidentialRegression(evidential_network)
 
+    output = tf.Variable(output)
+    gamma, lamb, alpha, beta = tf.split(output, 4, axis=-1)
 
-@pytest.mark.deep_evidential
-def test_deep_evidential_predictions_are_properly_distributed() -> None:
-    ...
+    mu, sigma = deep_evidential.sample_normal_parameters(gamma, lamb, alpha, beta, num_samples)
+
+    exp_mu = tf.reduce_mean(mu, axis=0)
+    exp_sigma = tf.reduce_mean(sigma, axis=0)
+    var_mu = np.var(mu, axis=0)
+    var_sigma = np.var(sigma, axis=0)
+
+    true_mu_mean = gamma
+    true_sigma_mean = beta/(alpha-1)
+    true_mu_var = beta/((alpha-1) *lamb)
+    true_sigma_var = beta **2 / ((alpha - 1) ** 2 * (alpha - 2))
+
+    npt.assert_array_almost_equal(exp_mu, true_mu_mean, decimal = 2)
+    npt.assert_array_almost_equal(exp_sigma, true_sigma_mean, decimal = 2)
+    npt.assert_array_almost_equal(var_mu, true_mu_var, decimal = 2)
+    npt.assert_array_almost_equal(var_sigma, true_sigma_var, decimal = 2)

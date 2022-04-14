@@ -340,7 +340,7 @@ class DeepEnsemble(
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
 
-class DeepEvidentialRegression(EvidentialPriorModel, KerasPredictor, TrainableProbabilisticModel, HasTrajectorySampler):
+class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainableProbabilisticModel, HasTrajectorySampler):
     def __init__(
         self,
         model: DeepEvidentialNetwork,
@@ -398,15 +398,11 @@ class DeepEvidentialRegression(EvidentialPriorModel, KerasPredictor, TrainablePr
 
         sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
         sigma_samples = sigma_dist.sample(num_samples)
-
-        mu_samples = []
-        for sigma in tf.split(sigma_samples, num_samples, axis=0):
-            sigma = tf.reshape(sigma, (-1, 1))
-            mu_dist = tfp.distributions.Normal(gamma, sigma/lamb)
-            mu = mu_dist.sample(1)
-            mu_samples.append(tf.reshape(mu, (-1, 1)))
         
-        mu_samples = tf.Variable(mu_samples) 
+        mu_dist = tfp.distributions.Normal(gamma, (sigma_samples/lamb)**0.5)
+
+        mu_samples = mu_dist.sample(1)
+        mu_samples = tf.reshape(mu_samples, sigma_samples.shape)
         
         return mu_samples, sigma_samples # [num_samples, len(query_points), 1] x2
 
