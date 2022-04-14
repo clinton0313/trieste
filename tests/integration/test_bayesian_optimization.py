@@ -356,10 +356,10 @@ def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_simple_quadratic(
 @pytest.mark.slow
 @pytest.mark.mcdropout
 @pytest.mark.parametrize(
-    "rate, num_steps, acquisition_rule",
+    "num_steps, acquisition_rule",
     [
-        pytest.param(0.25, 5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(0.1, 5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
+        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
     ],
 )
 def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
@@ -368,13 +368,13 @@ def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
     _test_optimizer_finds_minimum(MCDropout, num_steps, acquisition_rule)
 
 @random_seed
-@pytest.mark.slow
+# @pytest.mark.slow
 @pytest.mark.mcdropout
 @pytest.mark.parametrize(
     "num_steps, acquisition_rule",
     [
         pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
+        # pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
     ],
 )
 def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
@@ -393,7 +393,7 @@ def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
 @pytest.mark.slow
 @pytest.mark.mcdropout
 @pytest.mark.parametrize(
-    "rate, num_steps, acquisition_rule",
+    "num_steps, acquisition_rule",
     [
         pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
         pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
