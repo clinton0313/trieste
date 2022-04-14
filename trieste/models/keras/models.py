@@ -340,7 +340,7 @@ class DeepEnsemble(
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
 
-class MCDropout(KerasPredictor, TrainableProbabilisticModel):
+class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
     """
     A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for Monte Carlo dropout
     built using Keras.
@@ -363,7 +363,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
 
     We provide classes for constructing neural networks with Monte Carlo dropout using Keras
     (:class:`~trieste.models.keras.DropoutNetwork`) in the `architectures` package that should be
-    used with the :class:`~trieste.models.keras.MCDropout` wrapper. There we also provide
+    used with the :class:`~trieste.models.keras.MonteCarloDropout` wrapper. There we also provide
     an application of MC-DropConnect, by setting the argument `dropout` to 'dropconnect'.
 
     Note that currently we do not support setting up the model with dictionary configs and saving
@@ -410,7 +410,8 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         if self.optimizer.loss is None:
             self.optimizer.loss = "mse"
 
-        self._learning_rate = learning_rate
+        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
+        # self._learning_rate = learning_rate
 
         model.compile(
             self.optimizer.optimizer,
@@ -423,7 +424,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
 
     def __repr__(self) -> str:
         """"""
-        return f"MCDropout({self.model!r}, {self.optimizer!r})"
+        return f"MonteCarloDropout({self.model!r}, {self.optimizer!r})"
 
     @property
     def model(self) -> tf.keras.Model:
@@ -447,8 +448,8 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         :param dataset: The data with which to optimize the model.
         """
         x, y = dataset.astuple()
-        self.optimizer.optimizer.learning_rate = self._learning_rate
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
+        self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
 
     def update(self, dataset: Dataset) -> None:
         """
@@ -473,7 +474,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
-        Returns mean and variance of the MC Dropout.
+        Returns mean and variance of the Monte Carlo Dropout.
 
         Following <cite data-cite="gal2015simple"/>, we make T stochastic forward passes
         through the trained network of L hidden layers M_l and average the results to derive

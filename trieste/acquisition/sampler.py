@@ -82,7 +82,7 @@ class ExactThompsonSampler(ThompsonSampler[ProbabilisticModel]):
         :param at: Where to sample the predictive distribution, with shape `[N, D]`, for points
             of dimension `D`.
         :return: The samples, of shape `[S, D]` (where `S` is the `sample_size`) if sampling
-            the function's minimser or shape `[S, 1]` if sampling the function's mimimal value.
+            the function's minimiser or shape `[S, 1]` if sampling the function's mimimal value.
         :raise ValueError: If ``at`` has an invalid shape or if ``sample_size`` is not positive.
         """
         tf.debugging.assert_positive(sample_size)
@@ -188,7 +188,7 @@ class ThompsonSamplerFromTrajectory(ThompsonSampler[HasTrajectorySampler]):
 
     def sample(self, model: HasTrajectorySampler, sample_size: int, at: TensorType) -> TensorType:
         """
-        Return approximate samples from either the objective function's minimser or its minimal
+        Return approximate samples from either the objective function's minimiser or its minimal
         value over the candidate set `at`.
 
         :param model: The model to sample from.
@@ -196,7 +196,7 @@ class ThompsonSamplerFromTrajectory(ThompsonSampler[HasTrajectorySampler]):
         :param at: Where to sample the predictive distribution, with shape `[N, D]`, for points
             of dimension `D`.
         :return: The samples, of shape `[S, D]` (where `S` is the `sample_size`) if sampling
-            the function's minimser or shape `[S, 1]` if sampling the function's mimimal value.
+            the function's minimiser or shape `[S, 1]` if sampling the function's mimimal value.
         :raise ValueError: If ``at`` has an invalid shape or if ``sample_size`` is not positive.
         """
         tf.debugging.assert_positive(sample_size)

@@ -27,7 +27,7 @@ from tests.util.models.models import fnc_2sin_x_over_3
 from trieste.data import Dataset
 from trieste.models import create_model
 from trieste.models.keras import (
-    MCDropout,
+    MonteCarloDropout,
     DropoutNetwork,
     negative_log_likelihood,
 )
@@ -66,10 +66,10 @@ def test_mcdropout_repr(
     dropout_network = trieste_dropout_network_model(example_data, rate)
     dropout_network.compile(optimizer, loss=loss)
     optimizer_wrapper = KerasOptimizer(optimizer, loss=loss)
-    model = MCDropout(dropout_network, optimizer_wrapper)
+    model = MonteCarloDropout(dropout_network, optimizer_wrapper)
 
     expected_repr = (
-        f"MCDropout({dropout_network!r}, {optimizer_wrapper!r})"
+        f"MonteCarloDropout({dropout_network!r}, {optimizer_wrapper!r})"
     )
 
     assert type(model).__name__ in repr(model)
@@ -91,7 +91,7 @@ def test_dropout_network_default_optimizer_is_correct(rate: List, loss: str) -> 
     example_data = empty_dataset([1], [1])
 
     dropout_network = trieste_dropout_network_model(example_data, rate)
-    model = MCDropout(dropout_network)
+    model = MonteCarloDropout(dropout_network)
     default_loss = loss
     default_fit_args = {
         "batch_size": 32,
@@ -120,7 +120,7 @@ def test_mcdropout_optimizer_changed_correctly(rate: List) -> None:
     optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
 
     dropout_network = trieste_dropout_network_model(example_data, rate)
-    model = MCDropout(dropout_network, optimizer_wrapper)
+    model = MonteCarloDropout(dropout_network, optimizer_wrapper)
 
     assert model.optimizer == optimizer_wrapper
     assert model.optimizer.optimizer == custom_optimizer
@@ -151,7 +151,7 @@ def test_config_builds_mcdropout_and_default_optimizer_is_correct(rate: List) ->
         "batch_size": 100,
     }
 
-    assert isinstance(model, MCDropout)
+    assert isinstance(model, MonteCarloDropout)
     assert isinstance(model.optimizer, KerasOptimizer)
     assert isinstance(model.optimizer.optimizer, tf.keras.optimizers.Optimizer)
     assert model.optimizer.fit_args == default_fit_args
@@ -191,7 +191,7 @@ def test_mcdropout_optimize_with_defaults(rate: List) -> None:
 
     dropout_network = trieste_dropout_network_model(example_data, rate)
 
-    model = MCDropout(dropout_network)
+    model = MonteCarloDropout(dropout_network)
 
     model.optimize(example_data)
     loss = model.model.history.history["loss"]
@@ -204,7 +204,7 @@ def test_mcdropout_learning_rate_resets(rate: List) -> None:
 
     dropout_network = trieste_dropout_network_model(example_data, rate)
 
-    model = MCDropout(dropout_network)
+    model = MonteCarloDropout(dropout_network)
 
     model.optimize(example_data)
     lr1 = model.model.history.history["lr"]
@@ -226,7 +226,7 @@ def test_mcdropout_optimizer_learns_new_data(rate: List) -> None:
 
     dropout_network = trieste_dropout_network_model(positive_slope, rate, DropoutNetwork)
 
-    model = MCDropout(dropout_network)
+    model = MonteCarloDropout(dropout_network)
 
     model.optimize(positive_slope)
     pred1, _ = model.predict(qp)
@@ -239,14 +239,14 @@ def test_mcdropout_optimizer_learns_new_data(rate: List) -> None:
 @random_seed
 @pytest.mark.mcdropout
 @pytest.mark.parametrize("epochs", [5, 15])
-@pytest.mark.parametrize("learning_rate", [0.01, 0.1])
+@pytest.mark.parametrize("learning_rate", [0.1, 0.01])
 @pytest.mark.parametrize("rate", [0.1, 0.2])
 def test_mcdropout_optimize(rate: float, epochs: int, learning_rate: float) -> None:
     example_data = _get_example_data([20, 1])
 
     dropout_network = trieste_dropout_network_model(example_data, rate, DropoutNetwork)
 
-    custom_optimizer = tf.optimizers.RMSprop()
+    custom_optimizer = tf.optimizers.Adam(learning_rate=learning_rate)
     custom_fit_args = {
         "verbose": 0,
         "epochs": epochs,
@@ -262,13 +262,13 @@ def test_mcdropout_optimize(rate: float, epochs: int, learning_rate: float) -> N
     }
     optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args)
 
-    model = MCDropout(dropout_network, optimizer=optimizer_wrapper, learning_rate=learning_rate)
+    model = MonteCarloDropout(dropout_network, optimizer=optimizer_wrapper, learning_rate=learning_rate)
 
     model.optimize(example_data)
 
     lr_hist = model.model.history.history["lr"]
     loss = model.model.history.history["loss"]
-
+    # breakpoint()
     assert loss[-1] < loss[0]
     assert len(loss) == epochs
     npt.assert_almost_equal(lr_hist[0], learning_rate, decimal=3)
@@ -284,14 +284,14 @@ def test_mcdropout_loss_with_different_layers_and_reset_lr(
     example_data_1 = _get_example_data([200, 1])
     example_data_2 = _get_example_data([200, 1])
 
-    model_1 = MCDropout(
+    model_1 = MonteCarloDropout(
         trieste_dropout_network_model(example_data_1, rate, layer),
         KerasOptimizer(tf.optimizers.Adam(), loss=loss),
         learning_rate=0.01
     )
     model_1.optimize(example_data_1)
 
-    model_2 = MCDropout(
+    model_2 = MonteCarloDropout(
         trieste_dropout_network_model(example_data_2, rate, layer),
         KerasOptimizer(tf.optimizers.Adam(), loss=loss),
         learning_rate=0.01
@@ -312,7 +312,7 @@ def test_mcdropout_predict_num_passes(rate: List, loss: str, num_samples, num_pa
     example_data = _get_example_data([100, 1])
     transformed_x, transformed_y = example_data.astuple()
 
-    model = MCDropout(
+    model = MonteCarloDropout(
         trieste_dropout_network_model(example_data, rate, DropoutNetwork),
         KerasOptimizer(tf.optimizers.Adam(), loss=loss),
         learning_rate=0.01,

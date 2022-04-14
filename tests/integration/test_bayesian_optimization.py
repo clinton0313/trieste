@@ -64,7 +64,7 @@ from trieste.models.gpflux import DeepGaussianProcess, build_vanilla_deep_gp
 
 from trieste.models.keras import (
     DeepEnsemble, 
-    MCDropout,
+    MonteCarloDropout,
     DropConnectNetwork,
     DropoutNetwork,
     build_vanilla_keras_mcdropout,
@@ -203,206 +203,205 @@ def GPR_OPTIMIZER_PARAMS() -> Tuple[str, List[ParameterSet]]:
     )
 
 
-@random_seed
-@pytest.mark.slow  # to run this, add --runslow yes to the pytest command
-@pytest.mark.parametrize(*GPR_OPTIMIZER_PARAMS())
-def test_bayesian_optimizer_with_gpr_finds_minima_of_scaled_branin(
-    num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, GaussianProcessRegression]
-    | AcquisitionRule[
-        State[TensorType, AsynchronousRuleState | TrustRegion.State], Box, GaussianProcessRegression
-    ],
-) -> None:
-    _test_optimizer_finds_minimum(
-        GaussianProcessRegression, num_steps, acquisition_rule, optimize_branin=True
-    )
+# @random_seed
+# @pytest.mark.slow  # to run this, add --runslow yes to the pytest command
+# @pytest.mark.parametrize(*GPR_OPTIMIZER_PARAMS())
+# def test_bayesian_optimizer_with_gpr_finds_minima_of_scaled_branin(
+#     num_steps: int,
+#     acquisition_rule: AcquisitionRule[TensorType, SearchSpace, GaussianProcessRegression]
+#     | AcquisitionRule[
+#         State[TensorType, AsynchronousRuleState | TrustRegion.State], Box, GaussianProcessRegression
+#     ],
+# ) -> None:
+#     _test_optimizer_finds_minimum(
+#         GaussianProcessRegression, num_steps, acquisition_rule, optimize_branin=True
+#     )
+
+
+# @random_seed
+# @pytest.mark.parametrize(*GPR_OPTIMIZER_PARAMS())
+# def test_bayesian_optimizer_with_gpr_finds_minima_of_simple_quadratic(
+#     num_steps: int,
+#     acquisition_rule: AcquisitionRule[TensorType, SearchSpace, GaussianProcessRegression]
+#     | AcquisitionRule[
+#         State[TensorType, AsynchronousRuleState | TrustRegion.State], Box, GaussianProcessRegression
+#     ],
+# ) -> None:
+#     # for speed reasons we sometimes test with a simple quadratic defined on the same search space
+#     # branin; currently assume that every rule should be able to solve this in 6 steps
+#     _test_optimizer_finds_minimum(GaussianProcessRegression, min(num_steps, 6), acquisition_rule)
+
+
+# @random_seed
+# @pytest.mark.slow
+# def test_bayesian_optimizer_with_vgp_finds_minima_of_scaled_branin() -> None:
+#     _test_optimizer_finds_minimum(
+#         VariationalGaussianProcess,
+#         10,
+#         EfficientGlobalOptimization[SearchSpace, VariationalGaussianProcess](
+#             builder=ParallelContinuousThompsonSampling(), num_query_points=5
+#         ),
+#     )
+
+
+# @random_seed
+# @pytest.mark.parametrize("use_natgrads", [False, True])
+# def test_bayesian_optimizer_with_vgp_finds_minima_of_simple_quadratic(use_natgrads: bool) -> None:
+#     # regression test for [#406]; use natgrads doesn't work well as a model for the objective
+#     # so don't bother checking the results, just that it doesn't crash
+#     _test_optimizer_finds_minimum(
+#         VariationalGaussianProcess,
+#         None if use_natgrads else 5,
+#         EfficientGlobalOptimization[SearchSpace, GPflowPredictor](),
+#         model_args={"use_natgrads": use_natgrads},
+#     )
+
+
+# @random_seed
+# @pytest.mark.slow
+# def test_bayesian_optimizer_with_svgp_finds_minima_of_scaled_branin() -> None:
+#     _test_optimizer_finds_minimum(
+#         SparseVariational,
+#         40,
+#         EfficientGlobalOptimization[SearchSpace, SparseVariational](),
+#         optimize_branin=True,
+#         model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
+#     )
+#     _test_optimizer_finds_minimum(
+#         SparseVariational,
+#         15,
+#         EfficientGlobalOptimization[SearchSpace, SparseVariational](
+#             builder=ParallelContinuousThompsonSampling(), num_query_points=5
+#         ),
+#         optimize_branin=True,
+#         model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
+#     )
+
+
+# @random_seed
+# def test_bayesian_optimizer_with_svgp_finds_minima_of_simple_quadratic() -> None:
+#     _test_optimizer_finds_minimum(
+#         SparseVariational,
+#         5,
+#         EfficientGlobalOptimization[SearchSpace, SparseVariational](),
+#         model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
+#     )
+
+
+# @random_seed
+# @pytest.mark.slow
+# def test_bayesian_optimizer_with_sgpr_finds_minima_of_scaled_branin() -> None:
+#     _test_optimizer_finds_minimum(
+#         SparseGaussianProcessRegression,
+#         9,
+#         EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](),
+#         optimize_branin=True,
+#     )
+#     _test_optimizer_finds_minimum(
+#         SparseGaussianProcessRegression,
+#         11,
+#         EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](
+#             builder=ParallelContinuousThompsonSampling(), num_query_points=5
+#         ),
+#         optimize_branin=True,
+#     )
+
+
+# @random_seed
+# def test_bayesian_optimizer_with_sgpr_finds_minima_of_simple_quadratic() -> None:
+#     _test_optimizer_finds_minimum(
+#         SparseGaussianProcessRegression,
+#         5,
+#         EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](),
+#     )
+
+
+# @random_seed
+# @pytest.mark.slow
+# @pytest.mark.parametrize("num_steps, acquisition_rule", [(25, DiscreteThompsonSampling(1000, 8))])
+# def test_bayesian_optimizer_with_dgp_finds_minima_of_scaled_branin(
+#     num_steps: int,
+#     acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepGaussianProcess],
+#     keras_float: None,
+# ) -> None:
+#     _test_optimizer_finds_minimum(
+#         DeepGaussianProcess, num_steps, acquisition_rule, optimize_branin=True
+#     )
+
+
+# @random_seed
+# @pytest.mark.parametrize("num_steps, acquisition_rule", [(5, DiscreteThompsonSampling(1000, 1))])
+# def test_bayesian_optimizer_with_dgp_finds_minima_of_simple_quadratic(
+#     num_steps: int,
+#     acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepGaussianProcess],
+#     keras_float: None,
+# ) -> None:
+#     _test_optimizer_finds_minimum(DeepGaussianProcess, num_steps, acquisition_rule)
+
+
+# @random_seed
+# @pytest.mark.slow
+# @pytest.mark.parametrize(
+#     "num_steps, acquisition_rule",
+#     [
+#         pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+#         pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling"),
+#         pytest.param(
+#             30,
+#             DiscreteThompsonSampling(1000, 3, thompson_sampler=ThompsonSamplerFromTrajectory()),
+#             id="DiscreteThompsonSampling/ThompsonSamplerFromTrajectory",
+#         ),
+#         pytest.param(
+#             11,
+#             EfficientGlobalOptimization(
+#                 ParallelContinuousThompsonSampling(),
+#                 num_query_points=10,
+#             ),
+#             id="ParallelContinuousThompsonSampling",
+#         ),
+#     ],
+# )
+# def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_scaled_branin(
+#     num_steps: int,
+#     acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepEnsemble],
+# ) -> None:
+#     _test_optimizer_finds_minimum(
+#         DeepEnsemble,
+#         num_steps,
+#         acquisition_rule,
+#         optimize_branin=True,
+#         model_args={"bootstrap": True},
+#     )
+
+
+# @random_seed
+# @pytest.mark.parametrize(
+#     "num_steps, acquisition_rule",
+#     [
+#         pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+#         pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling"),
+#         pytest.param(
+#             5,
+#             DiscreteThompsonSampling(500, 1, thompson_sampler=ThompsonSamplerFromTrajectory()),
+#             id="DiscreteThompsonSampling/ThompsonSamplerFromTrajectory",
+#         ),
+#         pytest.param(
+#             5,
+#             EfficientGlobalOptimization(
+#                 ParallelContinuousThompsonSampling(),
+#                 num_query_points=3,
+#             ),
+#             id="ParallelContinuousThompsonSampling",
+#         ),
+#     ],
+# )
+# def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_simple_quadratic(
+#     num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepEnsemble]
+# ) -> None:
+#     _test_optimizer_finds_minimum(DeepEnsemble, num_steps, acquisition_rule)
 
 
 @random_seed
-@pytest.mark.parametrize(*GPR_OPTIMIZER_PARAMS())
-def test_bayesian_optimizer_with_gpr_finds_minima_of_simple_quadratic(
-    num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, GaussianProcessRegression]
-    | AcquisitionRule[
-        State[TensorType, AsynchronousRuleState | TrustRegion.State], Box, GaussianProcessRegression
-    ],
-) -> None:
-    # for speed reasons we sometimes test with a simple quadratic defined on the same search space
-    # branin; currently assume that every rule should be able to solve this in 6 steps
-    _test_optimizer_finds_minimum(GaussianProcessRegression, min(num_steps, 6), acquisition_rule)
-
-
-@random_seed
-@pytest.mark.slow
-def test_bayesian_optimizer_with_vgp_finds_minima_of_scaled_branin() -> None:
-    _test_optimizer_finds_minimum(
-        VariationalGaussianProcess,
-        10,
-        EfficientGlobalOptimization[SearchSpace, VariationalGaussianProcess](
-            builder=ParallelContinuousThompsonSampling(), num_query_points=5
-        ),
-    )
-
-
-@random_seed
-@pytest.mark.parametrize("use_natgrads", [False, True])
-def test_bayesian_optimizer_with_vgp_finds_minima_of_simple_quadratic(use_natgrads: bool) -> None:
-    # regression test for [#406]; use natgrads doesn't work well as a model for the objective
-    # so don't bother checking the results, just that it doesn't crash
-    _test_optimizer_finds_minimum(
-        VariationalGaussianProcess,
-        None if use_natgrads else 5,
-        EfficientGlobalOptimization[SearchSpace, GPflowPredictor](),
-        model_args={"use_natgrads": use_natgrads},
-    )
-
-
-@random_seed
-@pytest.mark.slow
-def test_bayesian_optimizer_with_svgp_finds_minima_of_scaled_branin() -> None:
-    _test_optimizer_finds_minimum(
-        SparseVariational,
-        40,
-        EfficientGlobalOptimization[SearchSpace, SparseVariational](),
-        optimize_branin=True,
-        model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
-    )
-    _test_optimizer_finds_minimum(
-        SparseVariational,
-        15,
-        EfficientGlobalOptimization[SearchSpace, SparseVariational](
-            builder=ParallelContinuousThompsonSampling(), num_query_points=5
-        ),
-        optimize_branin=True,
-        model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
-    )
-
-
-@random_seed
-def test_bayesian_optimizer_with_svgp_finds_minima_of_simple_quadratic() -> None:
-    _test_optimizer_finds_minimum(
-        SparseVariational,
-        5,
-        EfficientGlobalOptimization[SearchSpace, SparseVariational](),
-        model_args={"optimizer": Optimizer(gpflow.optimizers.Scipy())},
-    )
-
-
-@random_seed
-@pytest.mark.slow
-def test_bayesian_optimizer_with_sgpr_finds_minima_of_scaled_branin() -> None:
-    _test_optimizer_finds_minimum(
-        SparseGaussianProcessRegression,
-        9,
-        EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](),
-        optimize_branin=True,
-    )
-    _test_optimizer_finds_minimum(
-        SparseGaussianProcessRegression,
-        11,
-        EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](
-            builder=ParallelContinuousThompsonSampling(), num_query_points=5
-        ),
-        optimize_branin=True,
-    )
-
-
-@random_seed
-def test_bayesian_optimizer_with_sgpr_finds_minima_of_simple_quadratic() -> None:
-    _test_optimizer_finds_minimum(
-        SparseGaussianProcessRegression,
-        5,
-        EfficientGlobalOptimization[SearchSpace, SparseGaussianProcessRegression](),
-    )
-
-
-@random_seed
-@pytest.mark.slow
-@pytest.mark.parametrize("num_steps, acquisition_rule", [(25, DiscreteThompsonSampling(1000, 8))])
-def test_bayesian_optimizer_with_dgp_finds_minima_of_scaled_branin(
-    num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepGaussianProcess],
-    keras_float: None,
-) -> None:
-    _test_optimizer_finds_minimum(
-        DeepGaussianProcess, num_steps, acquisition_rule, optimize_branin=True
-    )
-
-
-@random_seed
-@pytest.mark.parametrize("num_steps, acquisition_rule", [(5, DiscreteThompsonSampling(1000, 1))])
-def test_bayesian_optimizer_with_dgp_finds_minima_of_simple_quadratic(
-    num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepGaussianProcess],
-    keras_float: None,
-) -> None:
-    _test_optimizer_finds_minimum(DeepGaussianProcess, num_steps, acquisition_rule)
-
-
-@random_seed
-@pytest.mark.slow
-@pytest.mark.parametrize(
-    "num_steps, acquisition_rule",
-    [
-        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling"),
-        pytest.param(
-            30,
-            DiscreteThompsonSampling(1000, 3, thompson_sampler=ThompsonSamplerFromTrajectory()),
-            id="DiscreteThompsonSampling/ThompsonSamplerFromTrajectory",
-        ),
-        pytest.param(
-            11,
-            EfficientGlobalOptimization(
-                ParallelContinuousThompsonSampling(),
-                num_query_points=10,
-            ),
-            id="ParallelContinuousThompsonSampling",
-        ),
-    ],
-)
-def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_scaled_branin(
-    num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepEnsemble],
-) -> None:
-    _test_optimizer_finds_minimum(
-        DeepEnsemble,
-        num_steps,
-        acquisition_rule,
-        optimize_branin=True,
-        model_args={"bootstrap": True},
-    )
-
-
-@random_seed
-@pytest.mark.parametrize(
-    "num_steps, acquisition_rule",
-    [
-        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling"),
-        pytest.param(
-            5,
-            DiscreteThompsonSampling(500, 1, thompson_sampler=ThompsonSamplerFromTrajectory()),
-            id="DiscreteThompsonSampling/ThompsonSamplerFromTrajectory",
-        ),
-        pytest.param(
-            5,
-            EfficientGlobalOptimization(
-                ParallelContinuousThompsonSampling(),
-                num_query_points=3,
-            ),
-            id="ParallelContinuousThompsonSampling",
-        ),
-    ],
-)
-def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_simple_quadratic(
-    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepEnsemble]
-) -> None:
-    _test_optimizer_finds_minimum(DeepEnsemble, num_steps, acquisition_rule)
-
-
-@random_seed
-@pytest.mark.slow
 @pytest.mark.mcdropout
 @pytest.mark.parametrize(
     "rate, num_steps, acquisition_rule",
@@ -412,67 +411,67 @@ def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_simple_quadratic(
     ],
 )
 def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
-    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout]
+    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MonteCarloDropout], rate
 ) -> None:
-    _test_optimizer_finds_minimum(MCDropout, num_steps, acquisition_rule)
+    _test_optimizer_finds_minimum(MonteCarloDropout, num_steps, acquisition_rule)
 
-@random_seed
-@pytest.mark.slow
-@pytest.mark.mcdropout
-@pytest.mark.parametrize(
-    "num_steps, acquisition_rule",
-    [
-        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
-    ],
-)
-def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
-    num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout],
-) -> None:
-    _test_optimizer_finds_minimum(
-        MCDropout,
-        num_steps,
-        acquisition_rule,
-        optimize_branin=True
-    )
+# @random_seed
+# @pytest.mark.slow
+# @pytest.mark.mcdropout
+# @pytest.mark.parametrize(
+#     "num_steps, acquisition_rule",
+#     [
+#         pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+#         pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
+#     ],
+# )
+# def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
+#     num_steps: int,
+#     acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MonteCarloDropout],
+# ) -> None:
+#     _test_optimizer_finds_minimum(
+#         MonteCarloDropout,
+#         num_steps,
+#         acquisition_rule,
+#         optimize_branin=True
+#     )
 
 
-@random_seed
-@pytest.mark.slow
-@pytest.mark.mcdropout
-@pytest.mark.parametrize(
-    "rate, num_steps, acquisition_rule",
-    [
-        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
-    ],
-)
-def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_simple_quadratic(
-    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect]
-) -> None:
-    _test_optimizer_finds_minimum(MCDropConnect, num_steps, acquisition_rule)
+# @random_seed
+# @pytest.mark.slow
+# @pytest.mark.mcdropout
+# @pytest.mark.parametrize(
+#     "rate, num_steps, acquisition_rule",
+#     [
+#         pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+#         pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
+#     ],
+# )
+# def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_simple_quadratic(
+#     num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect]
+# ) -> None:
+#     _test_optimizer_finds_minimum(MCDropConnect, num_steps, acquisition_rule)
 
-@random_seed
-@pytest.mark.slow
-@pytest.mark.mcdropout
-@pytest.mark.parametrize(
-    "num_steps, acquisition_rule",
-    [
-        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
-    ],
-)
-def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_scaled_branin(
-    num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect],
-) -> None:
-    _test_optimizer_finds_minimum(
-        MCDropConnect,
-        num_steps,
-        acquisition_rule,
-        optimize_branin=True
-    )
+# @random_seed
+# @pytest.mark.slow
+# @pytest.mark.mcdropout
+# @pytest.mark.parametrize(
+#     "num_steps, acquisition_rule",
+#     [
+#         pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+#         pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
+#     ],
+# )
+# def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_scaled_branin(
+#     num_steps: int,
+#     acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect],
+# ) -> None:
+#     _test_optimizer_finds_minimum(
+#         MCDropConnect,
+#         num_steps,
+#         acquisition_rule,
+#         optimize_branin=True
+#     )
 
 
 
@@ -567,7 +566,7 @@ def _test_optimizer_finds_minimum(
         de_optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.001), fit_args)
         model = DeepEnsemble(keras_ensemble, de_optimizer, **model_args)
 
-    elif model_type is MCDropout or model_type is MCDropConnect:
+    elif model_type is MonteCarloDropout or model_type is MCDropConnect:
         track_state = False
         
         if model_type is MCDropConnect:
@@ -591,7 +590,7 @@ def _test_optimizer_finds_minimum(
 
         mc_optimizer = KerasOptimizer(tf.keras.optimizers.Adam(learning_rate=0.001), fit_args)
 
-        model = MCDropout(dropout_network, mc_optimizer, num_passes=200, **model_args)
+        model = MonteCarloDropout(dropout_network, mc_optimizer, num_passes=200, **model_args)
 
     else:
         raise ValueError(f"Unsupported model_type '{model_type}'")

@@ -111,7 +111,7 @@ def build_vanilla_keras_mcdropout(
     :param dropout_network: The type of dropout network used. Accepts either :class: `DropoutNetwork` which 
         performs dropout for the inputs of each layer or :class: `DropConnectNetwork` which performs
         dropout for the weights of each layer. 
-    :return: Keras MCDropout model.
+    :return: Keras MonteCarloDropout model.
     """
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
 

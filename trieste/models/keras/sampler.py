@@ -167,7 +167,7 @@ class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
 
     def __init__(self, model: TrainableProbabilisticModel):
         """
-        :param model: The MC dropout model to sample from.
+        :param model: The Monte Carlo Dropout model to sample from.
         """
         if not isinstance(model, TrainableProbabilisticModel):
             raise NotImplementedError(
