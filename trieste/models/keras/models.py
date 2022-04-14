@@ -410,7 +410,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         if self.optimizer.loss is None:
             self.optimizer.loss = "mse"
 
-        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
+        self._learning_rate = learning_rate
 
         model.compile(
             self.optimizer.optimizer,
@@ -419,7 +419,6 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         )
 
         self.num_passes = num_passes
-        self.learning_rate = learning_rate
         self._model = model
 
     def __repr__(self) -> str:
@@ -447,7 +446,6 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
 
         :param dataset: The data with which to optimize the model.
         """
-        self.optimizer.optimizer.learning_rate = self.learning_rate
         x, y = dataset.astuple()
         self.optimizer.optimizer.learning_rate = self._learning_rate
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
