@@ -428,8 +428,8 @@ def test_deep_evidential_network_ouputs_are_well_behaved(
     output2 = deep_evidential(negative_input)
 
     for output in [output1, output2]:
-        _, lamb, alpha, beta = tf.split(output, 4, axis=-1)
-        assert lamb > 0
+        _, v, alpha, beta = tf.split(output, 4, axis=-1)
+        assert v > 0
         assert alpha > 1
         assert beta > 0
 
@@ -445,3 +445,26 @@ def test_deep_evidential_network_raises_on_incorrect_evidential_activation() -> 
             outputs,
             evidence_activation="test"
         )
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("dtype", [tf.float32, tf.float64])
+def test_deep_evidential_network_dtype(dtype: tf.DType) -> None:
+    '''Tests that network can infer data type from the data'''
+    x = tf.constant([[1]], dtype=tf.float16)
+    inputs, outputs = tf.TensorSpec([1], dtype), tf.TensorSpec([1], dtype)
+    deep_evidential = DeepEvidentialNetwork(inputs, outputs)
+
+    assert deep_evidential(x).dtype == dtype
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_network_accepts_scalars() -> None:
+    '''Tests that network can handle scalar inputs with ndim = 1 instead of 2'''
+    example_data = empty_dataset([1, 1], [1, 1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    deep_evidential = DeepEvidentialNetwork(inputs, outputs)
+
+    test_points = tf.linspace(-1, 1, 100)
+
+    assert deep_evidential(test_points).shape == (100, 4)

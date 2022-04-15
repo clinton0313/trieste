@@ -40,8 +40,7 @@ from trieste.models.keras import (
 from trieste.models.keras.utils import (
     build_deep_evidential_regression_loss,
     deep_evidential_regression_loss, 
-    normal_inverse_gamma_negative_log_likelihood, 
-    normal_inverse_gamma_sum_of_squares
+    normal_inverse_gamma_negative_log_likelihood
 )
 from trieste.models.optimizer import KerasOptimizer, TrainingData
 
@@ -571,8 +570,8 @@ def test_deep_evidential_sample_normal_parameters_call_shape(
     model = trieste_deep_evidential_model(example_data)
 
     evidential_output = model.model(example_data.query_points)
-    gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
-    mu, sigma = model.sample_normal_parameters(gamma, lamb, alpha, beta, num_samples)
+    gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+    mu, sigma = model.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
 
     assert tf.is_tensor(mu)
     assert mu.shape == [num_samples, dataset_size, 1]
@@ -656,21 +655,13 @@ def test_deep_evidential_learning_rate_resets(lr: float) -> None:
 
 @random_seed
 @pytest.mark.deep_evidential
-@pytest.mark.parametrize(
-    "base_loss",
-    [
-        normal_inverse_gamma_negative_log_likelihood,
-        normal_inverse_gamma_sum_of_squares
-    ]
-)
 @pytest.mark.parametrize("coeff", [1., 1.5])
 def test_deep_evidential_loss(
-    base_loss: Callable,
     coeff: float
 ) -> None:
     example_data = _get_example_data([100, 1])
     example_data = Dataset(tf.constant([[1.]]), tf.constant([[10.]]))
-    loss = build_deep_evidential_regression_loss(base_loss, coeff)
+    loss = build_deep_evidential_regression_loss(coeff)
     optimizer = tf.optimizers.Adam()
 
     model = trieste_deep_evidential_model(
@@ -710,9 +701,9 @@ def test_deep_evidential_samples_are_properly_distributed(
     deep_evidential = DeepEvidentialRegression(evidential_network)
 
     output = tf.Variable(output)
-    gamma, lamb, alpha, beta = tf.split(output, 4, axis=-1)
+    gamma, v, alpha, beta = tf.split(output, 4, axis=-1)
 
-    mu, sigma = deep_evidential.sample_normal_parameters(gamma, lamb, alpha, beta, num_samples)
+    mu, sigma = deep_evidential.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
 
     exp_mu = tf.reduce_mean(mu, axis=0)
     exp_sigma = tf.reduce_mean(sigma, axis=0)
@@ -721,7 +712,7 @@ def test_deep_evidential_samples_are_properly_distributed(
 
     true_mu_mean = gamma
     true_sigma_mean = beta/(alpha-1)
-    true_mu_var = beta/((alpha-1) *lamb)
+    true_mu_var = beta/((alpha-1) *v)
     true_sigma_var = beta **2 / ((alpha - 1) ** 2 * (alpha - 2))
 
     npt.assert_array_almost_equal(exp_mu, true_mu_mean, decimal = 3)
