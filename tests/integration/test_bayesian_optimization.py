@@ -404,14 +404,67 @@ def GPR_OPTIMIZER_PARAMS() -> Tuple[str, List[ParameterSet]]:
 @random_seed
 @pytest.mark.mcdropout
 @pytest.mark.parametrize(
-    "rate, num_steps, acquisition_rule",
+    "num_steps, acquisition_rule",
     [
-        pytest.param(0.25, 5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
-        pytest.param(0.1, 5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
+        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
     ],
 )
 def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
-    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MonteCarloDropout], rate
+    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout]
+) -> None:
+    _test_optimizer_finds_minimum(MCDropout, num_steps, acquisition_rule)
+
+@random_seed
+# @pytest.mark.slow
+@pytest.mark.mcdropout
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        # pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
+    ],
+)
+def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
+    num_steps: int,
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout],
+) -> None:
+    _test_optimizer_finds_minimum(
+        MCDropout,
+        num_steps,
+        acquisition_rule,
+        optimize_branin=True
+    )
+
+
+@random_seed
+@pytest.mark.slow
+@pytest.mark.mcdropout
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling")
+    ],
+)
+def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_simple_quadratic(
+    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect]
+) -> None:
+    _test_optimizer_finds_minimum(MCDropConnect, num_steps, acquisition_rule)
+
+@random_seed
+@pytest.mark.slow
+@pytest.mark.mcdropout
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(30, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling")
+    ],
+)
+def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_scaled_branin(
+    num_steps: int,
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropConnect],
 ) -> None:
     _test_optimizer_finds_minimum(MonteCarloDropout, num_steps, acquisition_rule)
 
