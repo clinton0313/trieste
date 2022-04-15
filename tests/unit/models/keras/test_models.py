@@ -724,7 +724,7 @@ def test_deep_evidential_samples_are_properly_distributed(
     true_mu_var = beta/((alpha-1) *lamb)
     true_sigma_var = beta **2 / ((alpha - 1) ** 2 * (alpha - 2))
 
-    npt.assert_array_almost_equal(exp_mu, true_mu_mean, decimal = 2)
-    npt.assert_array_almost_equal(exp_sigma, true_sigma_mean, decimal = 2)
-    npt.assert_array_almost_equal(var_mu, true_mu_var, decimal = 2)
-    npt.assert_array_almost_equal(var_sigma, true_sigma_var, decimal = 2)
+    npt.assert_array_almost_equal(exp_mu, true_mu_mean, decimal = 3)
+    npt.assert_array_almost_equal(exp_sigma, true_sigma_mean, decimal = 3)
+    npt.assert_array_almost_equal(var_mu, true_mu_var, decimal = 3)
+    npt.assert_array_almost_equal(var_sigma, true_sigma_var, decimal = 3)

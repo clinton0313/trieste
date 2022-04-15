@@ -103,7 +103,7 @@ def negative_log_likelihood(
 def normal_inverse_gamma_negative_log_likelihood(
     y_true: TensorType, 
     gamma: TensorType,
-    lamb: TensorType,
+    v: TensorType,
     alpha: TensorType,
     beta: TensorType
 ) -> TensorType:
@@ -112,49 +112,26 @@ def normal_inverse_gamma_negative_log_likelihood(
 
     :param y_true: The output variable values.
     :param gamma: The mean parameter of the Normal distribution.
-    :param lambda: The lambda parameter that scales the variance of the Normal distribution.
+    :param v: The lambda parameter that scales the variance of the Normal distribution.
     :param alpha: The alpha parameter of the Gamma distribution. 
     :param beta: The beta parameter of the Gamma distribution.
     :return: The loss values
     '''
-    negative_log_likelihood = -(
-            tf.math.log(2**(0.5 + alpha))
-            + tf.math.log(beta**alpha)
-            + 0.5 *tf.math.log(lamb/ (2 * np.math.pi * ( 1 + lamb)))
-            - (0.5 + alpha) * tf.math.log(2 * beta + lamb * (gamma - y_true)**2 / (1 + lamb))
-            # + tf.math.lgamma(alpha)
-            # - tf.math.lgamma(alpha+0.5)
-        )
+    omega = 2 * beta * (1 + v)
+
+    negative_log_likelihood = (
+        0.5 * tf.math.log(np.math.pi/v)
+        - alpha * tf.math.log(omega)
+        + (alpha + 0.5) * tf.math.log(v * (y_true - gamma) **2 + omega)
+        + tf.math.lgamma(alpha)
+        - tf.math.lgamma(alpha + 0.5)
+    )
     return negative_log_likelihood
 
-def normal_inverse_gamma_sum_of_squares(
-    y_true: TensorType, 
-    gamma: TensorType,
-    lamb: TensorType,
-    alpha: TensorType,
-    beta: TensorType
-) -> TensorType:
-    '''
-    Computes the loss of the normal inverse gamma as computed by sum of squares.
-    
-    :param y_true: The output variable values.
-    :param gamma: The mean parameter of the Normal distribution.
-    :param lambda: The lambda parameter that scales the variance of the Normal distribution.
-    :param alpha: The alpha parameter of the Gamma distribution. 
-    :param beta: The beta parameter of the Gamma distribution.
-    :return: The loss values
-    '''
-    log_likelihood = (
-        tf.math.log(beta*(1 + lamb)/lamb + (alpha - 1)*(y_true - gamma)**2)
-        + tf.math.lgamma(alpha - 1)
-        - tf.math.lgamma(alpha)
-    )
-
-    return log_likelihood
 
 def normal_inverse_gamma_regularizer(
     y_true: TensorType, 
-    gamma: TensorType,
+    v: TensorType,
     lamb: TensorType,
     alpha: TensorType
 ) -> TensorType:
@@ -163,19 +140,17 @@ def normal_inverse_gamma_regularizer(
     Evidential Regression.
     
     :param y_true: The output variable values.
-    :param gamma: The mean parameter of the Normal distribution.
+    :param v: The mean parameter of the Normal distribution.
     :param lambda: The lambda parameter that scales the variance of the Normal distribution.
     :param alpha: The alpha parameter of the Gamma distribution. 
     :return: The loss values
     '''
-
-    return tf.abs(y_true - gamma) * (2*alpha + lamb)
+    return tf.abs(y_true - v) * (2*lamb + alpha)
 
 def deep_evidential_regression_loss(
     y_true: TensorType, 
     y_pred: TensorType, 
     coeff: float = 1, 
-    loss_fn: Callable = normal_inverse_gamma_sum_of_squares
 ) -> TensorType:
     '''
     Maximum likelihood objective for deep evidential regression model using negative 
@@ -186,9 +161,6 @@ def deep_evidential_regression_loss(
         that characterize the normal inverse gamma distribution given in the order: gamma,
         lambda, alpha, beta.
     :param coeff: Regularization weight coefficient.
-    :param loss_fn: The base loss function used. By default we use the recommended loss function
-        based on the sum of squares. An alternate loss function is also defined based on the negative
-        log likelihood :function: `~trieste.models.keras.utils.normal_inverse_gamma_negative_log_likelihood`.
     :return: The model evidence values.  
     '''
     if y_true.shape.rank == 1:
@@ -197,46 +169,29 @@ def deep_evidential_regression_loss(
         y_pred = tf.expand_dims(y_pred, axis=0)
     tf.debugging.assert_shapes([(y_pred, (y_pred.shape[0], 4))])
 
-    gamma, lamb, alpha, beta = tf.split(y_pred, 4, axis=-1)
+    gamma, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
 
-    loss = loss_fn(y_true, gamma, lamb, alpha, beta)
-    regularization = normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
+    loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, v, alpha, beta)
+    regularization = normal_inverse_gamma_regularizer(y_true, gamma, v, alpha)
 
     return tf.reduce_mean(loss + coeff * regularization, axis=0)
 
 
 def build_deep_evidential_regression_loss(
-    base_loss: Union[str, Callable] = "SOS",
     coeff: float = 1,
 ) -> Callable:
 
     """
     Builds a custom loss function for Deep Evidential Regression model.
 
-    :param base_loss: Base loss function to be added to standard regularizer.
-        Accepts either strings: 'NLL' or 'SOS' for the negative log likelihood 
-        loss and sum of squares based loss. Can also accept the actual functions.
     :param coeff: Coefficient of the loss regularizer.
     :return: Loss function for the Deep Evidential Regression model. 
     """
 
-    if base_loss == "NLL" or base_loss == normal_inverse_gamma_negative_log_likelihood:
-        base_loss = normal_inverse_gamma_negative_log_likelihood
-    elif base_loss == "SOS" or base_loss == normal_inverse_gamma_sum_of_squares:
-        base_loss = normal_inverse_gamma_sum_of_squares
-    else:
-        raise ValueError(
-            f"base_loss paramter expected either 'NLL', 'SOS', or "
-            f"corresponding loss functions from ~trieste.keras.models.utils "
-            f"instead got {base_loss}"
-        )
-    
     def loss_fn(y_true, y_pred):
         return deep_evidential_regression_loss(
             y_true,
             y_pred,
-            coeff,
-            base_loss
+            coeff
         )
-    
     return loss_fn

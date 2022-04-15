@@ -332,11 +332,11 @@ class DeepEvidentialNetwork(tf.keras.Model):
         hidden_output = self.hidden_layers(inputs)
         output = self.output_layer(hidden_output)
         
-        gamma, lamb, alpha, beta = tf.split(output, 4, axis=-1)
-        lamb = self._get_evidence(lamb)
+        gamma, v, alpha, beta = tf.split(output, 4, axis=-1)
+        v = self._get_evidence(v)
         beta = self._get_evidence(beta)
         # We need alpha > 1 so that the aleatoric and epistemic uncertainties will
         # be positive. 
         alpha = self._get_evidence(alpha) + 1
 
-        return tf.concat([gamma, lamb, alpha, beta], axis=-1)
+        return tf.concat([gamma, v, alpha, beta], axis=-1)

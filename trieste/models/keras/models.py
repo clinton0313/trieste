@@ -389,7 +389,7 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
     def sample_normal_parameters(
         self, 
         gamma: TensorType,
-        lamb: TensorType,
+        v: TensorType,
         alpha: TensorType,
         beta: TensorType, 
         num_samples:int
@@ -399,7 +399,7 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
         sigma_samples = sigma_dist.sample(num_samples)
         
-        mu_dist = tfp.distributions.Normal(gamma, (sigma_samples/lamb)**0.5)
+        mu_dist = tfp.distributions.Normal(gamma, (sigma_samples/v)**0.5)
 
         mu_samples = mu_dist.sample(1)
         mu_samples = tf.reshape(mu_samples, sigma_samples.shape)
@@ -409,9 +409,9 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
 
         evidential_output = self.model(query_points)
-        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+        gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
 
-        mu, sigma = self.sample_normal_parameters(gamma, lamb, alpha, beta, num_samples)
+        mu, sigma = self.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
        
         observation_dist = tfp.distributions.Normal(mu, sigma)
         samples = observation_dist.sample(1)
@@ -447,19 +447,19 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         """
 
         x, y = dataset.astuple()
-        self.optimizer.optimizer.learning_rate = self._learning_rate
         self.model.fit(x, y, **self.optimizer.fit_args)
+        self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
     
 
-    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
+    def predict(self, query_points: TensorType, aleatoric: bool = False) -> tuple[TensorType, TensorType]:
 
         evidential_output = self.model(query_points)
-        gamma, lamb, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+        gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
         
-        aleatoric = beta / (alpha - 1)
-        epistemic = beta / ((alpha - 1) * lamb)
+        epistemic = beta / ((alpha - 1) * v)
+        uncertainty = epistemic + beta/(alpha-1) if aleatoric else epistemic
         
-        return gamma, aleatoric + epistemic
+        return gamma, uncertainty
     
 
     def trajectory_sampler(self) -> TrajectorySampler[DeepEvidentialRegression]:

@@ -27,7 +27,6 @@ from trieste.models.keras.utils import (
     get_tensor_spec_from_data,
     normal_inverse_gamma_negative_log_likelihood,
     normal_inverse_gamma_regularizer,
-    normal_inverse_gamma_sum_of_squares, 
     sample_with_replacement,
 
 )
@@ -120,101 +119,74 @@ def test_sample_with_replacement_seems_correct(rank: int) -> None:
 
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize(
-    "y_true, gamma, lamb, alpha, beta, true_loss",
+    "y_true, gamma, v, alpha, beta, true_loss",
     [
-        (1., 1., 0.5, 0.4, 0.3, 0.86625844), #With gamma function as paper: 1.5965598
-        (1.8, 2., 0.3, 0.1, 0.7, 1.4777126) #With gamma function as paper: 3.3321915
+        (0.8, 1., 0.2, 1.5, 0.3, 1.1141493),
+        (1.8, 2.3, 0.5, 2.3, 0.7, 1.0892888)
     ]
 )
 def test_normal_inverse_gamma_negative_log_likelihood_is_accurate(
     y_true: float,
     gamma: float,
-    lamb: float,
+    v: float,
     alpha: float,
     beta: float,
     true_loss: float
 ) -> None:
-    loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, lamb, alpha, beta)
+    loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, v, alpha, beta)
     npt.assert_approx_equal(loss, true_loss)
 
 
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize(
-    "y_true, gamma, lamb, alpha, beta, true_loss",
+    "y_true, gamma, v, alpha, true_loss",
     [
-        (1., 1., 0.5, 0.4, 0.3, 0.4054652),
-        (1.8, 2., 0.3, 0.1, 0.7, 1.203083)
-    ]
-)
-def test_normal_inverse_gamma_sum_of_squares_is_accurate(
-    y_true: float,
-    gamma: float,
-    lamb: float,
-    alpha: float,
-    beta: float,
-    true_loss: float
-) -> None:
-    loss = normal_inverse_gamma_sum_of_squares(y_true, gamma, lamb, alpha, beta)
-    npt.assert_approx_equal(loss, true_loss)
-
-
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize(
-    "y_true, gamma, lamb, alpha, true_loss",
-    [
-        (3., 1., 0.5, 0.4, 2.6),
-        (1.8, 2., 0.3, 0.1, 0.1)
+        (1., 0.8, 0.2, 1.5, 0.37999997),
+        (1.8, 2.3, 0.5, 2.3, 1.6499999)
     ]
 )
 def test_normal_inverse_gamma_regularizer_is_accurate(
     y_true: float,
     gamma: float,
-    lamb: float,
+    v: float,
     alpha: float,
     true_loss: float
 ) -> None:
-    loss = normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
+    loss = normal_inverse_gamma_regularizer(y_true, gamma, v, alpha)
     npt.assert_approx_equal(loss, true_loss)
 
 
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize(
-    "y_true, y_pred, use_sos, true_loss",
+    "y_true, y_pred",
     [
         (
-            tf.constant([[1.], [1.8]]),
+            tf.constant([[1.5], [3.], [4.2]]),
             tf.constant([
-                [1., 0.5, 0.4, 0.3],
-                [2., 0.3, 0.1, 0.7]
-            ]),
-            False,
-            1.2219855 #If using the gamma functions from paper 2.4643755
-        ),
-        (
-            tf.constant([[1.], [1.8]]),
-            tf.constant([
-                [1., 0.5, 0.4, 0.3],
-                [2., 0.3, 0.1, 0.7]
-            ]),
-            True,
-            0.85427415
+                [2.3, 1.1, 1.4, 0.2],
+                [3.5, 2.5, 1.8, 0.9],
+                [4.1, 10.2, 3.4, 1.2]
+            ])
         )
+    ]
+)
+@pytest.mark.parametrize(
+    "coeff, true_loss",
+    [
+        (0.0, 1.0122157),
+        (1.0, 3.898882),
+        (0.5, 2.4555488),
+        (2.0, 6.7855477)
     ]
 )
 def test_deep_evidential_regression_loss_is_accurate(
     y_true: TensorType,
     y_pred: TensorType,
-    use_sos: bool,
+    coeff: float,
     true_loss: float
 ) -> None:
-    if use_sos:
-        loss = deep_evidential_regression_loss(y_true, y_pred)
-    else:
-        loss = deep_evidential_regression_loss(
-            y_true, 
-            y_pred, 
-            loss_fn = normal_inverse_gamma_negative_log_likelihood
-        )
+
+    loss = deep_evidential_regression_loss(y_true, y_pred, coeff)
     npt.assert_approx_equal(loss, true_loss)
 
 
@@ -235,45 +207,23 @@ def test_deep_evidential_regression_loss_asserts_shape(
 
 
 @pytest.mark.deep_evidential
-@pytest.mark.parametrize(
-    "loss_fn",
-    [
-        "SOS",
-        normal_inverse_gamma_negative_log_likelihood
-    ]
-)
 @pytest.mark.parametrize("coeff", [0.5, 1.5])
 def test_build_deep_evidential_regression_loss(
-    loss_fn: Union[str, Callable],
     coeff: float
 ) -> None:
 
     y_pred = tf.constant([[2., 1., 1.5, 2.]])
     y_true = tf.constant([[1.]])
 
-    gamma, lamb, alpha, beta = tf.split(y_pred, 4, axis=-1)
-
-    if isinstance(loss_fn, str):
-        if loss_fn == "SOS":
-            base_loss = normal_inverse_gamma_sum_of_squares
-        elif loss_fn == "NLL":
-            base_loss = normal_inverse_gamma_negative_log_likelihood
-    else:
-        base_loss = loss_fn
+    gamma, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
     
-    reference_loss = base_loss(y_true, gamma, lamb, alpha, beta) \
-                    + coeff * normal_inverse_gamma_regularizer(y_true, gamma, lamb, alpha)
+    reference_loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, v, alpha, beta) \
+                    + coeff * normal_inverse_gamma_regularizer(y_true, gamma, v, alpha)
     
-    loss = build_deep_evidential_regression_loss(base_loss, coeff)
+    loss = build_deep_evidential_regression_loss(coeff)
     built_loss = loss(y_true, y_pred)
 
     npt.assert_almost_equal(built_loss, reference_loss)
-
-
-@pytest.mark.deep_evidential
-def build_deep_evidential_regression_loss_raises_value_error() -> None:
-    with pytest.raises(ValueError):
-        build_deep_evidential_regression_loss("test")
 
 
 @pytest.mark.deep_evidential
