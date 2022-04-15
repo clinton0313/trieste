@@ -413,7 +413,7 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
 
         mu, sigma = self.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
        
-        observation_dist = tfp.distributions.Normal(mu, sigma)
+        observation_dist = tfp.distributions.Normal(mu, sigma**0.5)
         samples = observation_dist.sample(1)
         
         samples = tf.reshape(tf.squeeze(samples), (num_samples, len(query_points), 1))

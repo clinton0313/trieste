@@ -25,13 +25,14 @@ tf.keras.backend.set_floatx("float64")
 #%%
 
 
-n=430
+n=1000
 x = tf.expand_dims(tfp.distributions.Uniform(-3, 3).sample(n), axis=-1)
 
 def cubic(x, noise=True):
     y = tf.pow(x, 3)
     if noise:
-        y += np.random.normal(0, 3, len(x)).reshape((-1,1))
+        sigma = np.ones_like(x) * 3
+        y += np.random.normal(0, sigma)
     return y
 
 def gen_cubic_dataset(n, min, max, noise=True):
@@ -56,7 +57,7 @@ fit_args = {
                 "batch_size": 128,
                 "callbacks": [
                     tf.keras.callbacks.EarlyStopping(
-                        monitor="loss", patience=200, restore_best_weights=True
+                        monitor="loss", patience=1000, restore_best_weights=True
                     )
                 ],
             }
@@ -77,7 +78,6 @@ error = tf.abs(cubic_data.observations - predictions[0])
 mean_error = tf.reduce_mean(error, axis=0)
 print(f"mean abs error {mean_error}")
 
-
 # %%
 
 fig, ax = plt.subplots(figsize=(10,10))
@@ -86,7 +86,7 @@ ax.scatter(cubic_data.query_points, cubic_data.observations, color="red", s=1)
 def plot_scatter_with_var(query_points, y_pred, y_var, ax, n_stds=3, max_alpha = 0.7):
     x = tf.squeeze(query_points)
     y = tf.squeeze(y_pred)
-    std = tf.squeeze(y_var) #needs a square root missing...
+    std = tf.squeeze(y_var**0.5) #needs a square root missing...
     ax.plot(x, y, color="black", label="predictions")
     for k in range(1, n_stds + 1):
         upper_std = y + k * std
@@ -97,9 +97,11 @@ def plot_scatter_with_var(query_points, y_pred, y_var, ax, n_stds=3, max_alpha =
 ood_x = tf.linspace(-7, 7, 1000)
 ood_y = cubic(ood_x, noise=False)
 ood_predictions = deep_evidential.predict(ood_x)
-
+ax.axvline(-4, color="grey", linestyle="dashed")
+ax.axvline(4, color="grey", linestyle="dashed")
 ax.plot(ood_x, ood_y, color="red", linestyle="dashed")
 plot_scatter_with_var(ood_x, ood_predictions[0], ood_predictions[1], ax=ax)
+ax.set_ylim(-150, 150)
 fig
 #%%
 
@@ -124,4 +126,54 @@ deep_evidential.model.history.history["loss"][-10:]
 
 # %%
 plt.plot(ood_x,ood_predictions[1])
+# %%
+#Run the same cubic data over and over again to check the figs for
+#consistency
+
+def main_cubic(cubic_data, coeff=1e-2):
+    evidential_network = build_vanilla_keras_deep_evidential(
+        cubic_data,
+        3,
+        100
+    )
+
+    fit_args = {
+                    "verbose": 0,
+                    "epochs": 5000,
+                    "batch_size": 128,
+                    "callbacks": [
+                        tf.keras.callbacks.EarlyStopping(
+                            monitor="loss", patience=1000, restore_best_weights=True
+                        )
+                    ],
+                }
+
+    optimizer = KerasOptimizer(
+        tf.keras.optimizers.Adam(5e-3),
+        fit_args,
+        build_deep_evidential_regression_loss(coeff =coeff)
+    )
+
+    deep_evidential = DeepEvidentialRegression(evidential_network, optimizer)
+    deep_evidential.optimize(cubic_data)
+
+    fig, ax = plt.subplots(figsize=(10,10))
+    ax.scatter(cubic_data.query_points, cubic_data.observations, color="red", s=1)
+
+    ood_x = tf.linspace(-7, 7, 1000)
+    ood_y = cubic(ood_x, noise=False)
+    ood_predictions = deep_evidential.predict(ood_x)
+    ax.axvline(-4, color="grey", linestyle="dashed")
+    ax.axvline(4, color="grey", linestyle="dashed")
+    ax.plot(ood_x, ood_y, color="red", linestyle="dashed")
+    plot_scatter_with_var(ood_x, ood_predictions[0], ood_predictions[1], ax=ax)
+    ax.set_ylim(-150, 150)
+    return fig
+
+#%%
+sims = 10
+figs = [main_cubic(cubic_data) for _ in range(sims)]
+# %%
+
+f = main_cubic(cubic_data, coeff = 1e-2)
 # %%

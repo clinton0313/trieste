@@ -299,7 +299,7 @@ class DeepEvidentialNetwork(tf.keras.Model):
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
             hidden_layers.add(tf.keras.layers.Dense(
-                dtype=self.input_tensor_spec.dtype, 
+                dtype=self.input_tensor_spec.dtype,
                 **hidden_layer_args
             ))
 
