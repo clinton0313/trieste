@@ -131,8 +131,8 @@ def normal_inverse_gamma_negative_log_likelihood(
 
 def normal_inverse_gamma_regularizer(
     y_true: TensorType, 
+    gamma: TensorType,
     v: TensorType,
-    lamb: TensorType,
     alpha: TensorType
 ) -> TensorType:
     '''
@@ -145,12 +145,12 @@ def normal_inverse_gamma_regularizer(
     :param alpha: The alpha parameter of the Gamma distribution. 
     :return: The loss values
     '''
-    return tf.abs(y_true - v) * (2*lamb + alpha)
+    return tf.abs(y_true - gamma) * (2*v + alpha)
 
 def deep_evidential_regression_loss(
     y_true: TensorType, 
     y_pred: TensorType, 
-    coeff: float = 1, 
+    coeff: float = 1e-2, 
 ) -> TensorType:
     '''
     Maximum likelihood objective for deep evidential regression model using negative 
@@ -178,7 +178,7 @@ def deep_evidential_regression_loss(
 
 
 def build_deep_evidential_regression_loss(
-    coeff: float = 1,
+    coeff: float
 ) -> Callable:
 
     """

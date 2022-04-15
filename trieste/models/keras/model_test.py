@@ -25,22 +25,22 @@ tf.keras.backend.set_floatx("float64")
 #%%
 
 
-n=100
+n=430
 x = tf.expand_dims(tfp.distributions.Uniform(-3, 3).sample(n), axis=-1)
 
 def cubic(x, noise=True):
     y = tf.pow(x, 3)
     if noise:
-        y += np.random.normal(0, 3**0.5, len(x)).reshape((-1,1))
+        y += np.random.normal(0, 3, len(x)).reshape((-1,1))
     return y
 
 def gen_cubic_dataset(n, min, max, noise=True):
-    x = tfp.distributions.Uniform(min, max).sample(n)
+    x = tf.linspace(min, max, n)
     x = tf.cast(tf.expand_dims(tf.sort(x), axis=-1), dtype=tf.float64)
     y = cubic(x, noise)
     return Dataset(x,y)
 
-cubic_data = gen_cubic_dataset(1000, -4, 4)
+cubic_data = gen_cubic_dataset(n, -4, 4, True)
 
 
 #%%
@@ -57,10 +57,7 @@ fit_args = {
                 "callbacks": [
                     tf.keras.callbacks.EarlyStopping(
                         monitor="loss", patience=200, restore_best_weights=True
-                    ),
-                    # tf.keras.callbacks.ReduceLROnPlateau(
-                    #     monitor="loss", patience=80, factor=0.1, verbose=1
-                    # )
+                    )
                 ],
             }
 
@@ -86,10 +83,10 @@ print(f"mean abs error {mean_error}")
 fig, ax = plt.subplots(figsize=(10,10))
 ax.scatter(cubic_data.query_points, cubic_data.observations, color="red", s=1)
 
-def plot_scatter_with_var(query_points, predictions, ax, n_stds=3, max_alpha = 0.7):
+def plot_scatter_with_var(query_points, y_pred, y_var, ax, n_stds=3, max_alpha = 0.7):
     x = tf.squeeze(query_points)
-    y = tf.squeeze(predictions[0])
-    std = tf.squeeze(predictions[1]) ** 0.5
+    y = tf.squeeze(y_pred)
+    std = tf.squeeze(y_var) #needs a square root missing...
     ax.plot(x, y, color="black", label="predictions")
     for k in range(1, n_stds + 1):
         upper_std = y + k * std
@@ -97,12 +94,19 @@ def plot_scatter_with_var(query_points, predictions, ax, n_stds=3, max_alpha = 0
         ax.fill_between(x, upper_std, lower_std, alpha = max_alpha/k, color="tab:blue")
 # %%
 
-ood_x = tf.linspace(-6, 6, 1000)
+ood_x = tf.linspace(-7, 7, 1000)
 ood_y = cubic(ood_x, noise=False)
 ood_predictions = deep_evidential.predict(ood_x)
 
 ax.plot(ood_x, ood_y, color="red", linestyle="dashed")
-plot_scatter_with_var(ood_x, ood_predictions, ax=ax)
+plot_scatter_with_var(ood_x, ood_predictions[0], ood_predictions[1], ax=ax)
+fig
+#%%
+
+loss_fn = build_deep_evidential_regression_loss(coeff=1e-2)
+evidential_output = deep_evidential.model(cubic_data.query_points)
+loss = loss_fn(cubic_data.observations, evidential_output)
+g, v, a, b = tf.split(evidential_output, 4, axis=-1)
 
 #%%
 #DIAGNOSIS
@@ -116,6 +120,8 @@ for name, output in zip(names, [gamma, lamb, alpha, beta]):
 # %%
 plt.plot(deep_evidential.model.history.history["loss"])
 # plt.ylim(0, 100)
-deep_evidential.model.history.history["loss"][-30:]
+deep_evidential.model.history.history["loss"][-10:]
 
+# %%
+plt.plot(ood_x,ood_predictions[1])
 # %%
