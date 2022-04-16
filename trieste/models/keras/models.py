@@ -74,6 +74,7 @@ class DeepEnsemble(
         model: KerasEnsemble,
         optimizer: Optional[KerasOptimizer] = None,
         bootstrap: bool = False,
+        use_samples: bool = False,
     ) -> None:
         """
         :param model: A Keras ensemble model with probabilistic networks as ensemble members. The
@@ -87,6 +88,10 @@ class DeepEnsemble(
             arguments.
         :param bootstrap: Sample with replacement data for training each network in the ensemble.
             By default set to `False`.
+        :param use_samples: Whether to use samples from final probabilistic layer as trajectories
+            or mean predictions when calling :meth:`trajectory_sampler`. Samples can be used to
+            increase the diversity in case of optimizing very large batches of query points.
+            By default set to `False` as it is not a thoroughly explored feature.
         :raise ValueError: If ``model`` is not an instance of
             :class:`~trieste.models.keras.KerasEnsemble` or ensemble has less than two base
             learners (networks).
@@ -119,6 +124,7 @@ class DeepEnsemble(
 
         self._model = model
         self._bootstrap = bootstrap
+        self._use_samples = use_samples
 
     def __repr__(self) -> str:
         """"""
@@ -303,7 +309,7 @@ class DeepEnsemble(
 
         :return: The trajectory sampler.
         """
-        return EnsembleTrajectorySampler(self)
+        return EnsembleTrajectorySampler(self, self._use_samples)
 
     def update(self, dataset: Dataset) -> None:
         """
@@ -334,14 +340,56 @@ class DeepEnsemble(
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
 
-class MCDropout(KerasPredictor, TrainableProbabilisticModel):
+class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
+    """
+    A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for Monte Carlo dropout
+    built using Keras.
+
+    Monte Carlo dropout is a sampling method for approximate Bayesian computation, mathematically
+    equivalent to an approximation to a probabilistic deep Gaussian Process <cite data-cite="gal2015simple"/>
+    in the sense of minimizing the Kullback-Leibler divergence between an approximate distribution 
+    and the posterior of a deep GP. This model is attractive due to its simplicity, as it amounts 
+    to a re-tooling of the dropout layers of a neural network to also be active during testing, 
+    and performing several forward passes through the network with the same input data. The 
+    resulting distribution of the outputs of the different passes are then used to estimate the
+    first two moments of the predictive distribution. Note that increasing the number of passes
+    increases accuracy at the cost of a higher computational burden.
+
+    The uncertainty estimations of the original paper have been subject to extensive scrutiny, and
+    it has been pointed out that the quality of the uncertainty estimates is tied to parameter
+    choices which need to be calibrated to accurately account for model uncertainty. A more robust
+    alternative is MC-DropConnect, an approach that generalizes the prior idea by applying dropout
+    not to the layer outputs but directly to each weight (see <cite data-cite="mobiny2019"/>). 
+
+    We provide classes for constructing neural networks with Monte Carlo dropout using Keras
+    (:class:`~trieste.models.keras.DropoutNetwork`) in the `architectures` package that should be
+    used with the :class:`~trieste.models.keras.MonteCarloDropout` wrapper. There we also provide
+    an application of MC-DropConnect, by setting the argument `dropout` to 'dropconnect'.
+
+    Note that currently we do not support setting up the model with dictionary configs and saving
+    the model during Bayesian optimization loop (``track_state`` argument in
+    :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
+    """
     def __init__(
         self,
         model: DropoutNetwork,
         optimizer: Optional[KerasOptimizer] = None,
         num_passes: int = 100,
+        learning_rate: float = 0.01
     ) -> None:
-
+        """
+        :param model: A Keras neural network model with Monte Carlo dropout layers. The
+            model has to be built but not compiled.
+        :param optimizer: The optimizer wrapper with necessary specifications for compiling and
+            training the model. Defaults to :class:`~trieste.models.optimizer.KerasOptimizer` with
+            :class:`~tf.optimizers.Adam` optimizer, mean square error loss and a dictionary
+            of default arguments for Keras `fit` method: 1000 epochs, batch size 16, early stopping
+            callback with patience of 50, and verbose 0.
+            See https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
+            arguments.
+        :raise ValueError: If ``model`` is not an instance of
+            :class:`~trieste.models.keras.DropoutNetwork`.
+        """
         super().__init__(optimizer)
 
         if not self.optimizer.fit_args:
@@ -363,6 +411,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
             self.optimizer.loss = "mse"
 
         self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
+        # self._learning_rate = learning_rate
 
         model.compile(
             self.optimizer.optimizer,
@@ -372,6 +421,10 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
 
         self.num_passes = num_passes
         self._model = model
+
+    def __repr__(self) -> str:
+        """"""
+        return f"MonteCarloDropout({self.model!r}, {self.optimizer!r})"
 
     @property
     def model(self) -> tf.keras.Model:
@@ -395,8 +448,8 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         :param dataset: The data with which to optimize the model.
         """
         x, y = dataset.astuple()
-        self.optimizer.optimizer.learning_rate = self._learning_rate
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
+        self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
 
     def update(self, dataset: Dataset) -> None:
         """
@@ -421,7 +474,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
-        Returns mean and variance of the MC Dropout.
+        Returns mean and variance of the Monte Carlo Dropout.
 
         Following <cite data-cite="gal2015simple"/>, we make T stochastic forward passes
         through the trained network of L hidden layers M_l and average the results to derive
@@ -444,6 +497,7 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
         :return: The predicted mean and variance of the observations at the specified
             ``query_points``.
         """
+
         stochastic_passes = tf.stack(
             [self.model(query_points, training=True) for _ in range(self.num_passes)], axis=0
         )
@@ -457,4 +511,3 @@ class MCDropout(KerasPredictor, TrainableProbabilisticModel):
             tf.math.square(predicted_means),
         )
         return predicted_means, predicted_vars
-        

@@ -31,6 +31,6 @@ from .architectures import (
 from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_mcdropout
 from .interface import KerasPredictor
 from .layers import DropConnect
-from .models import DeepEnsemble, MCDropout
-from .sampler import EnsembleTrajectorySampler
+from .models import DeepEnsemble, MonteCarloDropout
+from .sampler import EnsembleTrajectorySampler, DropoutTrajectorySampler
 from .utils import get_tensor_spec_from_data, negative_log_likelihood, sample_with_replacement

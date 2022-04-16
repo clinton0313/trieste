@@ -38,6 +38,7 @@ from .function import (
     BatchMonteCarloExpectedImprovement,
     ExpectedConstrainedImprovement,
     ExpectedImprovement,
+    MakePositive,
     MonteCarloAugmentedExpectedImprovement,
     MonteCarloExpectedImprovement,
     MultipleOptimismNegativeLowerConfidenceBound,
@@ -52,6 +53,7 @@ from .function import (
 )
 from .greedy_batch import Fantasizer, LocalPenalization, hard_local_penalizer, soft_local_penalizer
 from .multi_objective import (
+    HIPPO,
     BatchMonteCarloExpectedHypervolumeImprovement,
     ExpectedConstrainedHypervolumeImprovement,
     ExpectedHypervolumeImprovement,

@@ -242,7 +242,7 @@ class DropoutNetwork(tf.keras.Model):
     This class builds a standard dropout neural network using Keras. The network
     architecture is a multilayer fully-connected feed-forward network, with Dropout layers
     preceding each fully connected dense layer. The network is meant to be passed to
-    :class:`~trieste.models.keras.models.MCDropout` which will define the predict method 
+    :class:`~trieste.models.keras.models.MonteCarloDropout` which will define the predict method 
     to make this a probabilistic model. Otherwise this class will only use dropout in training.
     """
 
@@ -340,7 +340,7 @@ class DropConnectNetwork(DropoutNetwork):
     architecture is a multilayer fully-connected feed-forward network of 
     :class: `~trieste.models.keras.layers.DropConnect` layers. This is a generalization of 
     standard dropout where each weight is dropped out with a certain probability. This network 
-    is meant to be passed to :class:`~trieste.models.keras.models.MCDropout` which will define 
+    is meant to be passed to :class:`~trieste.models.keras.models.MonteCarloDropout` which will define 
     the predict method to make this a probabilistic model. Otherwise this class only uses dropout 
     in training.
     """
