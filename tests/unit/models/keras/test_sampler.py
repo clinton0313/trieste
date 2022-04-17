@@ -43,13 +43,13 @@ def test_ensemble_trajectory_sampler_returns_trajectory_function_with_correctly_
 
     assert trajectory(test_data).shape == (num_evals, 1)
 
+
 @pytest.mark.parametrize("use_samples", [True, False])
 def test_ensemble_trajectory_sampler_returns_deterministic_trajectory(use_samples: bool) -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([-10.0], [10.0], 100)
     test_data = tf.expand_dims(test_data, -2)  # [N, 1, d]
     
-
     model, _, _ = trieste_deep_ensemble_model(example_data, _ENSEMBLE_SIZE)
 
     sampler = EnsembleTrajectorySampler(model, use_samples=use_samples)
@@ -81,7 +81,6 @@ def test_ensemble_trajectory_sampler_samples_are_distinct_for_new_instances(use_
 
 @random_seed
 @pytest.mark.parametrize("use_samples", [True, False])
-@pytest.mark.david1
 def test_ensemble_trajectory_sampler_resample_provides_new_samples_without_retracing(use_samples: bool) -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([-10.0], [10.0], 100)
@@ -110,6 +109,7 @@ def test_ensemble_trajectory_sampler_resample_provides_new_samples_without_retra
 
 
 @pytest.mark.mcdropout
+@pytest.mark.david
 @pytest.mark.parametrize("num_evals", [10, 20])
 def test_dropout_trajectory_sampler_returns_trajectory_function_with_correctly_shaped_output(
     num_evals: int,
@@ -120,6 +120,7 @@ def test_dropout_trajectory_sampler_returns_trajectory_function_with_correctly_s
     test_data = tf.stack([test_data_1, test_data_2], axis=-2) # [N, B, d]
 
     model, _, _ = trieste_mcdropout_model(example_data, dropout=DropoutNetwork)
+
     sampler = DropoutTrajectorySampler(model)
     trajectory = sampler.get_trajectory()
 
@@ -134,8 +135,9 @@ def test_dropout_trajectory_sampler_returns_deterministic_trajectory() -> None:
     test_data = tf.expand_dims(test_data, -1) # [N, B, d]
 
     model, _, _ = trieste_mcdropout_model(example_data, dropout=DropoutNetwork)
-    
+
     sampler = DropoutTrajectorySampler(model)
+
     trajectory = sampler.get_trajectory()
     trajectory_eval_1 = trajectory(test_data)
     trajectory_eval_2 = trajectory(test_data)
@@ -158,8 +160,7 @@ def test_dropout_trajectory_sampler_samples_are_distinct_for_new_instances() -> 
     assert tf.reduce_any(trajectory1(test_data) != trajectory2(test_data))
 
 
-@pytest.mark.david2
-# @pytest.mark.skip
+@pytest.mark.skip
 @random_seed
 @pytest.mark.mcdropout
 def test_dropout_trajectory_sampler_resample_provides_new_samples_without_retracing() -> None:
@@ -168,18 +169,14 @@ def test_dropout_trajectory_sampler_resample_provides_new_samples_without_retrac
     test_data = tf.linspace([[-10.,10.], [-10.,10.]],[[-10.,10.], [10.,-10.]], 10) 
     
     model, _, _ = trieste_mcdropout_model(example_data, dropout=DropoutNetwork)
-    # [DAV] The retracing comes from the model?! Building it as an ensemble and just returning any trajectory yields correct num of dim.
-    # [DAV] The retracing is fixed at 2, and no retracing after that. This is endemic to MonteCarloDropouts. 
-    # [DAV] I still have to fix all the struggles with iterating over tensors, and pre-define seeds var shape.
-    # tf.config.run_functions_eagerly(True)
+    # [DAV] If not running eagerly, seeds will not properly fix outcomes, and I can
+    # [DAV] figure out how to slice over a tensorarray of seeds.
 
-    # [DAV] I get retracing = 2 if run this test as standalone, but get = 0 if run all mcdropouts?
     sampler = DropoutTrajectorySampler(model)
 
     trajectory = sampler.get_trajectory()
     
     evals_1 = trajectory(test_data)
-    print(trajectory.__call__._get_tracing_count())
     breakpoint()
 
     trajectory = sampler.resample_trajectory(trajectory)
@@ -189,6 +186,7 @@ def test_dropout_trajectory_sampler_resample_provides_new_samples_without_retrac
     evals_3 = trajectory(test_data)
 
     assert trajectory.__call__._get_tracing_count() == 2  # type: ignore
+    # [DAV] Retracing is fixed at 2, and it's endemic to MonteCarloDropouts. 
 
     # check all samples are different
     npt.assert_array_less(1e-4, tf.abs(evals_1 - evals_2))

@@ -258,16 +258,17 @@ class dropout_trajectory(TrajectoryFunctionClass):
         )
 
         self._seeds = tf.Variable(
-            tf.zeros([2, 1], dtype=tf.int32), trainable=False
+            tf.zeros([0,0], dtype=tf.int32), shape=[None, None], trainable=False
         )
         
-    @tf.function
+    # @tf.function
     def __call__(self, x: TensorType) -> TensorType:  # [N, B, d] -> [N, B]
         """
         Call trajectory function. It uses `tf.random` seeds to fix the matrix of dropout
         inputs or weights in the kernel, and performs a single forward pass to return the
         equivalent to a posterior draw.
         """
+        
         if not self._initialized:  # work out desired batch size from input
             self._batch_size.assign(tf.shape(x)[-2])  # B
             self.resample() # sample B seeds to fix
@@ -283,52 +284,15 @@ class dropout_trajectory(TrajectoryFunctionClass):
             """
         )
 
-########## 
-        # # Straightforward approach, no seed fixing :(
-        # def predictor(batch):
-        #     return (
-        #         tf.map_fn(
-        #             lambda i: self._model.seeded_sample(x[:,i,:], num_samples=1, seed=0), 
-        #             batch, 
-        #             dtype=tf.float64
-        #         )
-        #     )
-########## 
-        # # map_fn approach
-        # def predictor(batch):
-        #     def seeded_samp(qp, tseed):
-        #         breakpoint()
-        #         tf.random.set_seed(vals[tseed])
-                
-        #         return self._model.sample(qp, num_samples=1)
-        #     return (
-        #         tf.map_fn(
-        #             lambda i: seeded_samp(x[:,i,:], tseed=0), 
-        #             batch, 
-        #             dtype=tf.float64
-        #         )
-        #     )
-        # predictions= predictor(tf.range(0, self._batch_size))
-        # return tf.transpose(tf.squeeze(predictions, axis=(-1,-3)), perm=[1,0])
-##########        
-        # # first attempted new approach
-        # batch_index = tf.range(0, self._batch_size.value(), 1)
-        # _ = self._model.sample(x[:1,0,:], num_samples=1) # [DAV] Somehow first seed doesn't propagate unless I've done a dummy pred before.
-        # predictions = tf.convert_to_tensor(
-        #     [
-        #         self._model.seeded_sample(x[:,b,:], num_samples=1, seed=5)#seeds[b])
-        #         for b in [0,1]#tf.range(0, batch_size, 1)
-        #     ]
-        # )
-        # return tf.transpose(tf.squeeze(predictions, axis=(-1,-3)), perm=[1,0])
-##########        
-        # # original (pre tf.function) approach
-        # predictions = []
-        # for b, seed in zip(batch_index, tf.unstack(self._seeds)):
-        #     tf.random.set_seed(seed) # [DAV] A possible local seed? One can pass operational seeds to both types of dropouts, but it doesn't seem to fix the prediction
-        #     predictions.append(self._model.sample(x[:,b,:], num_samples=1)[0])
-        # return tf.transpose(tf.squeeze(predictions, axis=-1), perm=[1,0])
+        _ = self._model.sample(x[:1,0,:], num_samples=1)
+        predictions = tf.map_fn(
+            lambda i: self._model.seeded_sample(x[:,i,:], num_samples=1, seed=self._seeds[i]),#self._seeds[i]), 
+            tf.range(0, self._batch_size), 
+            dtype=tf.float64
+        )
 
+        return tf.transpose(tf.squeeze(predictions, axis=(-1,-3)), perm=[1,0])
+  
     def resample(self) -> None:
         """
         Efficiently resample in-place without retracing.
