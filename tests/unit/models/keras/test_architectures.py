@@ -336,9 +336,11 @@ def test_deep_evidential_network_output_shape_is_correct(query_point_shape:int, 
     x = tf.constant(np.random.uniform(1., 10., n))
 
     deep_evidential = DeepEvidentialNetwork(inputs, outputs)
-    output = deep_evidential(x)
+    output= deep_evidential(x)
 
-    assert output.shape == (np.size(x), int(np.prod(outputs.shape)) * 4)
+    assert len(output) == 2
+    assert output[0].shape == (np.size(x), int(np.prod(outputs.shape)) * 4)
+    assert output[1].shape == (np.size(x), int(np.prod(outputs.shape)) * 4)
 
 
 @pytest.mark.deep_evidential
@@ -429,9 +431,9 @@ def test_deep_evidential_network_ouputs_are_well_behaved(
 
     for output in [output1, output2]:
         _, v, alpha, beta = tf.split(output, 4, axis=-1)
-        assert v > 0
-        assert alpha > 1
-        assert beta > 0
+        assert all(v > 0)
+        assert all(alpha > 1)
+        assert all(beta > 0)
 
 
 @pytest.mark.deep_evidential
@@ -454,8 +456,10 @@ def test_deep_evidential_network_dtype(dtype: tf.DType) -> None:
     x = tf.constant([[1]], dtype=tf.float16)
     inputs, outputs = tf.TensorSpec([1], dtype), tf.TensorSpec([1], dtype)
     deep_evidential = DeepEvidentialNetwork(inputs, outputs)
+    output1, output2 = deep_evidential(x)
 
-    assert deep_evidential(x).dtype == dtype
+    assert output1.dtype == dtype
+    assert output2.dtype == dtype
 
 
 @pytest.mark.deep_evidential
@@ -466,5 +470,7 @@ def test_deep_evidential_network_accepts_scalars() -> None:
     deep_evidential = DeepEvidentialNetwork(inputs, outputs)
 
     test_points = tf.linspace(-1, 1, 100)
+    output1, output2 = deep_evidential(test_points)
 
-    assert deep_evidential(test_points).shape == (100, 4)
+    assert output1.shape == (100, 4)
+    assert output2.shape == (100, 4)

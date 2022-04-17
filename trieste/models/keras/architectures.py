@@ -25,6 +25,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+from trieste.models.keras.utils import normal_inverse_gamma_negative_log_likelihood, normal_inverse_gamma_regularizer
+
 
 class KerasEnsemble:
     """
@@ -280,6 +282,7 @@ class DeepEvidentialNetwork(tf.keras.Model):
 
         self.evidence_activation = evidence_activation
 
+
     @property
     def evidence_activation(self):
         return self._evidence_activation
@@ -309,7 +312,8 @@ class DeepEvidentialNetwork(tf.keras.Model):
 
         output_layer = tf.keras.layers.Dense(
             units= 4 * self.flattened_output_shape,
-            dtype=self.input_tensor_spec.dtype
+            dtype=self.input_tensor_spec.dtype,
+            name="output"
         )
 
         return output_layer
@@ -318,11 +322,12 @@ class DeepEvidentialNetwork(tf.keras.Model):
         '''Applies an activation function to ensure all evidential parameters are positive.'''
 
         if self.evidence_activation == "softplus":
-            return tf.nn.softplus(evidence)
+            return tf.math.maximum(tf.nn.softplus(evidence), 1e-15)
         elif self.evidence_activation == "relu":
-            return tf.nn.relu(evidence) + 1e-15
+            return tf.math.maximum(tf.nn.relu(evidence), 1e-15)
         elif self.evidence_activation == "exp":
             return tf.math.exp(evidence)
+
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
 
@@ -338,5 +343,5 @@ class DeepEvidentialNetwork(tf.keras.Model):
         # We need alpha > 1 so that the aleatoric and epistemic uncertainties will
         # be positive. 
         alpha = self._get_evidence(alpha) + 1
-
-        return tf.concat([gamma, v, alpha, beta], axis=-1)
+        output = tf.concat([gamma, v, alpha, beta], axis=-1)
+        return output, output

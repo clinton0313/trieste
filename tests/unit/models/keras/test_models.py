@@ -38,9 +38,11 @@ from trieste.models.keras import (
     sample_with_replacement,
 )
 from trieste.models.keras.utils import (
+    DeepEvidentialCallback,
     build_deep_evidential_regression_loss,
     deep_evidential_regression_loss, 
-    normal_inverse_gamma_negative_log_likelihood
+    normal_inverse_gamma_negative_log_likelihood,
+    normal_inverse_gamma_regularizer
 )
 from trieste.models.optimizer import KerasOptimizer, TrainingData
 
@@ -472,23 +474,46 @@ def test_deep_evidential_repr(
 
 
 @pytest.mark.deep_evidential
+@pytest.mark.parametrize("dtype", [tf.float16, tf.float32, tf.float64])
+def test_deep_evidential_reg_weight_has_correct_dtype(
+    dtype
+)-> None:
+    qp = tf.zeros(tf.TensorShape([0]) + [1], dtype)
+    obs = tf.zeros(tf.TensorShape([0]) + [1], dtype)
+    example_data = Dataset(qp, obs)
+    reg_weight = 1e-2
+    model = trieste_deep_evidential_model(example_data, reg_weight = reg_weight)
+
+    assert model.reg_weight.dtype == model.model.layers[-1].dtype
+
+
+@pytest.mark.deep_evidential
 def test_deep_evidential_default_optimizer_is_correct() -> None:
     example_data = empty_dataset([1], [1])
 
     model = trieste_deep_evidential_model(example_data)
-    default_loss = deep_evidential_regression_loss
     default_fit_args = {
                 "verbose": 0,
                 "epochs": 1000,
                 "batch_size": 32
             }
 
+    assert isinstance(model.optimizer.fit_args["callbacks"][0], tf.keras.callbacks.EarlyStopping)
+    assert isinstance(model.optimizer.fit_args["callbacks"][1], DeepEvidentialCallback)
     del model.optimizer.fit_args["callbacks"]
 
     assert isinstance(model.optimizer, KerasOptimizer)
     assert isinstance(model.optimizer.optimizer, tf.optimizers.Optimizer)
     assert model.optimizer.fit_args == default_fit_args
-    assert model.optimizer.loss == default_loss
+    assert model.optimizer.loss is None
+    assert model.model.compiled_loss._losses == [
+        normal_inverse_gamma_negative_log_likelihood,
+        normal_inverse_gamma_regularizer
+    ]
+    assert model.model.compiled_loss._loss_weights[0] == 1.0
+    assert model.model.compiled_loss._loss_weights[1] == tf.Variable(1e-2, dtype=tf.float64)
+
+
 
 
 @pytest.mark.deep_evidential
@@ -498,18 +523,29 @@ def test_deep_evidential_optimizer_changes_correctly() -> None:
     custom_fit_args = {
         "verbose": 1,
         "epochs": 10,
-        "batch_size": 10,
+        "batch_size": 10
     }
     custom_optimizer = tf.optimizers.RMSprop()
-    custom_loss = deep_evidential_regression_loss
+    custom_loss = tf.keras.losses.MeanAbsoluteError() #Intentional incorrect loss
     optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
 
     model = trieste_deep_evidential_model(example_data, optimizer_wrapper)
 
+
     assert model.optimizer == optimizer_wrapper
     assert model.optimizer.optimizer == custom_optimizer
     assert model.optimizer.fit_args == custom_fit_args
-    assert model.optimizer.loss == deep_evidential_regression_loss
+    assert model.optimizer.loss == custom_loss
+    assert model.model.compiled_loss._losses == [
+        normal_inverse_gamma_negative_log_likelihood,
+        normal_inverse_gamma_regularizer
+    ]
+    assert model.model.compiled_loss._loss_weights == [
+        1.0,
+        tf.Variable(1e-2, dtype=tf.float64)
+    ]
+    assert isinstance(model.optimizer.fit_args["callbacks"][0], DeepEvidentialCallback)
+    
 
 
 @pytest.mark.deep_evidential
@@ -569,7 +605,7 @@ def test_deep_evidential_sample_normal_parameters_call_shape(
     example_data = _get_example_data([dataset_size, 1])
     model = trieste_deep_evidential_model(example_data)
 
-    evidential_output = model.model(example_data.query_points)
+    evidential_output = model.model(example_data.query_points)[0]
     gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
     mu, sigma = model.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
 
@@ -653,28 +689,60 @@ def test_deep_evidential_learning_rate_resets(lr: float) -> None:
     assert original_lr == model.optimizer.optimizer.learning_rate.numpy()
 
 
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("maxi_rate", [1e-2, 10])
+@pytest.mark.parametrize("epsilon", [1e-1, 1e-3])
+def test_deep_evidential_reg_weight_updates(
+    maxi_rate: float,
+    epsilon: float,
+) -> None:
+    example_data = _get_example_data([100,1])
+    model = trieste_deep_evidential_model(
+        example_data,
+        KerasOptimizer(
+            tf.keras.optimizers.Adam(0.01),
+            fit_args = {"epochs": 1, "batch_size": 100}
+        ),
+        reg_weight = 1e-2,
+        maxi_rate = maxi_rate,
+        epsilon = epsilon
+    )
+
+    model.optimize(example_data)
+    new_reg_weight = (
+        1e-2
+        + maxi_rate 
+        * (model.model.history.history["output_2_loss"][-1] - epsilon)
+    )
+
+    npt.assert_almost_equal(model.reg_weight, new_reg_weight)
+
+
 @random_seed
 @pytest.mark.deep_evidential
-@pytest.mark.parametrize("coeff", [1., 1.5])
+@pytest.mark.parametrize("reg_weight", [1., 1.5])
 def test_deep_evidential_loss(
-    coeff: float
+    reg_weight: float
 ) -> None:
     example_data = _get_example_data([100, 1])
     example_data = Dataset(tf.constant([[1.]]), tf.constant([[10.]]))
-    loss = build_deep_evidential_regression_loss(coeff)
+
     optimizer = tf.optimizers.Adam()
 
     model = trieste_deep_evidential_model(
         example_data,
         KerasOptimizer(
             optimizer,
-            fit_args = {"epochs": 1},
-            loss=loss
-        )
+            fit_args = {"epochs": 1}
+        ),
+        reg_weight = reg_weight
     )
 
-    y_pred = model.model(example_data.query_points)
-    reference_loss = loss(example_data.observations, y_pred)
+    y_pred = model.model(example_data.query_points)[0]
+    reference_loss = (
+        normal_inverse_gamma_negative_log_likelihood(example_data.observations, y_pred)
+        + reg_weight * normal_inverse_gamma_regularizer(example_data.observations, y_pred)
+    )
     
     model.optimize(example_data)
     model_loss = model.model.history.history["loss"][-1]

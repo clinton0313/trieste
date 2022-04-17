@@ -119,40 +119,35 @@ def test_sample_with_replacement_seems_correct(rank: int) -> None:
 
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize(
-    "y_true, gamma, v, alpha, beta, true_loss",
+    "y_true, y_pred, true_loss",
     [
-        (0.8, 1., 0.2, 1.5, 0.3, 1.1141493),
-        (1.8, 2.3, 0.5, 2.3, 0.7, 1.0892888)
+        (0.8, tf.constant([[1., 0.2, 1.5, 0.3]]), 1.1141493),
+        (1.8, tf.constant([[2.3, 0.5, 2.3, 0.7]]), 1.0892888)
     ]
 )
 def test_normal_inverse_gamma_negative_log_likelihood_is_accurate(
     y_true: float,
-    gamma: float,
-    v: float,
-    alpha: float,
-    beta: float,
+    y_pred: TensorType,
     true_loss: float
 ) -> None:
-    loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, v, alpha, beta)
+    loss = normal_inverse_gamma_negative_log_likelihood(y_true, y_pred)
     npt.assert_approx_equal(loss, true_loss)
 
 
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize(
-    "y_true, gamma, v, alpha, true_loss",
+    "y_true, y_pred, true_loss",
     [
-        (1., 0.8, 0.2, 1.5, 0.37999997),
-        (1.8, 2.3, 0.5, 2.3, 1.6499999)
+        (0.8, tf.constant([[1., 0.2, 1.5, 0.3]]), 0.37999997),
+        (1.8, tf.constant([[2.3, 0.5, 2.3, 0.7]]), 1.6499999)
     ]
 )
 def test_normal_inverse_gamma_regularizer_is_accurate(
     y_true: float,
-    gamma: float,
-    v: float,
-    alpha: float,
+    y_pred: TensorType,
     true_loss: float
 ) -> None:
-    loss = normal_inverse_gamma_regularizer(y_true, gamma, v, alpha)
+    loss = normal_inverse_gamma_regularizer(y_true, y_pred)
     npt.assert_approx_equal(loss, true_loss)
 
 
@@ -215,10 +210,8 @@ def test_build_deep_evidential_regression_loss(
     y_pred = tf.constant([[2., 1., 1.5, 2.]])
     y_true = tf.constant([[1.]])
 
-    gamma, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
-    
-    reference_loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, v, alpha, beta) \
-                    + coeff * normal_inverse_gamma_regularizer(y_true, gamma, v, alpha)
+    reference_loss = normal_inverse_gamma_negative_log_likelihood(y_true, y_pred) \
+                    + coeff * normal_inverse_gamma_regularizer(y_true, y_pred)
     
     loss = build_deep_evidential_regression_loss(coeff)
     built_loss = loss(y_true, y_pred)

@@ -85,10 +85,11 @@ def trieste_deep_ensemble_model(
 
 def trieste_deep_evidential_model(
     example_data: Dataset,
-    optimizer: Optional[KerasOptimizer] = None
+    optimizer: Optional[KerasOptimizer] = None,
+    **model_args
 ) -> DeepEvidentialRegression:
 
     evidential_network = build_vanilla_keras_deep_evidential(example_data)
-    model = DeepEvidentialRegression(evidential_network, optimizer)
+    model = DeepEvidentialRegression(evidential_network, optimizer, **model_args)
 
     return model

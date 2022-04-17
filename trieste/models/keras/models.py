@@ -34,9 +34,11 @@ from .architectures import DeepEvidentialNetwork, KerasEnsemble
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler, DeepEvidentialTrajectorySampler
 from .utils import (
+    DeepEvidentialCallback,
     negative_log_likelihood,
+    normal_inverse_gamma_negative_log_likelihood,
+    normal_inverse_gamma_regularizer,
     sample_with_replacement,
-    deep_evidential_regression_loss,
 )
 
 
@@ -110,10 +112,11 @@ class DeepEnsemble(
                 "callbacks": [
                     tf.keras.callbacks.EarlyStopping(
                         monitor="loss", patience=50, restore_best_weights=True
-                    )
+                    ),
                 ],
             }
 
+        
         if self.optimizer.loss is None:
             self.optimizer.loss = negative_log_likelihood
 
@@ -345,6 +348,10 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         self,
         model: DeepEvidentialNetwork,
         optimizer: Optional[KerasOptimizer] = None,
+        reg_weight: float = 1e-2,
+        maxi_rate: float = 1e-4,
+        epsilon: float = 1e-2,
+        verbose: int = 0
     ) -> None:
         
         """
@@ -365,12 +372,33 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
                 ],
             }
 
-        if self.optimizer.loss is None: 
-            self.optimizer.loss = deep_evidential_regression_loss
+        self.reg_weight = tf.Variable(reg_weight, dtype=model.layers[-1].dtype)
+        self.epsilon = epsilon
+        self.maxi_rate = maxi_rate
+        self.verbose = verbose
+        
+        try:
+            if not isinstance(self.optimizer.fit_args["callbacks"], list):
+                self.optimizer.fit_args["callbacks"] = [self.optimizer.fit_args["callbacks"]]
+            self.optimizer.fit_args["callbacks"].append(
+                DeepEvidentialCallback(
+                    self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
+                )
+            )
+        except (KeyError or AttributeError):
+            self.optimizer.fit_args["callbacks"] = [
+                    DeepEvidentialCallback(
+                        self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
+                    )
+                ]
 
         model.compile(
             self.optimizer.optimizer,
-            loss=[self.optimizer.loss],
+            loss=[
+                normal_inverse_gamma_negative_log_likelihood, 
+                normal_inverse_gamma_regularizer
+            ],
+            loss_weights = [1., self.reg_weight],
             metrics=[self.optimizer.metrics],
         )
 
@@ -408,7 +436,7 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
 
-        evidential_output = self.model(query_points)
+        evidential_output = self.model(query_points)[0]
         gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
 
         mu, sigma = self.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
@@ -447,13 +475,13 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         """
 
         x, y = dataset.astuple()
-        self.model.fit(x, y, **self.optimizer.fit_args)
+        self.model.fit(x, [y, y], **self.optimizer.fit_args)
         self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
     
 
     def predict(self, query_points: TensorType, aleatoric: bool = False) -> tuple[TensorType, TensorType]:
 
-        evidential_output = self.model(query_points)
+        evidential_output = self.model(query_points)[0]
         gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
         
         epistemic = beta / ((alpha - 1) * v)

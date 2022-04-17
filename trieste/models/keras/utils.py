@@ -102,21 +102,20 @@ def negative_log_likelihood(
 
 def normal_inverse_gamma_negative_log_likelihood(
     y_true: TensorType, 
-    gamma: TensorType,
-    v: TensorType,
-    alpha: TensorType,
-    beta: TensorType
+    y_pred: TensorType,
 ) -> TensorType:
     '''
     Computes the loss of the normal inverse gamma as computed by negative log likelihood estimation.
 
     :param y_true: The output variable values.
-    :param gamma: The mean parameter of the Normal distribution.
-    :param v: The lambda parameter that scales the variance of the Normal distribution.
-    :param alpha: The alpha parameter of the Gamma distribution. 
-    :param beta: The beta parameter of the Gamma distribution.
+    :param y_pred: The four output parameters of the deep evidential regression model
+        that characterize the normal inverse gamma distribution given in the order: gamma,
+        lambda, alpha, beta.
     :return: The loss values
     '''
+
+    gamma, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
+
     omega = 2 * beta * (1 + v)
 
     negative_log_likelihood = (
@@ -126,26 +125,25 @@ def normal_inverse_gamma_negative_log_likelihood(
         + tf.math.lgamma(alpha)
         - tf.math.lgamma(alpha + 0.5)
     )
-    return negative_log_likelihood
+    return tf.reduce_mean(negative_log_likelihood, axis=0)
 
 
 def normal_inverse_gamma_regularizer(
     y_true: TensorType, 
-    gamma: TensorType,
-    v: TensorType,
-    alpha: TensorType
+    y_pred: TensorType,
 ) -> TensorType:
     '''
     Computes the regularization loss for the Normal Inverse Gamma distribution for Deep
     Evidential Regression.
     
     :param y_true: The output variable values.
-    :param v: The mean parameter of the Normal distribution.
-    :param lambda: The lambda parameter that scales the variance of the Normal distribution.
-    :param alpha: The alpha parameter of the Gamma distribution. 
+    :param y_pred: The four output parameters of the deep evidential regression model
+        that characterize the normal inverse gamma distribution given in the order: gamma,
+        lambda, alpha, beta.
     :return: The loss values
     '''
-    return tf.abs(y_true - gamma) * (2*v + alpha)
+    gamma, v, alpha, _ = tf.split(y_pred, 4, axis=-1)
+    return tf.reduce_mean(tf.abs(y_true - gamma) * (2*v + alpha), axis=0)
 
 def deep_evidential_regression_loss(
     y_true: TensorType, 
@@ -169,12 +167,10 @@ def deep_evidential_regression_loss(
         y_pred = tf.expand_dims(y_pred, axis=0)
     tf.debugging.assert_shapes([(y_pred, (y_pred.shape[0], 4))])
 
-    gamma, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
+    loss = normal_inverse_gamma_negative_log_likelihood(y_true, y_pred)
+    regularization = normal_inverse_gamma_regularizer(y_true, y_pred)
 
-    loss = normal_inverse_gamma_negative_log_likelihood(y_true, gamma, v, alpha, beta)
-    regularization = normal_inverse_gamma_regularizer(y_true, gamma, v, alpha)
-
-    return tf.reduce_mean(loss + coeff * regularization, axis=0)
+    return loss + coeff * regularization
 
 
 def build_deep_evidential_regression_loss(
@@ -195,3 +191,17 @@ def build_deep_evidential_regression_loss(
             coeff
         )
     return loss_fn
+
+class DeepEvidentialCallback(tf.keras.callbacks.Callback):
+    def __init__(self, reg_weight, maxi_rate, epsilon, verbose):
+        self.reg_weight = reg_weight
+        self.maxi_rate = maxi_rate
+        self.epsilon = epsilon
+        self.verbose = verbose
+
+    def on_batch_end(self, epoch, logs=None):
+        self.reg_weight.assign_add(self.maxi_rate * (logs["output_2_loss"] - self.epsilon))
+
+    def on_epoch_end(self, epoch, logs=None):
+        if self.verbose == 1 and epoch % 100 == 0:
+            print(f"Epoch: {epoch};  Loss = {logs['loss']:4f}; NLL_LOSS = {logs['output_1_loss']:4f}; reg_loss = {logs['output_2_loss']:4f}; lambda: {self.reg_weight.numpy():4f}")

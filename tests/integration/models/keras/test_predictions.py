@@ -18,7 +18,12 @@ import pytest
 import tensorflow as tf
 
 from tests.util.misc import branin_dataset, random_seed
-from trieste.models.keras import DeepEnsemble, build_vanilla_keras_ensemble
+from trieste.models.keras import (
+    DeepEnsemble, 
+    DeepEvidentialRegression, 
+    build_vanilla_keras_ensemble,
+    build_vanilla_keras_deep_evidential
+)
 from trieste.models.optimizer import KerasOptimizer
 
 
@@ -42,6 +47,30 @@ def test_neural_network_ensemble_predictions_close_to_actuals(keras_float: None)
         keras_ensemble,
         KerasOptimizer(optimizer, fit_args),
         False,
+    )
+    model.optimize(example_data)
+
+    predicted_means, _ = model.predict(example_data.query_points)
+    mean_abs_deviation = tf.reduce_mean(tf.abs(predicted_means - example_data.observations))
+
+    # somewhat arbitrary accuracy level, seems good for the range of branin values
+    assert mean_abs_deviation < 2
+
+
+@pytest.mark.slow
+@random_seed
+@pytest.mark.deep_evidential
+def test_deep_evidential_predictions_close_to_actuals() -> None:
+
+    dataset_size = 1000
+
+    example_data = branin_dataset(dataset_size)
+
+    deep_evidential = build_vanilla_keras_deep_evidential(example_data)
+
+    model = DeepEvidentialRegression(
+        deep_evidential,
+        KerasOptimizer(tf.keras.optimizers.Adam(1e-3)),
     )
     model.optimize(example_data)
 
