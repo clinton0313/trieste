@@ -1,5 +1,6 @@
 # %%
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
@@ -22,7 +23,7 @@ from trieste.models.keras.utils import (
 )
 from trieste.models.optimizer import KerasOptimizer
 
-
+matplotlib.use("TkAgg")
 tf.get_logger().setLevel("ERROR")
 tf.keras.backend.set_floatx("float64")
 
@@ -98,7 +99,7 @@ random.seed(seed)
 np.random.seed(seed)
 tf.random.set_seed(seed)
 
-with open("/home/clinton/Documents/bse/masters_thesis/trieste/trieste/models/keras/amini_cubic.pkl", "rb") as infile:
+with open("/home/clinton/Documents/bse/masters_thesis/trieste/notebooks/amini_cubic.pkl", "rb") as infile:
     x_train, y_train, x_test, y_test = pickle.load(infile)
 
 x_train = tf.cast(x_train, dtype=tf.float64)
@@ -107,12 +108,12 @@ y_train = tf.cast(y_train, dtype=tf.float64)
 y_test = tf.cast(y_test, dtype=tf.float64)
 
 
-amini_train_data = Dataset(x_train, y_train)
-amini_test_data = Dataset(x_test, y_test)
+train_data = Dataset(x_train, y_train)
+test_data = Dataset(x_test, y_test)
 
-n=1000
-train_data = gen_cubic_dataset(n, -4, 4, True)
-test_data = gen_cubic_dataset(n, -7, 7, False)
+# n=1000
+# train_data = gen_cubic_dataset(n, -4, 4, True)
+# test_data = gen_cubic_dataset(n, -7, 7, False)
 
 
 #%%
@@ -121,55 +122,56 @@ fit_args = {
                 "verbose": 0,
                 "epochs": 5000,
                 "batch_size": 128,
-                # "callbacks": [
-                #     tf.keras.callbacks.EarlyStopping(
-                #         monitor="loss", patience=1000, restore_best_weights=True
-                #     )
-                # ],
+                "callbacks": [
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor="loss", patience=200, restore_best_weights=True
+                    )
+                ],
             }
 
-deep_evidential = main_cubic(
-    train_data, 
-    fit_args=fit_args,
-    reg_weight=1e-2,
-    maxi_rate=0.,
-    verbose=1
-)
-#%%
-deep_evidential.optimize(train_data)
-predictions = deep_evidential.predict(train_data.query_points)
-error = tf.abs(train_data.observations - predictions[0])
-mean_error = tf.reduce_mean(error, axis=0)
-print(f"mean abs error {mean_error}")
-#%%
-ood_predictions = deep_evidential.predict(test_data.query_points)
-plot_cubic(train_data, test_data, ood_predictions)
+# deep_evidential = main_cubic(
+#     train_data, 
+#     fit_args=fit_args,
+#     reg_weight=1e-2,
+#     maxi_rate=0.,
+#     verbose=1
+# )
+# #%%
+# deep_evidential.optimize(train_data)
+# predictions = deep_evidential.predict(train_data.query_points)
+# error = tf.abs(train_data.observations - predictions[0])
+# mean_error = tf.reduce_mean(error, axis=0)
+# print(f"mean abs error {mean_error}")
+# #%%
+# ood_predictions = deep_evidential.predict(test_data.query_points)
+# plot_cubic(train_data, test_data, ood_predictions)
 
-#%%
-#DIAGNOSIS
-gamma, lamb, alpha, beta = tf.split(deep_evidential.model(tf.expand_dims(test_data.query_points, axis=-1))[0], 4, axis=-1)
+# # #%%
+# # #DIAGNOSIS
+# # gamma, lamb, alpha, beta = tf.split(deep_evidential.model(tf.expand_dims(test_data.query_points, axis=-1))[0], 4, axis=-1)
 
-names = ["gamma", "lambda", "alpha", "beta"]
+# # names = ["gamma", "lambda", "alpha", "beta"]
 
-for name, output in zip(names, [gamma, lamb, alpha, beta]):
-    print(f"{name} has max: {np.max(output)} and min {np.min(output)}")
+# # for name, output in zip(names, [gamma, lamb, alpha, beta]):
+# #     print(f"{name} has max: {np.max(output)} and min {np.min(output)}")
 
-# %%
-plt.plot(deep_evidential.model.history.history["loss"])
-# plt.ylim(0, 100)
-deep_evidential.model.history.history["loss"][-10:]
+# # %%
+# plt.plot(deep_evidential.model.history.history["loss"])
+# # plt.ylim(0, 100)
+# deep_evidential.model.history.history["loss"][-10:]
 
-# %%
+# # %%
 
-plt.plot(test_data.query_points,ood_predictions[1])
-# %%
-#Run the same cubic data over and over again to check the figs for
-#consistency
+# plt.plot(test_data.query_points,ood_predictions[1])
+# # %%
+# #Run the same cubic data over and over again to check the figs for
+# #consistency
 
 # %%
 
 def simulate_cubic(
-    sims = 10, 
+    prefix,
+    sims = 30, 
     seed=1234, 
     refresh_seed=False,
     train_data = None,
@@ -182,7 +184,6 @@ def simulate_cubic(
     np.random.seed(seed)
     tf.random.set_seed(seed)
     models = []
-    figs = []
     for i in range(sims):
         if refresh_seed:
             random.seed(i)
@@ -200,30 +201,18 @@ def simulate_cubic(
         fig = plot_cubic(train_data, test_data, ood_predictions)
     
         models.append(deep_evidential)
-        figs.append(fig)
-    
-    return models, figs
+        fig.savefig(f"/home/clinton/Documents/bse/masters_thesis/trieste/notebooks/de_figs/{prefix}_fig{i}.png", facecolor="white", transparent=False)
 
-models, figs = simulate_cubic(
+    return models
+
+models = simulate_cubic(
+    prefix="l2_reg_0_001",
     train_data = train_data, 
     test_data = test_data,
     fit_args = fit_args,
     reg_weight=1e-2,
-    maxi_rate=0.
+    maxi_rate=0.,
+    verbose=0
 )
-# %%
 
-network = build_vanilla_keras_deep_evidential(train_data)
-network.compile(
-    optimizer = tf.keras.optimizers.Adam(),
-    loss = [
-        normal_inverse_gamma_negative_log_likelihood,
-        normal_inverse_gamma_regularizer
-    ],
-    loss_weights = [1, 1e-2]
-)
-# %%
-
-network.fit(train_data.query_points, [train_data.observations, train_data.observations])
-
-# %%
+#%%

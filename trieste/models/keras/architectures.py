@@ -322,9 +322,9 @@ class DeepEvidentialNetwork(tf.keras.Model):
         '''Applies an activation function to ensure all evidential parameters are positive.'''
 
         if self.evidence_activation == "softplus":
-            return tf.math.maximum(tf.nn.softplus(evidence), 1e-15)
+            return tf.nn.softplus(evidence) + 1e-18
         elif self.evidence_activation == "relu":
-            return tf.math.maximum(tf.nn.relu(evidence), 1e-15)
+            return tf.nn.relu(evidence) + 1e-18
         elif self.evidence_activation == "exp":
             return tf.math.exp(evidence)
 
