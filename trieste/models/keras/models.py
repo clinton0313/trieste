@@ -18,6 +18,8 @@ from typing import Dict, Optional
 
 import tensorflow as tf
 import tensorflow_probability as tfp
+import tensorflow_probability.python.distributions as tfd
+from tensorflow.python.keras.callbacks import Callback
 
 from ...data import Dataset
 from ...types import TensorType
@@ -30,7 +32,7 @@ from ..interfaces import (
 from ..optimizer import KerasOptimizer
 from .architectures import DropoutNetwork, KerasEnsemble
 from .interface import KerasPredictor
-from .sampler import EnsembleTrajectorySampler
+from .sampler import EnsembleTrajectorySampler, DropoutTrajectorySampler
 from .utils import negative_log_likelihood, sample_with_replacement
 
 
@@ -193,6 +195,17 @@ class DeepEnsemble(
 
         return inputs
 
+    def ensemble_distributions(self, query_points: TensorType) -> tuple[tfd.Distribution, ...]:
+        """
+        Return distributions for each member of the ensemble.
+
+        :param query_points: The points at which to return distributions.
+        :return: The distributions for the observations at the specified
+            ``query_points`` for each member of the ensemble.
+        """
+        x_transformed: dict[str, TensorType] = self.prepare_query_points(query_points)
+        return self._model.model(x_transformed)
+
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
         Returns mean and variance at ``query_points`` for the whole ensemble.
@@ -340,7 +353,7 @@ class DeepEnsemble(
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
 
-class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
+class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel, HasTrajectorySampler):
     """
     A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for Monte Carlo dropout
     built using Keras.
@@ -451,6 +464,16 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
         self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
 
+    def trajectory_sampler(self) -> TrajectorySampler[MonteCarloDropout]:
+        """
+        Return a trajectory sampler. For :class:`MonteCarloDropout`, we use the predicted means
+        of the stochastic forward passes for generating a trajectory. The sampler accepts
+        multiple batches, and fixes different seeds for each batch.
+
+        :return: The trajectory sampler.
+        """
+        return DropoutTrajectorySampler(self)
+
     def update(self, dataset: Dataset) -> None:
         """
         Neural networks are parametric models and do not need to update data.
@@ -471,6 +494,18 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
         return tf.stack(
             [self.model(query_points, training=True) for _ in range(num_samples)], axis=0
         )
+
+    def seeded_sample(self, query_points: TensorType, seed: int, num_samples: int) -> TensorType:
+        """
+        Return ``num_samples`` samples at ``query_points`` with a fixed ``seed``.
+
+        :param query_points: The points at which to sample, with shape [..., N, D].
+        :param seed: The seed to fix before sampling.
+        :return: The distributions for the observations at the specified
+            ``query_points`` for each member of the ensemble.
+        """
+        tf.random.set_seed(seed)
+        return self.sample(query_points, num_samples=num_samples)
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""

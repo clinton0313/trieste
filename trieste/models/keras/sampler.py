@@ -161,7 +161,7 @@ class ensemble_trajectory(TrajectoryFunctionClass):
             )  # [E*B/E, N*B, 1]
             predictions = tf.gather(flattened_samples, self._indices)  # [B, N*B, 1]
         else:
-            predicted_means = tf.convert_to_tensor([dist.mean() for dist in ensemble_distributions])
+            predicted_means = tf.convert_to_tensor([dist.mean() for dist in ensemble_distributions]) # [E, N*B, 1]
             predictions = tf.gather(predicted_means, self._indices)  # [B, N*B, 1]
 
         tensor_predictions = tf.squeeze(tf.map_fn(unflatten, predictions), axis=-1)  # [B, N, B]
@@ -190,6 +190,7 @@ class ensemble_trajectory(TrajectoryFunctionClass):
             )  # [E, 2]
         else:
             self._indices.assign(self._model.sample_index(self._batch_size))  # [B]
+
 
 class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
     """
@@ -238,7 +239,7 @@ class DropoutTrajectorySampler(TrajectorySampler[TrainableProbabilisticModel]):
         trajectory.resample()  # type: ignore
         return trajectory
 
-# @tf.function
+
 class dropout_trajectory(TrajectoryFunctionClass):
     """
     Generate an approximate function draw (trajectory) by using the predicted means
@@ -257,9 +258,10 @@ class dropout_trajectory(TrajectoryFunctionClass):
         )
 
         self._seeds = tf.Variable(
-            tf.ones([0,0], dtype=tf.int32), shape=[None, None], trainable=False
+            tf.zeros([2, 1], dtype=tf.int32), trainable=False
         )
-            
+        
+    @tf.function
     def __call__(self, x: TensorType) -> TensorType:  # [N, B, d] -> [N, B]
         """
         Call trajectory function. It uses `tf.random` seeds to fix the matrix of dropout
@@ -281,14 +283,51 @@ class dropout_trajectory(TrajectoryFunctionClass):
             """
         )
 
-        predictions = []
-        batch_index = tf.range(0, self._batch_size, 1)
-        _ = self._model.sample(x[:1,0,:], num_samples=1) # [DAV] Somehow first seed doesn't propagate unless I've done a dummy pred before.
-        for b, seed in zip(batch_index, tf.unstack(self._seeds)):
-            tf.random.set_seed(seed) # [DAV] A possible local seed? One can pass operational seeds to both types of dropouts, but it doesn't seem to fix the prediction
-            predictions.append(self._model.sample(x[:,b,:], num_samples=1)[0])
-
-        return tf.transpose(tf.squeeze(predictions, axis=-1), perm=[1,0])
+########## 
+        # # Straightforward approach, no seed fixing :(
+        # def predictor(batch):
+        #     return (
+        #         tf.map_fn(
+        #             lambda i: self._model.seeded_sample(x[:,i,:], num_samples=1, seed=0), 
+        #             batch, 
+        #             dtype=tf.float64
+        #         )
+        #     )
+########## 
+        # # map_fn approach
+        # def predictor(batch):
+        #     def seeded_samp(qp, tseed):
+        #         breakpoint()
+        #         tf.random.set_seed(vals[tseed])
+                
+        #         return self._model.sample(qp, num_samples=1)
+        #     return (
+        #         tf.map_fn(
+        #             lambda i: seeded_samp(x[:,i,:], tseed=0), 
+        #             batch, 
+        #             dtype=tf.float64
+        #         )
+        #     )
+        # predictions= predictor(tf.range(0, self._batch_size))
+        # return tf.transpose(tf.squeeze(predictions, axis=(-1,-3)), perm=[1,0])
+##########        
+        # # first attempted new approach
+        # batch_index = tf.range(0, self._batch_size.value(), 1)
+        # _ = self._model.sample(x[:1,0,:], num_samples=1) # [DAV] Somehow first seed doesn't propagate unless I've done a dummy pred before.
+        # predictions = tf.convert_to_tensor(
+        #     [
+        #         self._model.seeded_sample(x[:,b,:], num_samples=1, seed=5)#seeds[b])
+        #         for b in [0,1]#tf.range(0, batch_size, 1)
+        #     ]
+        # )
+        # return tf.transpose(tf.squeeze(predictions, axis=(-1,-3)), perm=[1,0])
+##########        
+        # # original (pre tf.function) approach
+        # predictions = []
+        # for b, seed in zip(batch_index, tf.unstack(self._seeds)):
+        #     tf.random.set_seed(seed) # [DAV] A possible local seed? One can pass operational seeds to both types of dropouts, but it doesn't seem to fix the prediction
+        #     predictions.append(self._model.sample(x[:,b,:], num_samples=1)[0])
+        # return tf.transpose(tf.squeeze(predictions, axis=-1), perm=[1,0])
 
     def resample(self) -> None:
         """
