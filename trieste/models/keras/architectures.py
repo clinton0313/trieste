@@ -239,12 +239,11 @@ class GaussianNetwork(KerasEnsembleNetwork):
 
 class DeepEvidentialNetwork(tf.keras.Model):
     """
-    This class builds a fully connected neural network with a deep evidential outputusing Keras. 
+    This class builds a fully connected neural network with a deep evidential output using Keras. 
     The network architecture is a multilayer fully-connected feed-forward network whose final output layer
-    outputs four parameters corresponding to each observation that is meant to be used with a deep
-    evidential loss function. This network is meant to be used with 
-    :class:`~trieste.models.keras.models.DeepEvidentialRegression` which will define the predict method 
-    to make this a probabilistic model. 
+    outputs four distributional parameters meant to be used with a deep evidential loss function. 
+    This network is meant to be used with :class:`~trieste.models.keras.models.DeepEvidentialRegression` 
+    which will define the predict method to make this a probabilistic model. 
     """
 
     def __init__(

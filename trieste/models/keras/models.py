@@ -30,7 +30,7 @@ from ..interfaces import (
     TrajectorySampler,
 )
 from ..optimizer import KerasOptimizer
-from .architectures import DeepEvidentialNetwork, KerasEnsemble
+from .architectures import KerasEnsemble, DeepEvidentialNetwork
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler, DeepEvidentialTrajectorySampler
 from .utils import (

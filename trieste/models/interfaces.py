@@ -304,9 +304,9 @@ class EnsembleModel(ProbabilisticModel, Protocol):
 class EvidentialPriorModel(ProbabilisticModel, Protocol):
     """
     This is an interface for models that have a normal prior distribution over the outputs 
-    defined by a Normal Inverse Gamma higher order evidential distribution. these models can act
-    as probabilistic models by deriving estimates of epistemic uncertainty from the variance of mu
-    and aleatoric uncertainty from the expectation of sigma if it has a higher order distribution. 
+    defined by a Normal Inverse Gamma higher order evidential distribution. These models can act
+    as probabilistic models by deriving estimates of epistemic uncertainty from the variance of ``mu``
+    and aleatoric uncertainty from the expectation of ``sigma`` if it has a higher order distribution. 
     """
 
     @abstractmethod
@@ -319,7 +319,7 @@ class EvidentialPriorModel(ProbabilisticModel, Protocol):
         num_samples: int
     ) -> tuple[TensorType, TensorType]:
         """
-        Returns a mu and sigma vector that characterizes a normal posterior distribution of 
+        Returns a ``mu`` and ``sigma`` vector that characterizes a normal posterior distribution of 
         predicted outputs given the parameters of a Normal Inverse Gamma evidential distribution.
         """
         raise NotImplementedError
