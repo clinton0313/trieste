@@ -587,3 +587,73 @@ TRID_10_SEARCH_SPACE = Box([-(10 ** 2)], [10 ** 2]) ** 10
 The search space for :func:`trid` function is defined over :math:`[-d^2, d^2]` for all i=1,...,d.
 Here, we define it specifically for the 10-dimensional variant.
 """
+
+
+def dropwave(x: TensorType) -> TensorType:
+    """
+    The Drop-Wave function is multimodal and highly complex.
+    """
+    tf.debugging.assert_shapes([(x, (..., 2))])
+
+    frac1 = tf.add(1, tf.math.cos(12 * tf.math.sqrt(tf.reduce_sum(tf.pow(x, 2), 1))))
+    frac2 = tf.add(tf.multiply(0.5, tf.reduce_sum(tf.pow(x, 2), 1)), 2)
+
+    return tf.expand_dims(tf.divide(tf.negative(frac1), frac2), axis=1)
+
+
+DROPWAVE_MINIMIZER = tf.constant([[0., 0.]], tf.float64)
+"""
+The global minimizer of the :func:`dropwave` function over :math:`[-5.12, 5.12]^2`,
+with shape [1, 2] and dtype float64. 
+"""
+
+
+DROPWAVE_MINIMUM = tf.constant([-1.], tf.float64)
+"""
+The global minimum of the :func:`dropwave` function, with shape [1] and dtype float64.
+"""
+
+
+DROPWAVE_SEARCH_SPACE = Box([-5.12], [5.12]) ** 2
+"""
+The search space for the :func:`dropwave` function.
+"""
+
+
+def eggholder(x: TensorType) -> TensorType:
+    """
+    The Eggholder function is a difficult function to optimize, because of the 
+    large number of local minima.
+    """
+    tf.debugging.assert_shapes([(x, (..., 2))])
+
+    term1 = tf.multiply(
+        tf.negative(tf.add(x[:,1], 47)), 
+        tf.math.sin(tf.sqrt(tf.math.abs(tf.add(x[:,1], tf.add(tf.divide(x[:,0], 2), 47)))))
+    )
+
+    term2 = tf.multiply(
+        tf.negative(x[:,0]), 
+        tf.math.sin(tf.math.sqrt(tf.abs(tf.subtract(x[:,0], tf.add(x[:,1], 47)))))
+    )
+
+    return tf.expand_dims(tf.add(term1, term2), axis=1)
+
+
+EGGHOLDER_MINIMIZER = tf.constant([[512., 404.2319]], tf.float64)
+"""
+The global minimizer of the :func:`eggholder` function over :math:`[-5.12, 5.12]^2`,
+with shape [1, 2] and dtype float64. 
+"""
+
+
+EGGHOLDER_MINIMUM = tf.constant([-959.6407], tf.float64)
+"""
+The global minimum of the :func:`eggholder` function, with shape [1] and dtype float64.
+"""
+
+
+EGGHOLDER_SEARCH_SPACE = Box([-512], [512]) ** 2
+"""
+The search space for the :func:`eggholder` function.
+"""
