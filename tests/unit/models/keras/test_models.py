@@ -39,8 +39,6 @@ from trieste.models.keras import (
 )
 from trieste.models.keras.utils import (
     DeepEvidentialCallback,
-    build_deep_evidential_regression_loss,
-    deep_evidential_regression_loss, 
     normal_inverse_gamma_negative_log_likelihood,
     normal_inverse_gamma_regularizer
 )
@@ -86,7 +84,7 @@ def _ensemblise_data(
 
     return inputs, outputs
 
-
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
 def test_deep_ensemble_repr(
     optimizer: tf.optimizers.Optimizer,
@@ -107,6 +105,7 @@ def test_deep_ensemble_repr(
     assert repr(model) == expected_repr
 
 
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_model_attributes() -> None:
     example_data = empty_dataset([1], [1])
     model, keras_ensemble, optimizer = trieste_deep_ensemble_model(
@@ -118,6 +117,7 @@ def test_deep_ensemble_model_attributes() -> None:
     assert model.model is keras_ensemble.model
 
 
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_ensemble_size_attributes(ensemble_size: int) -> None:
     example_data = empty_dataset([1], [1])
     model, _, _ = trieste_deep_ensemble_model(example_data, ensemble_size, False, False)
@@ -125,6 +125,7 @@ def test_deep_ensemble_ensemble_size_attributes(ensemble_size: int) -> None:
     assert model.ensemble_size == ensemble_size
 
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("ensemble_size", [-1, 1])
 def test_deep_ensemble_raises_for_incorrect_ensemble_size(ensemble_size: int) -> None:
 
@@ -134,6 +135,7 @@ def test_deep_ensemble_raises_for_incorrect_ensemble_size(ensemble_size: int) ->
         trieste_deep_ensemble_model(example_data, ensemble_size, False, False)
 
 
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_default_optimizer_is_correct() -> None:
     example_data = empty_dataset([1], [1])
 
@@ -153,6 +155,7 @@ def test_deep_ensemble_default_optimizer_is_correct() -> None:
     assert model.optimizer.loss == default_loss
 
 
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_optimizer_changed_correctly() -> None:
     example_data = empty_dataset([1], [1])
 
@@ -173,6 +176,7 @@ def test_deep_ensemble_optimizer_changed_correctly() -> None:
     assert model.optimizer.fit_args == custom_fit_args
 
 
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_is_compiled() -> None:
     example_data = empty_dataset([1], [1])
     model, _, _ = trieste_deep_ensemble_model(example_data, _ENSEMBLE_SIZE)
@@ -183,6 +187,7 @@ def test_deep_ensemble_is_compiled() -> None:
 
 
 @pytest.mark.skip
+@pytest.mark.deep_ensemble
 def test_config_builds_deep_ensemble_and_default_optimizer_is_correct() -> None:
     example_data = empty_dataset([1], [1])
 
@@ -202,6 +207,7 @@ def test_config_builds_deep_ensemble_and_default_optimizer_is_correct() -> None:
     assert model.optimizer.fit_args == default_fit_args
 
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("size", [0, 1, 10])
 def test_deep_ensemble_sample_index_call_shape(size: int) -> None:
     example_data = empty_dataset([1], [1])
@@ -213,6 +219,7 @@ def test_deep_ensemble_sample_index_call_shape(size: int) -> None:
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("ensemble_size", [2, 5, 10, 20])
 def test_deep_ensemble_sample_index_samples_are_diverse(ensemble_size: int) -> None:
     example_data = empty_dataset([1], [1])
@@ -225,6 +232,7 @@ def test_deep_ensemble_sample_index_samples_are_diverse(ensemble_size: int) -> N
     assert tf.reduce_max(network_indices) == (ensemble_size - 1)
 
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("dataset_size", [10, 100])
 def test_deep_ensemble_predict_call_shape(ensemble_size: int, dataset_size: int) -> None:
     example_data = _get_example_data([dataset_size, 1])
@@ -238,6 +246,7 @@ def test_deep_ensemble_predict_call_shape(ensemble_size: int, dataset_size: int)
     assert predicted_means.shape == example_data.observations.shape
 
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("dataset_size", [10, 100])
 def test_deep_ensemble_predict_ensemble_call_shape(ensemble_size: int, dataset_size: int) -> None:
     example_data = _get_example_data([dataset_size, 1])
@@ -253,6 +262,7 @@ def test_deep_ensemble_predict_ensemble_call_shape(ensemble_size: int, dataset_s
     assert predicted_vars.shape[-2:] == example_data.observations.shape
 
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("num_samples", [6, 12])
 @pytest.mark.parametrize("dataset_size", [4, 8])
 def test_deep_ensemble_sample_call_shape(num_samples: int, dataset_size: int) -> None:
@@ -265,6 +275,7 @@ def test_deep_ensemble_sample_call_shape(num_samples: int, dataset_size: int) ->
     assert samples.shape == [num_samples, dataset_size, 1]
 
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("num_samples", [6, 12])
 @pytest.mark.parametrize("dataset_size", [4, 8])
 def test_deep_ensemble_sample_ensemble_call_shape(num_samples: int, dataset_size: int) -> None:
@@ -278,6 +289,7 @@ def test_deep_ensemble_sample_ensemble_call_shape(num_samples: int, dataset_size
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_optimize_with_defaults(independent_normal: bool) -> None:
     example_data = _get_example_data([100, 1])
 
@@ -292,6 +304,7 @@ def test_deep_ensemble_optimize_with_defaults(independent_normal: bool) -> None:
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("epochs", [5, 15])
 def test_deep_ensemble_optimize(
     independent_normal: bool,
@@ -324,6 +337,7 @@ def test_deep_ensemble_optimize(
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_loss(
     independent_normal: bool,
     bootstrap_data: bool,
@@ -353,6 +367,7 @@ def test_deep_ensemble_loss(
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_predict_ensemble(independent_normal: bool) -> None:
     example_data = _get_example_data([100, 1])
 
@@ -381,6 +396,7 @@ def test_deep_ensemble_predict_ensemble(independent_normal: bool) -> None:
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_sample(independent_normal: bool) -> None:
     example_data = _get_example_data([100, 1])
     model, _, _ = trieste_deep_ensemble_model(
@@ -400,6 +416,7 @@ def test_deep_ensemble_sample(independent_normal: bool) -> None:
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_sample_ensemble(independent_normal: bool, ensemble_size: int) -> None:
     example_data = _get_example_data([20, 1])
     model, _, _ = trieste_deep_ensemble_model(
@@ -417,6 +434,7 @@ def test_deep_ensemble_sample_ensemble(independent_normal: bool, ensemble_size: 
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_deep_ensemble_prepare_data_call(
     independent_normal: bool,
     ensemble_size: int,
@@ -461,8 +479,8 @@ def test_deep_evidential_repr(
     example_data = empty_dataset([1], [1])
 
     evidential_network = build_vanilla_keras_deep_evidential(example_data)
-    evidential_network.compile(optimizer, loss=deep_evidential_regression_loss)
-    optimizer_wrapper = KerasOptimizer(optimizer, loss=deep_evidential_regression_loss)
+    evidential_network.compile(optimizer)
+    optimizer_wrapper = KerasOptimizer(optimizer)
     model = DeepEvidentialRegression(evidential_network, optimizer_wrapper)
 
     expected_repr = (
@@ -514,6 +532,38 @@ def test_deep_evidential_default_optimizer_is_correct() -> None:
     assert model.model.compiled_loss._loss_weights[1] == tf.Variable(1e-2, dtype=tf.float64)
 
 
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "fit_args",
+    [
+        {},
+        {"callbacks": tf.keras.callbacks.EarlyStopping()},
+        {"callbacks": (tf.keras.callbacks.ReduceLROnPlateau(),)},
+        {"callbacks": [
+            tf.keras.callbacks.EarlyStopping(), 
+            tf.keras.callbacks.ReduceLROnPlateau()
+            ]
+        }
+    ]
+)
+def test_deep_evidential_optimizer_adds_default_callback(fit_args: dict) -> None:
+    example_data = empty_dataset([1], [1])
+    deep_evidential = build_vanilla_keras_deep_evidential(example_data)
+    model = DeepEvidentialRegression(
+        deep_evidential,
+        KerasOptimizer(
+            tf.keras.optimizers.Adam(),
+            fit_args
+        )
+    )
+    callbacks = model.optimizer.fit_args["callbacks"]
+    assert isinstance(callbacks, list)
+    has_callback = list(
+        map(
+            lambda x: isinstance(x, DeepEvidentialCallback), callbacks
+        )
+    )
+    assert any(has_callback)
 
 
 @pytest.mark.deep_evidential

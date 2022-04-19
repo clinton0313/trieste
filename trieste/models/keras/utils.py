@@ -20,7 +20,7 @@ import tensorflow_probability as tfp
 
 from ...data import Dataset
 from ...types import TensorType
-from typing import Callable, Union
+
 
 def get_tensor_spec_from_data(dataset: Dataset) -> tuple[tf.TensorSpec, tf.TensorSpec]:
     r"""
@@ -144,53 +144,6 @@ def normal_inverse_gamma_regularizer(
     '''
     gamma, v, alpha, _ = tf.split(y_pred, 4, axis=-1)
     return tf.reduce_mean(tf.abs(y_true - gamma) * (2*v + alpha), axis=0)
-
-def deep_evidential_regression_loss(
-    y_true: TensorType, 
-    y_pred: TensorType, 
-    coeff: float = 1e-2, 
-) -> TensorType:
-    '''
-    Maximum likelihood objective for deep evidential regression model using negative 
-    log likelihood or sum of squares loss of the normal inverse gamma distribution.
-
-    :param y_true: The output variable values.
-    :param y_pred: The four output parameters of the deep evidential regression model
-        that characterize the normal inverse gamma distribution given in the order: gamma,
-        lambda, alpha, beta.
-    :param coeff: Regularization weight coefficient.
-    :return: The model evidence values.  
-    '''
-    if y_true.shape.rank == 1:
-        y_true = tf.expand_dims(y_true, axis=-1)
-    if y_pred.shape.rank == 1:
-        y_pred = tf.expand_dims(y_pred, axis=0)
-    tf.debugging.assert_shapes([(y_pred, (y_pred.shape[0], 4))])
-
-    loss = normal_inverse_gamma_negative_log_likelihood(y_true, y_pred)
-    regularization = normal_inverse_gamma_regularizer(y_true, y_pred)
-
-    return loss + coeff * regularization
-
-
-def build_deep_evidential_regression_loss(
-    coeff: float
-) -> Callable:
-
-    """
-    Builds a custom loss function for Deep Evidential Regression model.
-
-    :param coeff: Coefficient of the loss regularizer.
-    :return: Loss function for the Deep Evidential Regression model. 
-    """
-
-    def loss_fn(y_true, y_pred):
-        return deep_evidential_regression_loss(
-            y_true,
-            y_pred,
-            coeff
-        )
-    return loss_fn
 
 class DeepEvidentialCallback(tf.keras.callbacks.Callback):
     def __init__(self, reg_weight, maxi_rate, epsilon, verbose):

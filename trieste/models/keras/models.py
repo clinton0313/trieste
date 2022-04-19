@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 import tensorflow as tf
 import tensorflow_probability as tfp
@@ -343,19 +343,73 @@ class DeepEnsemble(
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
 
-class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainableProbabilisticModel, HasTrajectorySampler):
+class DeepEvidentialRegression(
+    KerasPredictor, EvidentialPriorModel, TrainableProbabilisticModel, HasTrajectorySampler
+):
+    """
+    A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a deep evidential model 
+    built using Keras.
+
+    Deep evidential regression is a deterministic deep neural network that seeks to learn the 
+    parameters to the posterior higher order deep evidential distributions and has good 
+    quantifications of uncertainty at fast speeds in practice (<cite data-cite="amini2020evidential"/>). 
+    Furthermore, the deep evidential model can easily separate between aleatoric and epistemic uncertainty.  
+    The model consists of a simple fully connected feed forward network whose final output layer is 
+    configured to output the necessary evidential parameters. The model trains using a combination 
+    of the negative log-likelihood of the Normal Inverse Gamma distribution and a custom regularizer 
+    (<cite data-cite="amini2020evidential"/>) that makes the problem well defined. 
+
+    The dual loss functions are controlled by a single weight coefficient, ``reg_weight`` and although
+    the original paper does not explicitly note the use of an iterative search procedure to optimize
+    this parameter, the author's original code does, and we include its use here. In practice, it 
+    improves performance of the model and makes it less sensitive to the hyperparameter choice. 
+
+    We provide classes for constructing the base network using Keras
+    (:class:`~trieste.models.keras.DeepEvidentialNetwork`) in the `architectures` package that should 
+    be used with the :class:`~trieste.models.keras.DeepEvidentialRgression` wrapper. We also provide 
+    the necessary loss functions and callbacks to implement the iterative procedures for computing the
+    loss in the `utils` package. These methods are implented by default in the model wrapper. 
+
+    Note that currently we do not support setting up the model with dictionary configs and saving
+    the model during Bayesian optimization loop (``track_state`` argument in
+    :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
+    """
     def __init__(
         self,
         model: DeepEvidentialNetwork,
         optimizer: Optional[KerasOptimizer] = None,
-        reg_weight: float = 1e-2,
+        reg_weight: float = 0.,
         maxi_rate: float = 1e-4,
         epsilon: float = 1e-2,
-        verbose: int = 0
+        verbose: int = 0 #Temporary parameter to be used with Callback for diagnosing in development.
     ) -> None:
         
         """
-        Docstring should mention the stringent loss function requirements. 
+        :param model: A Keras model built to output evidential parameters: an instance of 
+            :class:`trieste.models.keras.DeepEvidentialNetwork`. Themodel has to be built but 
+            not compiled.
+        :param optimizer: The optimizer wrapper with necessary specifications for compiling and
+            training the model. Loss function passed with this optimizer will be ignored and will
+            instead use a weighted combination, controlled by ``reg_weight``, of 
+            :function:`~trieste.models.keras.utils.normal_inverse_gamma_log_likelihood` and
+            :function:`~trieste.models.keras.utils.normal_inverse_gamma_regularizer`. By default 
+            the constructor will also add :class:`~trieste.models.keras.utils.DeepEvidentialCallback`
+            to the optimizer ``fit_args``, which is required to run this model. Otherwise defaults to 
+            :class:`~trieste.models.optimizer.KerasOptimizer` with :class:`~tf.optimizers.Adam` 
+            optimizer, and a dictionary of default arguments for Keras `fit` method: 1000 epochs, 
+            batch size 16, early stopping callback with patience of 100, resotre_best_weights True, 
+            and verbose 0. See https://keras.io/api/models/model_training_apis/#fit-method for a list 
+            of possible arguments.
+        :param reg_weight: The weight attributed to the regularization loss that trades off between 
+            uncertainty inflation and model fit. Smaller values lead to higher degrees of confidence, 
+            whereas larger values lead to inflation of uncertainty. A fixed value of around 0.01 
+            seems to work well for small datasets, but ``reg_weight`` defualts to 0 to allow for 
+            an automatic incremental search for the best value using ``maxi_rate``.
+        :param maxi_rate: Throughout training, the ``reg_weight`` is automatically adjusted based on 
+            previous outputs of the regularization loss. This update is applied at the end of every 
+            batch by: ``reg_weight`` += ``maxi_rate`` * (regularization loss - ``epsilon``). A default
+            of 1e-4 in conjunction with a ``reg_weight`` of 0 and ``epsilon`` of 0.01 seems to work well. 
+        :param epsilon: A parameter used in updating ``reg_weight`` throughout training as described above.
         """
 
         super().__init__(optimizer)
@@ -364,7 +418,7 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
             self.optimizer.fit_args = {
                 "verbose": 0,
                 "epochs": 1000,
-                "batch_size": 32,
+                "batch_size": 16,
                 "callbacks": [
                     tf.keras.callbacks.EarlyStopping(
                         monitor="loss", patience=100, restore_best_weights=True
@@ -379,13 +433,16 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         
         try:
             if not isinstance(self.optimizer.fit_args["callbacks"], list):
-                self.optimizer.fit_args["callbacks"] = [self.optimizer.fit_args["callbacks"]]
+                if isinstance(self.optimizer.fit_args["callbacks"], Sequence):
+                    self.optimizer.fit_args["callbacks"] = list(self.optimizer.fit_args["callbacks"])
+                else:
+                    self.optimizer.fit_args["callbacks"] = [self.optimizer.fit_args["callbacks"]]
             self.optimizer.fit_args["callbacks"].append(
                 DeepEvidentialCallback(
                     self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
                 )
             )
-        except (KeyError or AttributeError):
+        except KeyError:
             self.optimizer.fit_args["callbacks"] = [
                     DeepEvidentialCallback(
                         self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
@@ -407,7 +464,7 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
     
     @property
     def model(self) -> tf.keras.Model:
-        """ " Returns compiled Keras ensemble model."""
+        """ Returns compiled Keras ensemble model."""
         return self._model
 
     def __repr__(self) -> str:
@@ -422,7 +479,20 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         beta: TensorType, 
         num_samples:int
     ) -> tuple[TensorType, TensorType]:
-        '''Samples a mu vector and a sigma vector for the posterior distribution of each observation'''
+        """
+        Returns a tensor of means and a tensor of variances that parametrized the
+        posterior Gaussian distribution of our outputs. We use the evidential parameters
+        gamma, v, alpha, beta to sample from a Gaussian distribution to sample our means
+        and an Inverse Gamma distribution sample our variances.
+
+        :param gamma: the mean of the evidential Gaussian distribution.
+        :param v: sigma/v parameterizes the variance of the evidential Gaussian distribution.
+        :param alpha: the concentration (shape) of the evidential Inverse Gamma distribution.
+        :param beta: the scale of the evidential Inverse Gamma distribution.
+        :num_samples: number of samples: S. 
+
+        :return: mean and variance tensors with shape [S, N, 1] each. 
+        """
 
         sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
         sigma_samples = sigma_dist.sample(num_samples)
@@ -435,7 +505,16 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         return mu_samples, sigma_samples # [num_samples, len(query_points), 1] x2
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
+        """
+        Return ``num_samples`` samples at ``query_points``. We use :meth:`predict` for 
+        ``query_points`` to get the evidential parameters. We use :meth:`sample_normal_parameters`
+        to sample mu and sigma tensors from our evidential distributions to parametrize
+        our posterior Gaussian distribution. We draw our samples from this Gaussian distribution.
 
+        :param query_points: The points at which to sample, with shape [..., N, D].
+        :param num_samples: The number of samples at each point: S. 
+        :return: The samples. This has shape [S, N, 1]
+        """
         evidential_output = self.model(query_points)[0]
         gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
 
@@ -449,7 +528,7 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
         return samples # [num_samples, len(query_points), 1]
 
 
-    def update(self) -> None:
+    def update(self, dataset: Dataset) -> None:
         """
         Neural networks are parametric models and do not need to update data.
         `TrainableProbabilisticModel` interface, however, requires an update method, so
@@ -463,13 +542,20 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
 
         Optimization is performed by using the Keras `fit` method, rather than applying the
         optimizer and using the batches supplied with the optimizer wrapper. User can pass
-        arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
-        These default to using 100 epochs, batch size 100, and verbose 0. See
+        arguments to the `fit` method through ``fit_args`` argument in the optimizer wrapper.
+        These default to using 1000 epochs, batch size 16, and verbose 0 as well as a custom
+        loss function and callback necessary for this model described in the constructor. See
         https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
         arguments.
 
         Note that optimization does not return the result, instead optimization results are
-        stored in a history attribute of the model object.
+        stored in a history attribute of the model object. Optimization fits to two copies of
+        the dataset's observations to leverage a dynamic weighting of the loss function and its
+        regularizer. The history attribute contains three losses where ``loss`` referes to the 
+        combined weighted loss, ``output_1_loss`` refers to the loss computed by 
+        :function:`~trieste.keras.models.utils.normal_inverse_gamma_negative_log_likelihood` 
+        and ``output_2_loss`` refers to the loss computed using 
+        :function:`~trieste.keras.models.utils.normal_inverse_gamma_regularizer`.
 
         :param dataset: The data with which to optimize the model.
         """
@@ -480,6 +566,35 @@ class DeepEvidentialRegression(KerasPredictor, EvidentialPriorModel, TrainablePr
     
 
     def predict(self, query_points: TensorType, aleatoric: bool = False) -> tuple[TensorType, TensorType]:
+        r"""
+        Returns mean and variance at ``query_points`` for the model.
+
+        Following <cite data-cite="amini2020evidential"/> we use the evidential parameters outputted
+        to create our evidential distributions:
+
+        .. math:: Y ~ \mathcal{N}(\mu, \sigma^{2})
+        .. math:: \mu ~ \mathcal{N}(\gamma, \sigma^{2} \nu^{-1})
+        .. math:: \sigma^{2} ~ \GAMMA^{-1} (\alpha, \beta)
+
+        The `mean` of the distribution is simply mu whose expectation will be gamma. Deep evidential
+        regression is able to distinguish between epistemic and aleatoric uncertainty. The aleatoric
+        uncertainty is given by:
+
+        .. math:: \mathbf{E}[\sigma^{2}] = \frac{\beta}{\alpha - 1}
+
+        and the epistemic uncertainty is given by:
+
+        ..math:: \mathbf{Var}[\mu] = \frac{\beat}{\nu(\alpha - 1)}
+
+        By default the predict method outputs the epistemic uncertainty only. The aleatoric uncertainty 
+        can be added using the ``aleatoric`` argument.
+
+        :param query_points: The points at which to make predictions.
+        :param aleatoric: If false outputs only the epistemic uncertainty. If true the aleatoric 
+            uncertainty is added. 
+        :return: The predicted mean and uncertainty of the observations at the specified
+            ``query_points``.
+        """
 
         evidential_output = self.model(query_points)[0]
         gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)

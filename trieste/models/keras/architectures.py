@@ -251,9 +251,10 @@ class DeepEvidentialNetwork(tf.keras.Model):
         input_tensor_spec: tf.TensorSpec,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
-            {"units": 100, "activation": "relu"},
-            {"units": 100, "activation": "relu"},
-            {"units": 100, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
         ),
         evidence_activation: str = "softplus"
     ):
@@ -263,7 +264,7 @@ class DeepEvidentialNetwork(tf.keras.Model):
         :param hidden_layer_args: Specification for building dense hidden layers. Each element in
             the sequence should be a dictionary containing arguments (keys) and their values for a
             :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
-            available arguments. Default value is three hidden layers, 100 nodes each, with ReLu 
+            available arguments. Default value is four hidden layers, 200 nodes each, with ReLu 
             activation functions. Empty sequence needs to be passed to have no hidden layers.
         :param evidence_activation: Activation function to be used to ensure that evidential 
             outputs alpha, beta and lambda will be well behaved (alpha > 1, beta > 0, lambda > 0).
@@ -321,14 +322,25 @@ class DeepEvidentialNetwork(tf.keras.Model):
         '''Applies an activation function to ensure all evidential parameters are positive.'''
 
         if self.evidence_activation == "softplus":
-            return tf.nn.softplus(evidence) + 1e-18
+            return tf.nn.softplus(evidence) + 1e-15
         elif self.evidence_activation == "relu":
-            return tf.nn.relu(evidence) + 1e-18
+            return tf.nn.relu(evidence) + 1e-15
         elif self.evidence_activation == "exp":
             return tf.math.exp(evidence)
 
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        The forward method of a Deep Evidential Regression model outputs four evidential
+        parameters: gamma, v, alpha, beta that parametrize the Gaussian and Inverse Gamma
+        evidential distributions. This forward method outputs a tuple of identical [N x 4]
+        outputs to be used with :class:`~trieste.models.keras.DeepEvidentialRegression` 's 
+        double headed loss function. 
+
+        :param inputs: The inputs. [N x d].
+
+        :return: Tuple of identical outputs of evidential parameters: [N x 4], [N x 4]
+        """
 
         if inputs.shape.rank == 1:
             inputs = tf.expand_dims(inputs, axis=-1)

@@ -22,7 +22,7 @@ from tests.util.misc import empty_dataset
 from trieste.models.keras import build_vanilla_keras_ensemble, build_vanilla_keras_deep_evidential
 from trieste.models.keras.architectures import DeepEvidentialNetwork
 
-
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
 @pytest.mark.parametrize("ensemble_size", [2, 5])
 @pytest.mark.parametrize("independent_normal", [False, True])

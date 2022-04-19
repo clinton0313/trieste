@@ -29,6 +29,7 @@ from trieste.models.optimizer import KerasOptimizer
 
 @pytest.mark.slow
 @random_seed
+@pytest.mark.deep_ensemble
 def test_neural_network_ensemble_predictions_close_to_actuals(keras_float: None) -> None:
     ensemble_size = 5
     dataset_size = 1000

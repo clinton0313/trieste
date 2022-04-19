@@ -14,6 +14,7 @@
 
 from typing import Callable, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -34,9 +35,9 @@ def format_point_markers(
     mask_fail=None,
     m_init="x",
     m_add="circle",
-    c_pass="green",
     c_fail="red",
-    c_best="darkmagenta",
+    c_best="black",
+    cmap = "RdYlGn"
 ):
     """
     Prepares point marker styles according to some BO factors
@@ -46,13 +47,13 @@ def format_point_markers(
     :param mask_fail: Boolean vector, True if the corresponding observation violates the constraint(s)
     :param m_init: marker for the initial BO points
     :param m_add: marker for the other BO points
-    :param c_pass: color for the regular BO points
     :param c_fail: color for the failed BO points
     :param c_best: color for the best BO points
+    :param cmap: color scheme for BO points in query order
     :return: 2 string vectors col_pts, mark_pts containing marker styles and colors
     """
-
-    col_pts = np.repeat(c_pass, num_pts).astype("<U15")
+    cm = plt.get_cmap(cmap)
+    col_pts = list(np.arange(num_pts))
     mark_pts = np.repeat(m_init, num_pts).astype("<U15")
     mark_pts[num_init:] = m_add
     if mask_fail is not None:

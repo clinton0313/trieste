@@ -84,8 +84,8 @@ def build_vanilla_keras_ensemble(
 
 def build_vanilla_keras_deep_evidential(
     data: Dataset,
-    num_hidden_layers: int = 3,
-    units: int = 100,
+    num_hidden_layers: int = 4,
+    units: int = 200,
     activation: Union[str, tf.keras.layers.Activation] = "relu",
     evidence_activation: str = "softplus"
 ) -> DeepEvidentialNetwork:

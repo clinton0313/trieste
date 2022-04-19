@@ -51,6 +51,7 @@ def _num_hidden_layers_fixture(request: Any) -> int:
     return request.param
 
 
+@pytest.mark.deep_ensemble
 def test_keras_ensemble_repr(
     ensemble_size: int,
     independent_normal: bool,
@@ -65,21 +66,24 @@ def test_keras_ensemble_repr(
     assert repr(keras_ensemble) == expected_repr
 
 
-def test_keras_ensemble_model_attributes() -> None:
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_model_attributes() -> None:
     example_data = empty_dataset([1], [1])
     keras_ensemble = trieste_keras_ensemble_model(example_data, _ENSEMBLE_SIZE)
 
     assert isinstance(keras_ensemble.model, tf.keras.Model)
 
 
-def test_keras_ensemble_ensemble_size_attributes(ensemble_size: int) -> None:
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_ensemble_size_attributes(ensemble_size: int) -> None:
     example_data = empty_dataset([1], [1])
     keras_ensemble = trieste_keras_ensemble_model(example_data, ensemble_size)
 
     assert keras_ensemble.ensemble_size == ensemble_size
 
 
-def test_keras_ensemble_raises_for_incorrect_networks() -> None:
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_raises_for_incorrect_networks() -> None:
 
     x = tf.constant(np.arange(1, 5).reshape(-1, 1), dtype=gpflow.default_float())  # shape: [4, 1]
     y = fnc_3x_plus_10(x)
@@ -97,7 +101,8 @@ def test_keras_ensemble_raises_for_incorrect_networks() -> None:
         ([5], [2]),
     ],
 )
-def test_keras_ensemble_build_ensemble_seems_correct(
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_build_ensemble_seems_correct(
     ensemble_size: int,
     independent_normal: bool,
     query_point_shape: List[int],
@@ -144,7 +149,8 @@ def test_keras_ensemble_build_ensemble_seems_correct(
     assert len(keras_ensemble.model.layers) == 2 * ensemble_size + 3 * ensemble_size
 
 
-def test_keras_ensemble_can_be_compiled() -> None:
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_can_be_compiled() -> None:
     example_data = empty_dataset([1], [1])
     keras_ensemble = trieste_keras_ensemble_model(example_data, _ENSEMBLE_SIZE)
 
@@ -160,7 +166,8 @@ class _DummyKerasEnsembleNetwork(KerasEnsembleNetwork):
         pass
 
 
-def test_keras_ensemble_network_raises_on_incorrect_tensor_spec() -> None:
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_network_raises_on_incorrect_tensor_spec() -> None:
 
     with pytest.raises(ValueError):
         _DummyKerasEnsembleNetwork(
@@ -177,7 +184,8 @@ def test_keras_ensemble_network_raises_on_incorrect_tensor_spec() -> None:
         )
 
 
-def test_keras_ensemble_network_network_and_layer_name() -> None:
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_network_network_and_layer_name() -> None:
     model = _DummyKerasEnsembleNetwork(
         tf.TensorSpec(shape=(1,), dtype=tf.float32),
         tf.TensorSpec(shape=(1,), dtype=tf.float32),
@@ -196,7 +204,8 @@ def test_keras_ensemble_network_network_and_layer_name() -> None:
 
 
 @pytest.mark.parametrize("n_dims", list(range(10)))
-def test_keras_ensemble_network_flattened_output_shape(n_dims: int) -> None:
+@pytest.mark.deep_ensemble
+def test_keras_ensembl_network_flattened_output_shape(n_dims: int) -> None:
 
     shape = np.random.randint(1, 10, (n_dims,))
     tensor = np.random.randint(0, 1, shape)

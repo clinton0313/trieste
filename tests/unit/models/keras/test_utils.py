@@ -22,8 +22,6 @@ import tensorflow as tf
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
 from trieste.data import Dataset
 from trieste.models.keras.utils import (
-    build_deep_evidential_regression_loss,
-    deep_evidential_regression_loss,
     get_tensor_spec_from_data,
     normal_inverse_gamma_negative_log_likelihood,
     normal_inverse_gamma_regularizer,
@@ -150,77 +148,3 @@ def test_normal_inverse_gamma_regularizer_is_accurate(
     loss = normal_inverse_gamma_regularizer(y_true, y_pred)
     npt.assert_approx_equal(loss, true_loss)
 
-
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize(
-    "y_true, y_pred",
-    [
-        (
-            tf.constant([[1.5], [3.], [4.2]]),
-            tf.constant([
-                [2.3, 1.1, 1.4, 0.2],
-                [3.5, 2.5, 1.8, 0.9],
-                [4.1, 10.2, 3.4, 1.2]
-            ])
-        )
-    ]
-)
-@pytest.mark.parametrize(
-    "coeff, true_loss",
-    [
-        (0.0, 1.0122157),
-        (1.0, 3.898882),
-        (0.5, 2.4555488),
-        (2.0, 6.7855477)
-    ]
-)
-def test_deep_evidential_regression_loss_is_accurate(
-    y_true: TensorType,
-    y_pred: TensorType,
-    coeff: float,
-    true_loss: float
-) -> None:
-
-    loss = deep_evidential_regression_loss(y_true, y_pred, coeff)
-    npt.assert_approx_equal(loss, true_loss)
-
-
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize(
-    "y_pred",
-    [
-        tf.zeros((10, 3)),
-        tf.ones((300,))
-    ]
-)
-def test_deep_evidential_regression_loss_asserts_shape(
-    y_pred: TensorType,
-) -> None:
-    y_true = tf.zeros((y_pred.shape[0],))
-    with pytest.raises(ValueError):
-        deep_evidential_regression_loss(y_true, y_pred)
-
-
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize("coeff", [0.5, 1.5])
-def test_build_deep_evidential_regression_loss(
-    coeff: float
-) -> None:
-
-    y_pred = tf.constant([[2., 1., 1.5, 2.]])
-    y_true = tf.constant([[1.]])
-
-    reference_loss = normal_inverse_gamma_negative_log_likelihood(y_true, y_pred) \
-                    + coeff * normal_inverse_gamma_regularizer(y_true, y_pred)
-    
-    loss = build_deep_evidential_regression_loss(coeff)
-    built_loss = loss(y_true, y_pred)
-
-    npt.assert_almost_equal(built_loss, reference_loss)
-
-
-@pytest.mark.deep_evidential
-def build_deep_evidential_regression_loss_has_name() -> None:
-    '''Tensorflow requires that loss function has a __name__ attribute.'''
-    loss = build_deep_evidential_regression_loss()
-    assert loss.__name__ == "loss"

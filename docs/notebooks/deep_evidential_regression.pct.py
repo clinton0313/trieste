@@ -1,5 +1,5 @@
 # %% [markdown]
-# # Bayesian optimization with deep ensembles
+# # Bayesian optimization with deep evidential regression
 #
 # Gaussian processes as a surrogate models are hard to beat on smaller datasets and optimization budgets. However, they scale poorly with amount of data, cannot easily capture non-stationarities and they are rather slow at prediction time. Here we show how uncertainty-aware neural networks can be effective alternative to Gaussian processes in Bayesian optimisation, in particular for large budgets, non-stationary objective functions or when predictions need to be made quickly.
 #
@@ -7,19 +7,25 @@
 #
 # Let's start by importing some essential packages and modules.
 
-# %%
+import numpy as np
 import os
+import tensorflow as tf
+import trieste
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
-import numpy as np
-import tensorflow as tf
-import trieste
+from trieste.data import Dataset
+from trieste.models.keras import (
+    DeepEvidentialRegression,
+    build_vanilla_keras_deep_evidential, 
+    get_tensor_spec_from_data
+)
+
+from trieste.models.optimizer import KerasOptimizer
 
 # silence TF warnings and info messages, only print errors
 # https://stackoverflow.com/questions/35911252/disable-tensorflow-debugging-information
 tf.get_logger().setLevel("ERROR")
-
 
 # %% [markdown]
 # Trieste works with `tf.float64` as a default. It is advised to set the Keras backend float to the same value using `tf.keras.backend.set_floatx()`. Otherwise code might crash with a ValueError!
@@ -29,24 +35,23 @@ np.random.seed(1794)
 tf.random.set_seed(1794)
 tf.keras.backend.set_floatx("float64")
 
-
 # %% [markdown]
-# ## Deep ensembles
+# ## Deep Evidential Regression
 #
 # Deep neural networks typically output only mean predictions, not posterior distributions as probabilistic models such as Gaussian processes do. Posterior distributions encode mean predictions, but also *epistemic* uncertainty - type of uncertainty that stems from model misspecification, and which can be eliminated with further data. Aleatoric uncertainty that stems from stochasticity of the data generating process is not contained in the posterior, but can be learned from the data. Bayesian optimization requires probabilistic models because epistemic uncertainty plays a key role in balancing between exploration and exploitation.
 #
-# Recently, however, there has been some development of uncertainty-aware deep neural networks. Ensembles of deep neural networks, introduced recently by <cite data-cite="lakshminarayanan2016simple"/>, is a type of such networks. Main ingredients are probabilistic feed-forward networks as members of the ensemble, where the final layers is a Gaussian distribution, training with maximum likelihood instead of typical root mean square error, and different random initialization of weights for generating diversity among the networks.
+# Recently, however, there has been some development of uncertainty-aware deep neural networks. Deep evidential regression is a deterministic flavour of these types of networks <(cite data-cite="amini2020evidential"/>). Main ingredients are probabilistic feed-forward network, where the final layer outputs evidential parameters, training with maximum likelihood,  and a custom regularizer instead of typical root mean square error. 
 #
-# Monte carlo dropout (<cite data-cite="gal2016dropout"/>), Bayes-by-backprop (<cite data-cite="blundell2015weight"/>) or evidential deep regression (<cite data-cite="amini2019deep"/>) are some of the other types of uncertainty-aware deep neural networks. Systematic comparisons however show that deep ensembles represent the uncertainty the best and are probably the simplest of the major alternatives (see, for example, <cite data-cite="osband2021epistemic"/>). Good estimates of uncertainty makes deep ensembles a potentially attractive model for Bayesian optimization.
-
+# Monte carlo dropout (<cite data-cite="gal2016dropout"/>), Bayes-by-backprop (<cite data-cite="blundell2015weight"/>) or deep ensembles (<cite data-cite="lakshminarayanan2016simple"/>) are some of the other types of uncertainty-aware deep neural networks. Deep evidential regression has the advantage of being deterministic which makes its training and prediction very fast. Furthermore, it is able to distinguish between aleatoric and epsitemic uncertainty analyitically.
+#
+# Check out our other tutorials for [Monte Carlo Dropout with Bayesian Optimization](deep_mcdropout.pct.py) and [Deep Ensembles for Bayesian Optimization](deep_ensembles.pct.py) as other alternative model types supported by Trieste that can model non-stationary functions.
 
 # %% [markdown]
-# ### How good is uncertainty representation of deep ensembles?
+# ### How good is uncertainty representation of deep evidential regression?
 #
-# We will use a simple one-dimensional toy problem introduced by <cite data-cite="hernandez2015probabilistic"/>, which was used in <cite data-cite="lakshminarayanan2016simple"/> to provide some illustrative evidence that deep ensembles do a good job of estimating uncertainty. We will replicate this exercise here.
+# We will use a simple one-dimensional toy problem introduced by <cite data-cite="hernandez2015probabilistic"/>, which was used in <cite data-cite="amini2020evidential"/> to provide some illustrative evidence that deep ensembles do a good job of estimating uncertainty. We will replicate this exercise here.
 #
 # The toy problem is a simple cubic function with some Normally distributed noise around it. We will randomly sample 20 input points from [-4,4] interval that we will use as a training data later on.
-
 
 # %%
 from trieste.space import Box
@@ -79,69 +84,35 @@ data = Dataset(inputs, outputs)
 
 # %%
 from trieste.models.keras import (
-    DeepEnsemble,
-    KerasPredictor,
-    build_vanilla_keras_ensemble,
+    DeepEvidentialRegression,
+    build_vanilla_keras_deep_evidential,
 )
 from trieste.models.optimizer import KerasOptimizer
 
 
-def build_cubic_model(data: Dataset) -> DeepEnsemble:
-    ensemble_size = 5
-    num_hidden_layers = 1
+def build_cubic_model(data: Dataset) -> DeepEvidentialRegression:
+    num_hidden_layers = 3
     num_nodes = 100
 
-    keras_ensemble = build_vanilla_keras_ensemble(
-        data, ensemble_size, num_hidden_layers, num_nodes
+    keras_ensemble = build_vanilla_keras_deep_evidential(
+        data, num_hidden_layers, num_nodes
     )
 
     fit_args = {
         "batch_size": 10,
         "epochs": 1000,
         "verbose": 0,
+        "callbacks": tf.keras.callbacks.EarlyStopping()
     }
     optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.01), fit_args)
 
-    return DeepEnsemble(keras_ensemble, optimizer)
+    return DeepEvidentialRegression(keras_ensemble, optimizer)
 
 
 # building and optimizing the model
 model = build_cubic_model(data)
 model.optimize(data)
 
-
-# %% [markdown]
-# Let's illustrate the results of the model training. We create a test set that includes points outside the interval on which the model has been trained. These extrapolation points are a good test of model's representation of uncertainty. What would we expect to see? Bayesian inference provides a reference frame. Predictive uncertainty should increase the farther we are from the training data and the predictive mean should start returning to the prior mean (assuming standard zero mean function).
-#
-# We can see in the figure below that predictive distribution of deep ensembles indeed exhibits these features. The figure also replicates fairly well Figure 1 (rightmost panel) from <cite data-cite="lakshminarayanan2016simple"/> and provides a reasonable match to Bayesian neural network trained on same toy problem with Hamiltonian Monte Carlo (golden standard that is usually very expensive) as illustrated in Figure 1 (upper right panel) <cite data-cite="hernandez2015probabilistic"/>. This gives us some assurance that deep ensembles might provide uncertainty that is good enough for trading off between exploration and exploitation in Bayesian optimization.
-
-# %%
-import matplotlib.pyplot as plt
-
-
-# test data that includes extrapolation points
-test_points = tf.linspace(-6, 6, 1000)
-
-# generating a plot with ground truth function, mean prediction and 3 standard
-# deviations around it
-plt.scatter(inputs, outputs, marker=".", alpha=0.6, color="red", label="data")
-plt.plot(
-    test_points, objective(test_points, False), color="blue", label="function"
-)
-y_hat, y_var = model.predict(test_points)
-y_hat_minus_3sd = y_hat - 3 * tf.math.sqrt(y_var)
-y_hat_plus_3sd = y_hat + 3 * tf.math.sqrt(y_var)
-plt.plot(test_points, y_hat, color="gray", label="model $\mu$")
-plt.fill_between(
-    test_points,
-    tf.squeeze(y_hat_minus_3sd),
-    tf.squeeze(y_hat_plus_3sd),
-    color="gray",
-    alpha=0.5,
-    label="$\mu -/+ 3SD$",
-)
-plt.ylim([-100, 100])
-plt.show()
 
 
 # %% [markdown]
@@ -156,7 +127,7 @@ plt.show()
 from trieste.objectives import (
     michalewicz_2,
     MICHALEWICZ_2_MINIMUM,
-    MICHALEWICZ_2_SEARCH_SPACE,
+    MICHALEWICZ_2_SEARCH_SPACE
 )
 from util.plotting_plotly import plot_function_plotly
 
@@ -191,37 +162,42 @@ initial_data = observer(initial_query_points)
 # %% [markdown]
 # ## Modelling the objective function
 #
-# The Bayesian optimization procedure estimates the next best points to query by using a probabilistic model of the objective. Here we use a deep ensemble instead of a typical probabilistic model. Same as above we use the `build_vanilla_keras_ensemble` function to build a simple ensemble of neural networks in Keras and wrap it with a `DeepEnsemble` wrapper so it can be used in Trieste's Bayesian optimization loop.
+# The Bayesian optimization procedure estimates the next best points to query by using a probabilistic model of the objective. Here we use a deep ensemble instead of a typical probabilistic model. Same as above we use the `build_vanilla_keras_deep_evidential` function to build a deep evidential neural network in Keras and wrap it with a `DeepEvidentialRegression` wrapper so it can be used in Trieste's Bayesian optimization loop.
 #
 # Some notes on choosing the model architecture are necessary. Unfortunately, choosing an architecture that works well for small datasets, a common setting in Bayesian optimization, is not easy. Here we do demonstrate it can work with smaller datasets, but choosing the architecture and model optimization parameters was a lengthy process that does not necessarily generalize to other problems. Hence, we advise to use deep ensembles with larger datasets and ideally large batches so that the model is not retrained after adding a single point.
 #
-# We can offer some practical advices, however. Architecture parameters like the ensemble size, the number of hidden layers, the number of nodes in the layers and so on affect the capacity of the model. If the model is too large for the amount of data, it will be difficult to train the model and result will be a poor model that cannot be used for optimizing the objective function. Hence, with small datasets like the one used here, we advise to always err on the smaller size, one or two hidden layers, and up to 25 nodes per layer. If we suspect the objective function is more complex these numbers should be increased slightly. With regards to model optimization we advise using a lot of epochs, typically at least 1000, and potentially higher learning rates. Ideally, every once in a while capacity should be increased to be able to use larger amount of data more effectively. Unfortunately, there is almost no research literature that would guide us in how to do this properly.
+# We can offer some practical advices, however. Architecture parameters like number of nodes and number of layers will heavily affect the network's ability to learn the function. Too small of a network and it will be unable to accurately approximate the function, too large and the network will take too long to train. The model is also highly sensitive to the ``reg_weight`` parameter which balances the log-likelihood loss with the regularization term. In practice the use of ``maxi_rate`` to automatically search for a good ``reg_weight`` provides easier hyperparameter tuning. If we suspect the objective function is more complex these numbers should be increased slightly. With regards to model optimization we advise using a lot of epochs, typically at least 1000, and potentially higher learning rates. Ideally, every once in a while capacity should be increased to be able to use larger amount of data more effectively. Unfortunately, there is almost no research literature that would guide us in how to do this properly.
 #
 # Interesting alternative to a manual architecture search is to use a separate Bayesian optimization process to optimize the architecture and model optimizer parameters (see recent work by <cite data-cite="kadra2021well"/>). This optimization is much faster as it optimizes model performance. It would slow down the original optimization, so its worthwhile only if optimizing the objective function is much more costly.
 #
 # Below we change the `build_model` function to adapt the model slightly for the Michalewicz function. Since it's a more complex function we increase the number of hidden layers but keep the number of nodes per layer on the lower side. Note the large number of epochs
 
 # %%
-def build_model(data: Dataset) -> DeepEnsemble:
-    ensemble_size = 5
-    num_hidden_layers = 3
-    num_nodes = 25
 
-    keras_ensemble = build_vanilla_keras_ensemble(
-        data, ensemble_size, num_hidden_layers, num_nodes
+from trieste.models.keras import DeepEvidentialNetwork
+
+def build_model(data: Dataset) -> DeepEvidentialRegression:
+    num_hidden_layers = 4
+    num_nodes = 200
+
+    deep_evidential = build_vanilla_keras_deep_evidential(
+        data, num_hidden_layers, num_nodes
     )
 
     fit_args = {
         "batch_size": 10,
         "epochs": 1000,
         "callbacks": [
-            tf.keras.callbacks.EarlyStopping(monitor="loss", patience=100)
+            tf.keras.callbacks.EarlyStopping(monitor="loss", patience=100, restore_best_weights=True)
         ],
         "verbose": 0,
     }
     optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.001), fit_args)
 
-    return DeepEnsemble(keras_ensemble, optimizer)
+    return DeepEvidentialRegression(
+        deep_evidential, 
+        optimizer
+    )
 
 
 # building and optimizing the model
@@ -231,9 +207,9 @@ model = build_model(initial_data)
 # %% [markdown]
 # ## Run the optimization loop
 #
-# In Bayesian optimization we use an acquisition function to choose where in the search space to evaluate the objective function in each optimization step. Deep ensemble model uses probabilistic neural networks whose output is at the end approximated with a single Gaussian distribution, which acts as a predictive posterior distribution. This means that any acquisition function can be used that requires only predictive mean and variance. For example, predictive mean and variance is sufficient for standard acquisition functions such as Expected improvement (see `ExpectedImprovement`), Lower confidence bound (see `NegativeLowerConfidenceBound`) or Thompson sampling (see `ExactThompsonSampling`). Some acquisition functions have additional requirements and these cannot be used (e.g. covariance between sets of query points, as in an entropy-based acquisition function `GIBBON`).
+# In Bayesian optimization we use an acquisition function to choose where in the search space to evaluate the objective function in each optimization step. Deep Evidential Regression model uses a feed forward network whose parameters act to approximate an evidential higher order distribution allowing it to output both aleatoric and epsitemic uncertainty. This means that many acquisition functions may be used such as Expected improvement (see `ExpectedImprovement`), Lower confidence bound (see `NegativeLowerConfidenceBound`) or Thompson sampling (see `ExactThompsonSampling`).
 #
-# Here we will illustrate Deep ensembles with a Thompson sampling acquisition function. We use a discrete Thompson sampling strategy that samples a fixed number of points (`grid_size`) from the search space and takes a certain number of samples at each point based on the model posterior (`num_samples`, if more than 1 then this is a batch strategy).
+# Here we will illustrate Deep Evidential Regression with a Thompson sampling acquisition function. We use a discrete Thompson sampling strategy that samples a fixed number of points (`grid_size`) from the search space and takes a certain number of samples at each point based on the model posterior (`num_samples`, if more than 1 then this is a batch strategy).
 
 # %%
 from trieste.acquisition.rule import DiscreteThompsonSampling
@@ -284,7 +260,7 @@ print(f"True minimum: {MINIMUM}")
 
 
 # %% [markdown]
-# We can visualise how the optimizer performed as a three-dimensional plot. Crosses mark the initial data points while dots mark the points chosen during the Bayesian optimization run. The points are colored from purple to yellow in order of their query from earliest to latest. You can see that there are some samples on the flat regions of the space, while most of the points are exploring the ridges, in particular in the vicinity of the minimum point.
+# We can visualise how the optimizer performed as a three-dimensional plot. Crosses mark the initial data points while dots mark the points chosen during the Bayesian optimization run. The points are colored from purple to yellow in order of their query from earliest to latest. You can see that there are some samples on the flat regions of the space, but the function very efficiently moves to the minimum where most of the points are concentrated.
 
 # %%
 from util.plotting_plotly import add_bo_points_plotly
@@ -368,3 +344,202 @@ fig.show()
 # ## LICENSE
 #
 # [Apache License 2.0](https://github.com/secondmind-labs/trieste/blob/develop/LICENSE)
+
+# %%
+
+
+#%%
+#TESTING DURING DEVELOPMENT CODE
+
+# import matplotlib
+# import matplotlib.pyplot as plt
+# import pickle
+# import random
+
+# def plot_scatter_with_var(query_points, y_pred, y_var, ax, n_stds=3, max_alpha = 0.7):
+#     x = tf.squeeze(query_points)
+#     y = tf.squeeze(y_pred)
+#     std = tf.squeeze(y_var**0.5) #needs a square root missing...
+#     ax.plot(x, y, color="black", label="predictions")
+#     for k in range(1, n_stds + 1):
+#         upper_std = y + k * std
+#         lower_std = y - k * std
+#         ax.fill_between(x, upper_std, lower_std, alpha = max_alpha/k, color="tab:blue")
+
+# def cubic(x, noise=True):
+#     y = tf.pow(x, 3)
+#     if noise:
+#         y += tf.random.normal(x.shape, 0, 3, dtype=x.dtype)
+#     return y
+
+# def gen_cubic_dataset(n, min, max, noise=True):
+#     x = tf.linspace(min, max, n)
+#     x = tf.cast(tf.expand_dims(tf.sort(x), axis=-1), dtype=tf.float64)
+#     y = cubic(x, noise)
+#     return Dataset(x,y)
+
+# def gen_cubic_train_test(
+#     n = 1000,
+#     train_min = -4,
+#     train_max = 4,
+#     test_min = -7,
+#     test_max = 7
+# ):
+#     train_data = gen_cubic_dataset(n, train_min, train_max, noise=True)
+#     test_data = gen_cubic_dataset(n, test_min, test_max, noise=False)
+#     return train_data, test_data
+
+# def main_cubic(train_data, layers = 4, units=100, lr = 5e-3, fit_args = {}, **model_args):
+
+#     evidential_network = build_vanilla_keras_deep_evidential(
+#         train_data,
+#         layers,
+#         units
+#     )
+
+#     optimizer = KerasOptimizer(
+#         tf.keras.optimizers.Adam(lr),
+#         fit_args
+#     )
+
+#     deep_evidential = DeepEvidentialRegression(evidential_network, optimizer, **model_args)
+
+#     return deep_evidential
+
+# def plot_cubic(train_data:Dataset, test_data: Dataset, ood_predictions):
+
+#     fig, ax = plt.subplots(figsize=(14,10))
+
+#     ax.axvline(-4, color="grey", linestyle="dashed")
+#     ax.axvline(4, color="grey", linestyle="dashed")
+#     ax.plot(test_data.query_points, test_data.observations, color="red", linestyle="dashed")
+#     plot_scatter_with_var(test_data.query_points, ood_predictions[0], ood_predictions[1], ax=ax)
+#     ax.scatter(train_data.query_points, train_data.observations, color="tab:red", s=4, alpha = 0.6)
+#     ax.set_ylim(-150, 150)
+#     return fig
+
+# #%%
+
+# seed = 1234
+# random.seed(seed)
+# np.random.seed(seed)
+# tf.random.set_seed(seed)
+
+# with open("/home/clinton/Documents/bse/masters_thesis/trieste/notebooks/amini_cubic.pkl", "rb") as infile:
+#     x_train, y_train, x_test, y_test = pickle.load(infile)
+
+# x_train = tf.cast(x_train, dtype=tf.float64)
+# x_test = tf.cast(x_test, dtype=tf.float64)
+# y_train = tf.cast(y_train, dtype=tf.float64)
+# y_test = tf.cast(y_test, dtype=tf.float64)
+
+
+# train_data = Dataset(x_train, y_train)
+# test_data = Dataset(x_test, y_test)
+
+# # n=1000
+# # train_data = gen_cubic_dataset(n, -4, 4, True)
+# # test_data = gen_cubic_dataset(n, -7, 7, False)
+
+
+# #%%
+
+# fit_args = {
+#                 "verbose": 0,
+#                 "epochs": 5000,
+#                 "batch_size": 128,
+#                 "callbacks": [
+#                     tf.keras.callbacks.EarlyStopping(
+#                         monitor="loss", patience=200, restore_best_weights=True
+#                     )
+#                 ],
+#             }
+
+# # deep_evidential = main_cubic(
+# #     train_data, 
+# #     fit_args=fit_args,
+# #     reg_weight=1e-2,
+# #     maxi_rate=0.,
+# #     verbose=1
+# # )
+# # #%%
+# # deep_evidential.optimize(train_data)
+# # predictions = deep_evidential.predict(train_data.query_points)
+# # error = tf.abs(train_data.observations - predictions[0])
+# # mean_error = tf.reduce_mean(error, axis=0)
+# # print(f"mean abs error {mean_error}")
+# # #%%
+# # ood_predictions = deep_evidential.predict(test_data.query_points)
+# # plot_cubic(train_data, test_data, ood_predictions)
+
+# # # #%%
+# # # #DIAGNOSIS
+# # # gamma, lamb, alpha, beta = tf.split(deep_evidential.model(tf.expand_dims(test_data.query_points, axis=-1))[0], 4, axis=-1)
+
+# # # names = ["gamma", "lambda", "alpha", "beta"]
+
+# # # for name, output in zip(names, [gamma, lamb, alpha, beta]):
+# # #     print(f"{name} has max: {np.max(output)} and min {np.min(output)}")
+
+# # # %%
+# # plt.plot(deep_evidential.model.history.history["loss"])
+# # # plt.ylim(0, 100)
+# # deep_evidential.model.history.history["loss"][-10:]
+
+# # # %%
+
+# # plt.plot(test_data.query_points,ood_predictions[1])
+# # # %%
+# # #Run the same cubic data over and over again to check the figs for
+# # #consistency
+
+# # %%
+
+# def simulate_cubic(
+#     prefix,
+#     sims = 30, 
+#     seed=1234, 
+#     refresh_seed=False,
+#     train_data = None,
+#     test_data = None, 
+#     refresh_data = False, 
+#     n=1000,
+#     **main_args
+# ):
+#     random.seed(seed)
+#     np.random.seed(seed)
+#     tf.random.set_seed(seed)
+#     models = []
+#     for i in range(sims):
+#         if refresh_seed:
+#             random.seed(i)
+#             np.random.seed(i)
+#             tf.random.set_seed(i)
+#         if refresh_data:
+#             train_data, test_data = gen_cubic_train_test(n)
+
+#         deep_evidential = main_cubic(
+#             train_data=train_data,
+#             **main_args
+#         )
+#         deep_evidential.optimize(train_data)
+#         ood_predictions = deep_evidential.predict(test_data.query_points)
+#         fig = plot_cubic(train_data, test_data, ood_predictions)
+    
+#         models.append(deep_evidential)
+#         fig.savefig(f"/home/clinton/Documents/bse/masters_thesis/trieste/notebooks/de_figs/{prefix}_fig{i}.png", facecolor="white", transparent=False)
+
+#     return models
+
+# models = simulate_cubic(
+#     prefix="l2_reg_0_001",
+#     train_data = train_data, 
+#     test_data = test_data,
+#     fit_args = fit_args,
+#     reg_weight=1e-2,
+#     maxi_rate=0.,
+#     verbose=0
+# )
+
+#%%
+

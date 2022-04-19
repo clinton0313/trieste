@@ -27,7 +27,6 @@ from .interface import KerasPredictor
 from .models import DeepEnsemble, DeepEvidentialRegression
 from .sampler import EnsembleTrajectorySampler
 from .utils import (
-    deep_evidential_regression_loss,
     get_tensor_spec_from_data, 
     negative_log_likelihood, 
     sample_with_replacement
