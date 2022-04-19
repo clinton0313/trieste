@@ -513,7 +513,7 @@ def test_deep_evidential_default_optimizer_is_correct() -> None:
     default_fit_args = {
                 "verbose": 0,
                 "epochs": 1000,
-                "batch_size": 32
+                "batch_size": 16
             }
 
     assert isinstance(model.optimizer.fit_args["callbacks"][0], tf.keras.callbacks.EarlyStopping)
@@ -529,7 +529,7 @@ def test_deep_evidential_default_optimizer_is_correct() -> None:
         normal_inverse_gamma_regularizer
     ]
     assert model.model.compiled_loss._loss_weights[0] == 1.0
-    assert model.model.compiled_loss._loss_weights[1] == tf.Variable(1e-2, dtype=tf.float64)
+    assert model.model.compiled_loss._loss_weights[1] == tf.Variable(0., dtype=tf.float64)
 
 
 @pytest.mark.deep_evidential
@@ -563,7 +563,7 @@ def test_deep_evidential_optimizer_adds_default_callback(fit_args: dict) -> None
             lambda x: isinstance(x, DeepEvidentialCallback), callbacks
         )
     )
-    assert any(has_callback)
+    assert sum(has_callback) == 1
 
 
 @pytest.mark.deep_evidential
@@ -592,7 +592,7 @@ def test_deep_evidential_optimizer_changes_correctly() -> None:
     ]
     assert model.model.compiled_loss._loss_weights == [
         1.0,
-        tf.Variable(1e-2, dtype=tf.float64)
+        tf.Variable(0., dtype=tf.float64)
     ]
     assert isinstance(model.optimizer.fit_args["callbacks"][0], DeepEvidentialCallback)
     
@@ -619,7 +619,7 @@ def test_config_builds_deep_evidential_and_default_optimizer_is_correct() -> Non
     default_fit_args = {
                 "verbose": 0,
                 "epochs": 1000,
-                "batch_size": 32
+                "batch_size": 16
             }
 
     del model.optimizer.fit_args["callbacks"]

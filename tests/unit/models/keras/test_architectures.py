@@ -102,7 +102,7 @@ def test_keras_ensembl_raises_for_incorrect_networks() -> None:
     ],
 )
 @pytest.mark.deep_ensemble
-def test_keras_ensembl_build_ensemble_seems_correct(
+def test_keras_ensemble_build_ensemble_seems_correct(
     ensemble_size: int,
     independent_normal: bool,
     query_point_shape: List[int],
@@ -320,9 +320,10 @@ def test_deep_evidential_network_check_default_hidden_layer_args() -> None:
         output_tensor_spec,
     )
     default_args = (            
-            {"units": 100, "activation": "relu"},
-            {"units": 100, "activation": "relu"},
-            {"units": 100, "activation": "relu"}
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"}
     )
 
     assert deep_evidential._hidden_layer_args == default_args

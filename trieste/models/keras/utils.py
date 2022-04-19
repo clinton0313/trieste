@@ -146,13 +146,31 @@ def normal_inverse_gamma_regularizer(
     return tf.reduce_mean(tf.abs(y_true - gamma) * (2*v + alpha), axis=0)
 
 class DeepEvidentialCallback(tf.keras.callbacks.Callback):
-    def __init__(self, reg_weight, maxi_rate, epsilon, verbose):
+    """
+    A callback to facilitate the automatic search for a good ``reg_weight`` for
+    :class:`~trieste.models.keras.DeepEvidentialRegression` model. This 
+    callback is not meant to be initialized outside of the model's constructor
+    class. Parameters for this callback are passed from the model's constructor. 
+    """
+    def __init__(
+        self, 
+        reg_weight: float,
+        maxi_rate: float,
+        epsilon: float, 
+        verbose: int
+    ) -> None:
+        """
+        These arguments will be passed from the constructor of
+        :class:`~trieste.models.keras.DeepEvidentialRegression` model. Refer to its
+        docstring for a description of these parameters.
+        """
+        
         self.reg_weight = reg_weight
         self.maxi_rate = maxi_rate
         self.epsilon = epsilon
         self.verbose = verbose
 
-    def on_batch_end(self, epoch, logs=None):
+    def on_batch_end(self, _, logs=None):
         self.reg_weight.assign_add(self.maxi_rate * (logs["output_2_loss"] - self.epsilon))
 
     def on_epoch_end(self, epoch, logs=None):

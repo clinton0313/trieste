@@ -367,8 +367,8 @@ class DeepEvidentialRegression(
     We provide classes for constructing the base network using Keras
     (:class:`~trieste.models.keras.DeepEvidentialNetwork`) in the `architectures` package that should 
     be used with the :class:`~trieste.models.keras.DeepEvidentialRgression` wrapper. We also provide 
-    the necessary loss functions and callbacks to implement the iterative procedures for computing the
-    loss in the `utils` package. These methods are implented by default in the model wrapper. 
+    the necessary loss functions and a custom callback to implement the iterative procedures for 
+    computing the loss in the `utils` package. These methods are implented by default in the model wrapper. 
 
     Note that currently we do not support setting up the model with dictionary configs and saving
     the model during Bayesian optimization loop (``track_state`` argument in
@@ -392,9 +392,10 @@ class DeepEvidentialRegression(
             training the model. Loss function passed with this optimizer will be ignored and will
             instead use a weighted combination, controlled by ``reg_weight``, of 
             :function:`~trieste.models.keras.utils.normal_inverse_gamma_log_likelihood` and
-            :function:`~trieste.models.keras.utils.normal_inverse_gamma_regularizer`. By default 
-            the constructor will also add :class:`~trieste.models.keras.utils.DeepEvidentialCallback`
-            to the optimizer ``fit_args``, which is required to run this model. Otherwise defaults to 
+            :function:`~trieste.models.keras.utils.normal_inverse_gamma_regularizer`. The constructor
+            will also add :class:`~trieste.models.keras.utils.DeepEvidentialCallback` to the optimizer, 
+            which is required to run this model. This callback is not meant to be instantiated outside 
+            of this model's constructor. Otherwise the optimizer defaults to 
             :class:`~trieste.models.optimizer.KerasOptimizer` with :class:`~tf.optimizers.Adam` 
             optimizer, and a dictionary of default arguments for Keras `fit` method: 1000 epochs, 
             batch size 16, early stopping callback with patience of 100, resotre_best_weights True, 
