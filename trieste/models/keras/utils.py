@@ -154,7 +154,7 @@ class DeepEvidentialCallback(tf.keras.callbacks.Callback):
     """
     def __init__(
         self, 
-        reg_weight: float,
+        reg_weight: tf.Variable,
         maxi_rate: float,
         epsilon: float, 
         verbose: int
@@ -164,7 +164,7 @@ class DeepEvidentialCallback(tf.keras.callbacks.Callback):
         :class:`~trieste.models.keras.DeepEvidentialRegression` model. Refer to its
         docstring for a description of these parameters.
         """
-        
+
         self.reg_weight = reg_weight
         self.maxi_rate = maxi_rate
         self.epsilon = epsilon
