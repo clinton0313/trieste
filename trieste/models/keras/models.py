@@ -344,7 +344,7 @@ class DeepEnsemble(
 
 
 class DeepEvidentialRegression(
-    KerasPredictor, EvidentialPriorModel, TrainableProbabilisticModel, HasTrajectorySampler
+    KerasPredictor, EvidentialPriorModel, TrainableProbabilisticModel
 ):
     """
     A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a deep evidential model 
@@ -604,14 +604,3 @@ class DeepEvidentialRegression(
         uncertainty = epistemic + beta/(alpha-1) if aleatoric else epistemic
         
         return gamma, uncertainty
-    
-
-    def trajectory_sampler(self) -> TrajectorySampler[DeepEvidentialRegression]:
-        """
-        Return a trajectory sampler. For :class:`DeepEvidentialRegression`, which
-        generates and saves a vector of means and variances for the posterior distribution
-        of outputs and uses them to make normal draws. 
-
-        :return: The trajectory sampler.
-        """
-        return DeepEvidentialTrajectorySampler(self)
