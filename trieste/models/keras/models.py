@@ -346,7 +346,7 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
     built using Keras.
 
     Monte Carlo dropout is a sampling method for approximate Bayesian computation, mathematically
-    equivalent to an approximation to a probabilistic deep Gaussian Process <cite data-cite="gal2015simple"/>
+    equivalent to an approximation to a probabilistic deep Gaussian Process <cite data-cite="gal2016dropout"/>
     in the sense of minimizing the Kullback-Leibler divergence between an approximate distribution 
     and the posterior of a deep GP. This model is attractive due to its simplicity, as it amounts 
     to a re-tooling of the dropout layers of a neural network to also be active during testing, 
