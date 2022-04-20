@@ -32,7 +32,7 @@ from ..interfaces import (
 from ..optimizer import KerasOptimizer
 from .architectures import KerasEnsemble, DeepEvidentialNetwork
 from .interface import KerasPredictor
-from .sampler import EnsembleTrajectorySampler, DeepEvidentialTrajectorySampler
+from .sampler import EnsembleTrajectorySampler
 from .utils import (
     DeepEvidentialCallback,
     negative_log_likelihood,
