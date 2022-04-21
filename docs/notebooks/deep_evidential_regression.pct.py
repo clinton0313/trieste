@@ -49,7 +49,7 @@ tf.keras.backend.set_floatx("float64")
 # %% [markdown]
 # ### How good is uncertainty representation of deep evidential regression?
 #
-# We will use a simple one-dimensional toy problem introduced by <cite data-cite="hernandez2015probabilistic"/>, which was used in <cite data-cite="amini2020evidential"/> to provide some illustrative evidence that deep ensembles do a good job of estimating uncertainty. We will replicate this exercise here.
+# We will use a simple one-dimensional toy problem introduced by <cite data-cite="hernandez2015probabilistic"/>, which was used in <cite data-cite="amini2020evidential"/> to provide some illustrative evidence that deep envidential regression can do a good job of estimating uncertainty. We will replicate this exercise here.
 #
 # The toy problem is a simple cubic function with some Normally distributed noise around it. We will randomly sample 20 input points from [-4,4] interval that we will use as a training data later on.
 
@@ -65,7 +65,7 @@ def objective(x, error=True):
     return y
 
 
-num_points = 20
+num_points = 100
 
 # we define the [-4,4] interval using a `Box` search space that has convenient sampling methods
 search_space = Box([-4], [4])
@@ -75,11 +75,11 @@ data = Dataset(inputs, outputs)
 
 
 # %% [markdown]
-# Next we define a deep ensemble model and train it. Trieste supports neural network models defined as TensorFlow's Keras models. Since creating ensemble models in Keras can be somewhat involved, Trieste provides some basic architectures. Here we use the `build_vanilla_keras_ensemble` function which builds a simple ensemble of neural networks in Keras where each network has the same architecture: number of hidden layers, nodes in hidden layers and activation function. It uses sensible defaults for many parameters and finally returns a model of `KerasEnsemble` class.
+# Next we define a deep evidential regression model and train it. Trieste supports neural network models defined as TensorFlow's Keras models. Since creating deep evidential models in Keras can be somewhat involved, Trieste provides some basic architectures. Here we use the `build_vanilla_keras_deep_evidential` function which builds a simple deep evidential neural network in Keras. It uses sensible defaults for many parameters and finally returns a model of `DeepEvidentialNetwork` class.
 #
-# As with other supported types of models (e.g. Gaussian process models from GPflow), we cannot use `KerasEnsemble` directly in Bayesian optimization routines, we need to pass it through an appropriate wrapper, `DeepEnsemble` wrapper in this case. One difference with respect to other model types is that we need to use a Keras specific optimizer wrapper `KerasOptimizer` where we need to specify a stochastic optimizer (Adam is used by default, but we can use other stochastic optimizers from TensorFlow), objective function (here negative log likelihood) and we can provide custom arguments for the Keras `fit` method (here we modify the default arguments; check [Keras API documentation](https://keras.io/api/models/model_training_apis/#fit-method) for a list of possible arguments).
+# As with other supported types of models (e.g. Gaussian process models from GPflow), we cannot use `DeepEvidentialNetwork` directly in Bayesian optimization routines, we need to pass it through an appropriate wrapper, `DeepEvidentialRegression` wrapper in this case. One difference with respect to other model types is that we need to use a Keras specific optimizer wrapper `KerasOptimizer` where we need to specify a stochastic optimizer (Adam is used by default, but we can use other stochastic optimizers from TensorFlow), a custom loss function appropriate to deep evidential regression is automatically initialized,  and we can provide custom arguments for the Keras `fit` method (here we modify the default arguments; check [Keras API documentation](https://keras.io/api/models/model_training_apis/#fit-method) for a list of possible arguments).
 #
-# For the cubic function toy problem we use the same architecture as in <cite data-cite="lakshminarayanan2016simple"/>: ensemble size of 5 networks, where each network has one hidden layer with 100 nodes. All other implementation details were missing and we used sensible choices, as well as details about training the network.
+# For the cubic function toy problem we use a relatively small architecture of 2 layers and 50 units. We use a ``reg_weight`` of 1e-2 to regularize the model confidence without any iterative updating of this weight. This works well in this specific intialization, but the quantification of uncertainty in this model is highly regularized by this parameter (or equivalently the ``maxi_rate`` parameter that controls the iterative search for ``reg_weight``). Too high of a weight will lead to over-regularization of model confidence and exploding uncertainty whereas too small of a weight can lead to overconfidence. 
 
 
 # %%
@@ -91,8 +91,8 @@ from trieste.models.optimizer import KerasOptimizer
 
 
 def build_cubic_model(data: Dataset) -> DeepEvidentialRegression:
-    num_hidden_layers = 3
-    num_nodes = 100
+    num_hidden_layers = 2
+    num_nodes = 50
 
     keras_ensemble = build_vanilla_keras_deep_evidential(
         data, num_hidden_layers, num_nodes
@@ -106,21 +106,57 @@ def build_cubic_model(data: Dataset) -> DeepEvidentialRegression:
     }
     optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.01), fit_args)
 
-    return DeepEvidentialRegression(keras_ensemble, optimizer)
+    return DeepEvidentialRegression(keras_ensemble, optimizer, reg_weight = 1e-2, maxi_rate=0.)
 
 
 # building and optimizing the model
 model = build_cubic_model(data)
 model.optimize(data)
 
+# %% [markdown]
+# Let's illustrate the results of the model training. We create a test set that includes points outside the interval on which the model has been trained. These extrapolation points are a good test of model's representation of uncertainty. What would we expect to see? Bayesian inference provides a reference frame. Predictive uncertainty should increase the farther we are from the training data and the predictive mean should start returning to the prior mean (assuming standard zero mean function).
+#
+# We can see in the figure below that predictive distribution of deep evidential regression indeed can exhibit these features. The figure also replicates fairly well the results from <cite data-cite="amini2020evidential"/>. This gives us some assurance that deep evidential regression might provide uncertainty that is good enough for trading off between exploration and exploitation in Bayesian optimization. But, as previously noted, these results are highly contingent on the selection of an appropriate ``reg_weight``. Furthermore, we did not find that results with this model are consistent across different random initializations. Despite these disconcerting results, the model in practice works extremely well in Bayesian Optimization. 
 
+#%%
+
+import matplotlib.pyplot as plt
+
+def plot_scatter_with_var(query_points, y_pred, y_var, ax, n_stds=3, max_alpha = 0.7):
+    x = tf.squeeze(query_points)
+    y = tf.squeeze(y_pred)
+    std = tf.squeeze(y_var**0.5) 
+    ax.plot(x, y, color="black", label="predictions")
+    for k in range(1, n_stds + 1):
+        upper_std = y + k * std
+        lower_std = y - k * std
+        ax.fill_between(x, upper_std, lower_std, alpha = max_alpha/k, color="tab:blue")
+
+def plot_cubic(train_data:Dataset, test_data: Dataset, ood_predictions):
+
+    fig, ax = plt.subplots(figsize=(14,10))
+
+    ax.axvline(-4, color="grey", linestyle="dashed")
+    ax.axvline(4, color="grey", linestyle="dashed")
+    ax.plot(test_data.query_points, test_data.observations, color="red", linestyle="dashed")
+    plot_scatter_with_var(test_data.query_points, ood_predictions[0], ood_predictions[1], ax=ax)
+    ax.scatter(train_data.query_points, train_data.observations, color="tab:red", s=20, alpha = 0.8)
+    ax.set_ylim(-150, 150)
+    return fig
+
+x_test = tf.expand_dims(tf.linspace(-6, 6, 1000), axis=-1)
+y_test = objective(x_test, error=False)
+test_data = Dataset(x_test, y_test)
+ood_predictions = model.predict(x_test, aleatoric=False)
+
+fig = plot_cubic(data, test_data, ood_predictions)
 
 # %% [markdown]
 # ## Non-stationary toy problem
 #
-# Now we turn to a somewhat more serious synthetic optimization problem. We want to find the minimum of the two-dimensional version of the [Michalewicz function](https://www.sfu.ca/~ssurjano/michal.html). Even though we stated that deep ensembles should be used with larger budget sizes, here we will show them on a small dataset to provide a problem that is feasible for the scope of the tutorial.
+# Now we turn to a somewhat more serious synthetic optimization problem. We want to find the minimum of the two-dimensional version of the [Michalewicz function](https://www.sfu.ca/~ssurjano/michal.html). Even though we stated that deep evidential regression should be used with larger budget sizes, here we will show them on a small dataset to provide a problem that is feasible for the scope of the tutorial.
 
-# The Michalewicz function is defined on the search space of $[0, \pi]^2$. Below we plot the function over this space. The Michalewicz function is interesting case for deep ensembles as it features sharp ridges that are difficult to capture with Gaussian processes. This occurs because lengthscale parameters in typical kernels cannot easily capture both ridges (requiring smaller lengthscales) and fairly flat areas everywhere else (requiring larger lengthscales).
+# The Michalewicz function is defined on the search space of $[0, \pi]^2$. Below we plot the function over this space. The Michalewicz function is interesting case for deep evidential regression as it features sharp ridges that are difficult to capture with Gaussian processes. This occurs because lengthscale parameters in typical kernels cannot easily capture both ridges (requiring smaller lengthscales) and fairly flat areas everywhere else (requiring larger lengthscales).
 
 
 # %%
@@ -152,7 +188,7 @@ fig.show()
 # %%
 from trieste.objectives.utils import mk_observer
 
-num_initial_points = 20
+num_initial_points = 5
 
 initial_query_points = search_space.sample(num_initial_points)
 observer = trieste.objectives.utils.mk_observer(function)
@@ -164,7 +200,7 @@ initial_data = observer(initial_query_points)
 #
 # The Bayesian optimization procedure estimates the next best points to query by using a probabilistic model of the objective. Here we use a deep ensemble instead of a typical probabilistic model. Same as above we use the `build_vanilla_keras_deep_evidential` function to build a deep evidential neural network in Keras and wrap it with a `DeepEvidentialRegression` wrapper so it can be used in Trieste's Bayesian optimization loop.
 #
-# Some notes on choosing the model architecture are necessary. Unfortunately, choosing an architecture that works well for small datasets, a common setting in Bayesian optimization, is not easy. Here we do demonstrate it can work with smaller datasets, but choosing the architecture and model optimization parameters was a lengthy process that does not necessarily generalize to other problems. Hence, we advise to use deep ensembles with larger datasets and ideally large batches so that the model is not retrained after adding a single point.
+# Some notes on choosing the model architecture are necessary. Unfortunately, choosing an architecture that works well for small datasets, a common setting in Bayesian optimization, is not easy. Here we do demonstrate it can work with smaller datasets, but choosing the architecture and model optimization parameters was a lengthy process that does not necessarily generalize to other problems. Hence, we advise to use deep evidential regression with larger datasets and ideally large batches so that the model is not retrained after adding a single point.
 #
 # We can offer some practical advices, however. Architecture parameters like number of nodes and number of layers will heavily affect the network's ability to learn the function. Too small of a network and it will be unable to accurately approximate the function, too large and the network will take too long to train. The model is also highly sensitive to the ``reg_weight`` parameter which balances the log-likelihood loss with the regularization term. In practice the use of ``maxi_rate`` to automatically search for a good ``reg_weight`` provides easier hyperparameter tuning. If we suspect the objective function is more complex these numbers should be increased slightly. With regards to model optimization we advise using a lot of epochs, typically at least 1000, and potentially higher learning rates. Ideally, every once in a while capacity should be increased to be able to use larger amount of data more effectively. Unfortunately, there is almost no research literature that would guide us in how to do this properly.
 #
@@ -173,8 +209,6 @@ initial_data = observer(initial_query_points)
 # Below we change the `build_model` function to adapt the model slightly for the Michalewicz function. Since it's a more complex function we increase the number of hidden layers but keep the number of nodes per layer on the lower side. Note the large number of epochs
 
 # %%
-
-from trieste.models.keras import DeepEvidentialNetwork
 
 def build_model(data: Dataset) -> DeepEvidentialRegression:
     num_hidden_layers = 4
@@ -210,6 +244,7 @@ model = build_model(initial_data)
 # In Bayesian optimization we use an acquisition function to choose where in the search space to evaluate the objective function in each optimization step. Deep Evidential Regression model uses a feed forward network whose parameters act to approximate an evidential higher order distribution allowing it to output both aleatoric and epsitemic uncertainty. This means that many acquisition functions may be used such as Expected improvement (see `ExpectedImprovement`), Lower confidence bound (see `NegativeLowerConfidenceBound`) or Thompson sampling (see `ExactThompsonSampling`).
 #
 # Here we will illustrate Deep Evidential Regression with a Thompson sampling acquisition function. We use a discrete Thompson sampling strategy that samples a fixed number of points (`grid_size`) from the search space and takes a certain number of samples at each point based on the model posterior (`num_samples`, if more than 1 then this is a batch strategy).
+
 
 # %%
 from trieste.acquisition.rule import DiscreteThompsonSampling
@@ -289,7 +324,6 @@ fig.show()
 # We can visualise the model over the objective function by plotting the mean and 95% confidence intervals of its predictive distribution. Since it is not easy to choose the architecture of the deep ensemble we advise to always check with these types of plots whether the model seems to be doing a good job at modelling the objective function. In this case we can see that the model was able to capture the relevant parts of the objective function.
 
 # %%
-import matplotlib.pyplot as plt
 from util.plotting import plot_regret
 from util.plotting_plotly import plot_model_predictions_plotly
 
