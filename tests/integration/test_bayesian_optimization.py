@@ -411,9 +411,9 @@ def GPR_OPTIMIZER_PARAMS() -> Tuple[str, List[ParameterSet]]:
     ],
 )
 def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
-    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout]
+    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MonteCarloDropout]
 ) -> None:
-    _test_optimizer_finds_minimum(MCDropout, num_steps, acquisition_rule)
+    _test_optimizer_finds_minimum(MonteCarloDropout, num_steps, acquisition_rule)
 
 @random_seed
 # @pytest.mark.slow
@@ -427,10 +427,10 @@ def test_bayesian_optimizer_with_mcdropout_finds_minima_of_simple_quadratic(
 )
 def test_bayesian_optimizer_with_mcdropout_finds_minima_of_scaled_branin(
     num_steps: int,
-    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MCDropout],
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, MonteCarloDropout],
 ) -> None:
     _test_optimizer_finds_minimum(
-        MCDropout,
+        MonteCarloDropout,
         num_steps,
         acquisition_rule,
         optimize_branin=True

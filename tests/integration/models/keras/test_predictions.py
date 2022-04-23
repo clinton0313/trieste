@@ -22,7 +22,7 @@ from trieste.models.keras import (
     DeepEnsemble,
     DropoutNetwork,
     DropConnectNetwork,
-    MCDropout,
+    MonteCarloDropout,
     build_vanilla_keras_ensemble,
     build_vanilla_keras_mcdropout,
 )
@@ -88,7 +88,7 @@ def test_dropout_network_predictions_close_to_actuals(
         "verbose": 0
     }
 
-    model = MCDropout(
+    model = MonteCarloDropout(
         model=dropout_nn,
         optimizer=KerasOptimizer(optimizer, fit_args),
         num_passes=200
