@@ -64,6 +64,9 @@ from .single_objectives import (
     EGGHOLDER_MINIMIZER,
     EGGHOLDER_MINIMUM,
     EGGHOLDER_SEARCH_SPACE,
+    EASOM_MINIMIZER,
+    EASOM_MINIMUM,
+    EASOM_SEARCH_SPACE, 
     ackley_5,
     branin,
     gramacy_lee,
@@ -81,5 +84,6 @@ from .single_objectives import (
     trid,
     trid_10,
     dropwave,
-    eggholder
+    eggholder,
+    easom
 )
