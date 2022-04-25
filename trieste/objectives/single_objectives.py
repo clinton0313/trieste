@@ -657,3 +657,36 @@ EGGHOLDER_SEARCH_SPACE = Box([-512], [512]) ** 2
 """
 The search space for the :func:`eggholder` function.
 """
+
+def easom(x: TensorType) -> TensorType:
+    """
+    The Eggholder function is difficult to search over due to it being flat except
+    for a single minima.
+    """
+    tf.debugging.assert_shapes([(x, (..., 2))])
+
+    return tf.expand_dims(
+        tf.negative(tf.cos(x[:,0])) * 
+        tf.cos(x[:,0]) * 
+        tf.exp(-((x[:,0] - math.pi)**2 + 
+        tf.subtract(x[:,1], math.pi)**2)),
+    axis=1)
+
+
+EASOM_MINIMIZER = tf.constant([[math.pi, math.pi]], tf.float64)
+"""
+The global minimizer of the :func:`eggholder` function over :math:`[-5.12, 5.12]^2`,
+with shape [1, 2] and dtype float64. 
+"""
+
+
+EASOM_MINIMUM = tf.constant([-1.], tf.float64)
+"""
+The global minimum of the :func:`eggholder` function, with shape [1] and dtype float64.
+"""
+
+
+EASOM_SEARCH_SPACE = Box([-10], [10]) ** 2
+"""
+The search space for the :func:`eggholder` function.
+"""
