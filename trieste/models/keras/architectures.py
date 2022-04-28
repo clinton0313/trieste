@@ -276,3 +276,97 @@ class GaussianNetwork(KerasEnsembleNetwork):
         output_tensor = self._gen_output_layer(hidden_tensor)
 
         return input_tensor, output_tensor
+
+
+class EpistemicUncertaintyPredictor(tf.keras.Model):
+    """
+    NONO, for f_predictor we use DeepEnsembles.
+    # % # % # %
+    # % # % # %
+    # % # % # %
+    # % # % # %
+    Use this as f_predictor. This should be sequential, and only take X as inputs
+    - Dense / Relu / Dropout * 4 + Output Dense
+
+    How to use?
+    This actually potentially approximates more the GaussianNetwork, and is wrapped around
+    the DEUP model. 
+    This should train the y_hat, which is then used by the UncertaintyRegression as part of the target
+    MSE loss. Note that in their code they use it twice:
+    - first, at beginning of loop we fit predictor f_hat and features phi (ie. variance and eventually density) on the available data
+    - we then add to the dataset for UncertaintyReg the set phi and the loss with the f_hat preds
+    - then, fit the uncertainty on the n + 1 dataset
+        - predict eventually outputs a bunch of f_hat, u_hat as mean and variance to acquire from
+    - In SMO, we next call the oracle.
+    - This is the second use of f_estimator: they'll compute f_hat(x_acq), add to D_u as loss
+    - To D, we add the oracle y_acq and x_acq 
+
+    Current doubts
+    - Pbem 
+    """
+
+    def __init__(
+        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+        ),
+        # stationarizing_features: Sequence = ["variance"]
+    ):
+        """
+        [DOCSTRING]
+        """
+        super().__init__()
+        self.input_tensor_spec = input_tensor_spec
+        self.output_tensor_spec = output_tensor_spec
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
+        self._hidden_layer_args = hidden_layer_args
+
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
+
+    def _gen_input_tensor(self) -> tf.keras.Input:
+
+        input_tensor = tf.keras.Input(
+            shape=self.input_tensor_spec.shape,
+            dtype=self.input_tensor_spec.dtype,
+            name=self.input_layer_name,
+        )
+        return input_tensor
+
+    def _gen_hidden_layers(self) -> tf.keras.Model:
+
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
+            hidden_layers.add(tf.keras.layers.Dense(
+                dtype=self.input_tensor_spec.dtype,
+                **hidden_layer_args
+            ))
+
+        return hidden_layers
+
+    def _gen_output_layer(self) -> tf.keras.layers.Layer:
+
+        output_layer = tf.keras.layers.Dense(
+            units=self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype,
+            name="output"
+        )
+
+        return output_layer
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        [DOCSTRING]
+        """
+        if inputs.shape.rank == 1:                      # it should only evaluate to True if no additional variables are passed as Phi.
+            inputs = tf.expand_dims(inputs, axis=-1)
+
+        hidden_output = self.hidden_layers(inputs)
+        output = self.output_layer(hidden_output)
+
+        return output

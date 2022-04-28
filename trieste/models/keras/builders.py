@@ -20,12 +20,13 @@ universally good solutions.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, Callable
 
 import tensorflow as tf
+from trieste.models.keras.models import DeepEnsemble
 
 from ...data import Dataset
-from .architectures import GaussianNetwork, KerasEnsemble
+from .architectures import GaussianNetwork, KerasEnsemble, EpistemicUncertaintyPredictor
 from .utils import get_tensor_spec_from_data
 
 
@@ -80,3 +81,48 @@ def build_vanilla_keras_ensemble(
     keras_ensemble = KerasEnsemble(networks)
 
     return keras_ensemble
+
+
+def build_vanilla_deup(
+    data: Dataset,
+    f_model_args: dict = {
+        "ensemble_size": 5,
+        "num_hidden_layers": 2,
+        "units": 25,
+        "activation": "relu",
+        "independent_normal": False
+    },
+    e_model_args: dict = {
+        "num_hidden_layers": 4,
+        "units": 128,
+        "activation": "relu"
+    }
+) -> tuple[DeepEnsemble, EpistemicUncertaintyPredictor]:
+    """
+    [DOCSTRING]
+    - I may want to instantiate here both models
+    - Yes, and the args should be passed as a dictionary
+    """
+
+    f_model = build_vanilla_keras_ensemble(
+        data, **f_model_args)
+
+    # [DAV] These seem insensitive to the second axis? ie adding cols still returns (1,)
+    e_input_tensor_spec, e_output_tensor_spec = get_tensor_spec_from_data(data)
+
+    hidden_layer_args = []
+    for _ in range(e_model_args["num_hidden_layers"]):
+        hidden_layer_args.append(
+            {
+                "units": e_model_args["units"], 
+                "activation": e_model_args["activation"]
+            }
+        )
+
+    e_model = EpistemicUncertaintyPredictor(
+        e_input_tensor_spec,
+        e_output_tensor_spec,
+        hidden_layer_args
+    )
+
+    return f_model, e_model
