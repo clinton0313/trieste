@@ -16,6 +16,9 @@ from __future__ import annotations
 
 import tensorflow as tf
 import tensorflow_probability as tfp
+from sklearn.neighbors import KernelDensity
+from sklearn.model_selection import GridSearchCV
+import numpy as np
 
 from ...data import Dataset
 from ...types import TensorType
@@ -98,3 +101,34 @@ def negative_log_likelihood(
     :return: Negative log likelihood values.
     """
     return -y_pred.log_prob(y_true)
+
+
+class SmoothKernelDensityEstimator:
+    """
+    [DOCSTRING]
+    """
+
+    def __init__(self, kernel: str = 'gaussian'):
+        self.kernel = kernel
+        
+    def fit(self, query_points: tf.Tensor, bandwidth: int = None):
+        if bandwidth is not None:
+            self.bandwidth = bandwidth
+        else:
+            bandwidth_search_space = np.logspace(-3,1,50)
+            grid = GridSearchCV(
+                estimator=KernelDensity(kernel=self.kernel), 
+                param_grid={"bandwidth": bandwidth_search_space}, 
+                cv=query_points.shape[0]
+            )
+            grid.fit(tf.squeeze(query_points).numpy()) # [DAV] adding tq.squeeze
+            self.bandwidth = grid.best_estimator_.bandwidth
+        self.kde = KernelDensity(kernel=self.kernel, bandwidth=self.bandwidth)
+        self.kde.fit(query_points)
+
+    def score_samples(self, query_points):
+        try:
+            scores = self.kde.score_samples(tf.squeeze(query_points).numpy())
+            return tf.constant(scores, shape=(query_points.shape[0],1))
+        except:
+            return tf.constant(0,shape=(0,1), dtype=tf.float64)

@@ -34,8 +34,9 @@ from ..optimizer import KerasOptimizer
 from .architectures import KerasEnsemble, MultivariateNormalTriL
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler
-from .utils import negative_log_likelihood, sample_with_replacement
+from .utils import negative_log_likelihood, sample_with_replacement, SmoothKernelDensityEstimator
 
+import datetime
 
 class DeepEnsemble(
     KerasPredictor, TrainableProbabilisticModel, EnsembleModel, HasTrajectorySampler
@@ -343,53 +344,97 @@ class DeepEnsemble(
             # jsonify all the callback models, pickle the optimizer(!), and revert (ugh!)
             callback: Callback
             saved_models: list[KerasOptimizer] = []
-            try:
-                for callback in self._optimizer.fit_args["callbacks"]:
-                    saved_models.append(callback.model)
-                    callback.model = callback.model and callback.model.to_json()
-                state["_optimizer"] = dill.dumps(state["_optimizer"])
-                for callback, model in zip(self._optimizer.fit_args["callbacks"], saved_models):
-                    callback.model = model
-            except:
-                pass
-            return state
+            for callback in self._optimizer.fit_args["callbacks"]:
+                saved_models.append(callback.model)
+                callback.model = callback.model and callback.model.to_json()
+            state["_optimizer"] = dill.dumps(state["_optimizer"])
+            for callback, model in zip(self._optimizer.fit_args["callbacks"], saved_models):
+                callback.model = model
+
+        return state
 
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         # Restore optimizer and callback models after depickling, and recompile.
         self.__dict__.update(state)
-        try:
-            if self._optimizer:
-                # unpickle the optimizer, and restore all the callback models
-                self._optimizer = dill.loads(self._optimizer)
-                for callback in self._optimizer.fit_args.get("callbacks", []):
-                    if callback.model:
-                        callback.model = tf.keras.models.model_from_json(
-                            callback.model,
-                            custom_objects={"MultivariateNormalTriL": MultivariateNormalTriL},
-                        )
-            # Recompile the model
-            self._model.model.compile(
-                self.optimizer.optimizer,
-                loss=[self.optimizer.loss] * self._model.ensemble_size,
-                metrics=[self.optimizer.metrics] * self._model.ensemble_size,
+        if self._optimizer:
+            # unpickle the optimizer, and restore all the callback models
+            self._optimizer = dill.loads(self._optimizer)
+            for callback in self._optimizer.fit_args.get("callbacks", []):
+                if callback.model:
+                    callback.model = tf.keras.models.model_from_json(
+                        callback.model,
+                        custom_objects={"MultivariateNormalTriL": MultivariateNormalTriL},
+                    )
+        # Recompile the model
+        self._model.model.compile(
+            self.optimizer.optimizer,
+            loss=[self.optimizer.loss] * self._model.ensemble_size,
+            metrics=[self.optimizer.metrics] * self._model.ensemble_size,
             )
-        except:
-            pass
 
 class DirectEpistemicUncertaintyPredictor(
     KerasPredictor, TrainableProbabilisticModel
 ):
     """
-    [DOCSTRING]
+    A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a direct epistemic uncertainty
+    prediction (DEUP) model built using Keras.
+
+    The method employs an auxiliary deep neural network to predict the uncertainty that stems
+    from the generalization error of the main predictor, which in principle is reducible with more
+    data and higher effective capacity. Unlike other available Keras models, which solely exploit 
+    model variance to approximate the total uncertainty, DEUP accounts for the bias induced in
+    training neural networks with limited data, which can induce a preference on the functions it
+    learns away from the Bayes-optimal predictor (<cite data-cite="jain2022"/>). The main model,
+    `f_model`, is trained to predict outcomes of the function of interest and is built as an
+    ensemble of deep neural networks using the :class:`~trieste.models.keras.DeepEvidentialRgression` wrapper.
+    each a fully connected multilayer probabilistic network. The auxiliary model, `e_model`, is trained.
+    to predict the squared loss of the main predictor, which in the regression setup can be shown to 
+    approximate the total uncertainty stemming both from the model variance and the potential misspecification 
+    caused by, for example, early stopping.
+
+    A particular advantage of training the auxiliary model is that the error predictor can be explicitly
+    trained to account for examples that may come from a distribution different from the distribution of
+    most of the training examples. These non-stationary settings, likely in the context of Bayesian 
+    optimization, make it challenging to train the error predictor, as the measured error around a parameter
+    combination will differ before and after the incorporation of the queried set of arguments to the training set.
+    We account for this by using additional features as input to the error predictor, namely the log-density
+    of the function parameters and the model variance estimates. The former is computed using kernel density
+    estimation and assuming a Gaussian kernel, while the latter is computed from the variance estimates of the 
+    main deep ensemble model.  
+
+    In practice, we provide a warm start to the error predictor by creating multiple versions of the main
+    predictor trained on different subsets of the training data. This approach, inspired by standard cross
+    validation, builds a larger set of targets for the error predictor and avoids discarding valuable observations
+    in the early training of the error predictor. The warm start is enabled by default, and can be disabled by
+    setting the ``init_buffer`` argument to False.
+
+    Note that currently we do not support setting up the model with dictionary configs and saving
+    the model during Bayesian optimization loop (``track_state`` argument in
+    :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
     """
     def __init__(
         self,
         model: Sequence[dict[str, Any]],
-        # stabilizing_features: Sequence,
         optimizer: Optional[KerasOptimizer] = None,
         init_buffer: bool = False
     ) -> None:
+
+        """
+        :param model: A dictionary with two models: the main predictor and the auxiliary error model.
+            The main Keras model should be a compiled model of class :class:`trieste.models.DeepEnsemble`
+            or class :class:`trieste.models.keras.MonteCarloDropout`. The auxiliary model is an instance of
+            :class:`trieste.models.keras.EpistemicUncertaintyPredictor`. The model has to be built but not
+            compiled.
+        :param optimizer: The optimizer wrapper with necessary specifications for compiling and
+            training the model. Defaults to :class:`~trieste.models.optimizer.KerasOptimizer` with
+            :class:`~tf.optimizers.Adam` optimizer, mean squared error loss and a dictionary
+            of default arguments for Keras `fit` method: 1000 epochs, batch size 16, early stopping
+            callback with patience of 50, and verbose 0. 
+            See https://keras.io/api/models/model_training_apis/#fit-method for a list 
+            of possible arguments.
+        :param init_buffer: A boolean that enables the pre-training of the error predictor
+        """
 
         super().__init__(optimizer)
 
@@ -417,8 +462,8 @@ class DirectEpistemicUncertaintyPredictor(
 
         self._model = model
         self._init_buffer = init_buffer
-        self._data_u = None
-        self._prior_size = None
+        self._data_u = None     # [DAV] uncertainty dataset
+        self._prior_size = None # [DAV] track new observations
 
     def __repr__(self) -> str:
         """"""
@@ -429,9 +474,21 @@ class DirectEpistemicUncertaintyPredictor(
         """
         [DOCSTRING]
         """
-        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel)
-        assert issubclass(type(self._model["e_model"]), tf.keras.Model)
+        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), "[DAV]"
+        assert issubclass(type(self._model["e_model"]), tf.keras.Model), "[DAV]"
         return self._model["f_model"], self._model["e_model"]
+
+    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
+        """
+        [DOCSTRING] In their code they use the posterior GP to compute samples.
+        According to the paper, more accurate would be to use as variances "f_var - e_pred". TEST
+        """
+
+        predicted_means, predicted_vars = self.predict(query_points)
+        normal = tfp.distributions.Normal(predicted_means, tf.sqrt(predicted_vars))
+        samples = normal.sample(num_samples)
+
+        return samples  # [num_samples, len(query_points), 1]
 
     def update(self, dataset: Dataset) -> None:
         """
@@ -442,17 +499,17 @@ class DirectEpistemicUncertaintyPredictor(
     def optimize(self, dataset: Dataset) -> None:
         """
         [DOCSTRING]
-        Note that I currently
-        """
-        
+        """        
         # optional init buffer
         if self._data_u is None: 
             self._prior_size = dataset.query_points.shape[0]
+            self.density_estimator = SmoothKernelDensityEstimator(kernel="gaussian")
             if self._init_buffer:
-                self._data_u = self.uncertainty_buffer(dataset, 2)
-            else:   # [DAV] still need to make size of u be adjusted to vars (the + 1)
+                print("Access uncertainty buffer", datetime.datetime.now())
+                self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
+            else:
                 self._data_u = Dataset(
-                    tf.zeros([0, dataset.query_points.shape[-1] + 1], dtype=tf.float64), 
+                    tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=tf.float64), 
                     tf.zeros([0, 1], dtype=tf.float64)
                 )
         
@@ -464,6 +521,7 @@ class DirectEpistemicUncertaintyPredictor(
 
         # post-oracle, post-refit
         self.model[0].optimize(dataset)
+        self.density_estimator.fit(dataset.query_points)
         self._data_u = self.data_u_appender(x, y)
 
         xu, yu = self._data_u.astuple()
@@ -482,10 +540,12 @@ class DirectEpistemicUncertaintyPredictor(
         """
         [DOCSTRING]
         """
-        f_pred, f_var = self.model[0].predict(query_points)
         if query_points.shape.rank == 1:
             query_points = tf.expand_dims(query_points, axis=-1)
-        data_u = tf.concat((query_points, f_var), axis=1)
+
+        f_pred, f_var = self.model[0].predict(query_points)
+        density_scores = self.density_estimator.score_samples(query_points)
+        data_u = tf.concat((query_points, f_var, density_scores), axis=1)
         e_pred = self.model[1](data_u)
         return f_pred, e_pred
 
@@ -496,10 +556,18 @@ class DirectEpistemicUncertaintyPredictor(
         """
         [DOCSTRING] This uses fact that only variance is being included as stationarizing vars. Need to rethink when adding density
         """
-        f_pred, f_var = self.model[0].predict(query_points[self._prior_size:,:])
+        new_points = query_points[self._prior_size:,:]
+        new_observations = observations[self._prior_size:,:]
+
+        # stationarizing feature: variance
+        f_pred, f_var = self.model[0].predict(new_points)
+        
+        # stationarizing feature: density
+        density_scores = self.density_estimator.score_samples(new_points)
+
         new_data_u = Dataset(
-            tf.concat((query_points[self._prior_size:,:], f_var), axis=1), 
-            tf.pow(tf.subtract(f_pred, observations[self._prior_size:,:]), 2)
+            tf.concat((new_points, f_var, density_scores), axis=1),   # [N, D+2]
+            tf.pow(tf.subtract(f_pred, new_observations), 2)
         )
         return Dataset(
             (self._data_u + new_data_u).query_points,
@@ -517,11 +585,18 @@ class DirectEpistemicUncertaintyPredictor(
         for _ in tf.range(iterations):
             for set in tf.random.shuffle(tf.split(data, 2, axis=0)):
                 data_ = Dataset(set[:,:-1], tf.expand_dims(set[:,-1], axis=1))
+
+                # stationarizing feature: variance
                 f_ = self.__copy__().model[0]
                 f_.optimize(data_)
                 f_pred, f_var = f_.predict(dataset.query_points)
+
+                # stationarizing feature: density
+                self.density_estimator.fit(dataset.query_points)
+                density_scores = self.density_estimator.score_samples(dataset.query_points)
+
                 targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
-                points.append(tf.concat((dataset.query_points, f_var), axis=1)) # [DAV] manually add f_var here, need to fix
+                points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
         
         points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
         # self.model[1].fit(points, targets) # [DAV] potentially unnecessary, we fit again in optimize before first candidate
