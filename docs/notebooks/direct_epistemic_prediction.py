@@ -214,7 +214,7 @@ acquisition_rule = EfficientGlobalOptimization(num_query_points=1)
 # %%
 bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
 
-num_steps = 25
+num_steps = 3
 
 # The Keras interface does not currently support using `track_state=True` which saves the model
 # in each iteration. This will be addressed in a future update.

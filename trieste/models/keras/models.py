@@ -21,6 +21,9 @@ import dill
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow.python.keras.callbacks import Callback
+from sklearn.neighbors import KernelDensity
+from sklearn.model_selection import GridSearchCV
+import numpy as np
 
 from ...data import Dataset
 from ...types import TensorType
@@ -34,7 +37,7 @@ from ..optimizer import KerasOptimizer
 from .architectures import KerasEnsemble, MultivariateNormalTriL
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler
-from .utils import negative_log_likelihood, sample_with_replacement, SmoothKernelDensityEstimator
+from .utils import negative_log_likelihood, sample_with_replacement
 
 import datetime
 
@@ -502,8 +505,7 @@ class DirectEpistemicUncertaintyPredictor(
         """        
         # optional init buffer
         if self._data_u is None: 
-            self._prior_size = dataset.query_points.shape[0]
-            self.density_estimator = SmoothKernelDensityEstimator(kernel="gaussian")
+            self._prior_size = 0
             if self._init_buffer:
                 print("Access uncertainty buffer", datetime.datetime.now())
                 self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
@@ -514,20 +516,19 @@ class DirectEpistemicUncertaintyPredictor(
                 )
         
         x, y = dataset.astuple()
-
+        
         # post-oracle, pre-refit append
-        # new_points, new_targets = dataset.query_points[self._prior_size:,:], dataset.observations[self._prior_size:,:]
         self._data_u = self.data_u_appender(x, y)
 
         # post-oracle, post-refit
         self.model[0].optimize(dataset)
-        self.density_estimator.fit(dataset.query_points)
+        self.density_fit(x, kernel="gaussian")
         self._data_u = self.data_u_appender(x, y)
 
         xu, yu = self._data_u.astuple()
 
         # pre-new-oracle, fit u (it is empty if not init_buffering at the moment)
-        try:
+        try: # do a check if empty instead (but in fact now it should always be filled)
             self.model[1].fit(xu, yu, **self.optimizer.fit_args)
         except:
             pass
@@ -544,13 +545,38 @@ class DirectEpistemicUncertaintyPredictor(
             query_points = tf.expand_dims(query_points, axis=-1)
 
         f_pred, f_var = self.model[0].predict(query_points)
-        density_scores = self.density_estimator.score_samples(query_points)
+        density_scores = self.density_score_samples(query_points)
         data_u = tf.concat((query_points, f_var, density_scores), axis=1)
         e_pred = self.model[1](data_u)
         return f_pred, e_pred
 
     def __copy__(self):
         return DirectEpistemicUncertaintyPredictor(model=self._model)
+
+    def density_fit(self, query_points: tf.Tensor, bandwidth: int = None, kernel: str = "gaussian"):
+        self.kernel = kernel
+        if bandwidth is not None:
+            self.bandwidth = bandwidth
+        else:
+            bandwidth_search_space = np.logspace(-3,1,50)
+            grid = GridSearchCV(
+                estimator=KernelDensity(kernel=self.kernel), 
+                param_grid={"bandwidth": bandwidth_search_space}, 
+                cv=query_points.shape[0]
+            )
+            grid.fit(tf.squeeze(query_points).numpy()) # [DAV] adding tq.squeeze
+            self.bandwidth = grid.best_estimator_.bandwidth
+        self.kde = KernelDensity(kernel=self.kernel, bandwidth=self.bandwidth)
+        self.kde.fit(query_points)
+
+    def density_score_samples(self, query_points):
+        # try: the fit 
+        scores = query_points[:,0]
+        return tf.expand_dims(scores, axis=-1)
+        # scores = self.kde.score_samples(tf.squeeze(query_points))
+        # return tf.constant(scores, shape=(query_points.shape[0],1))
+        # except:
+        #     return tf.constant(0,shape=(0,1), dtype=tf.float64)
 
     def data_u_appender(self, query_points, observations):
         """
@@ -563,7 +589,7 @@ class DirectEpistemicUncertaintyPredictor(
         f_pred, f_var = self.model[0].predict(new_points)
         
         # stationarizing feature: density
-        density_scores = self.density_estimator.score_samples(new_points)
+        density_scores = self.density_score_samples(new_points)
 
         new_data_u = Dataset(
             tf.concat((new_points, f_var, density_scores), axis=1),   # [N, D+2]
@@ -592,8 +618,8 @@ class DirectEpistemicUncertaintyPredictor(
                 f_pred, f_var = f_.predict(dataset.query_points)
 
                 # stationarizing feature: density
-                self.density_estimator.fit(dataset.query_points)
-                density_scores = self.density_estimator.score_samples(dataset.query_points)
+                self.density_fit(data_.query_points, kernel="gaussian")
+                density_scores = self.density_score_samples(dataset.query_points)
 
                 targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
                 points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
