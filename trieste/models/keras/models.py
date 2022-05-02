@@ -433,7 +433,10 @@ class DirectEpistemicUncertaintyPredictor(
             callback with patience of 50, and verbose 0. 
             See https://keras.io/api/models/model_training_apis/#fit-method for a list 
             of possible arguments.
-        :param init_buffer: A boolean that enables the pre-training of the error predictor
+        :param init_buffer: A boolean that enables the pre-training of the error predictor by training several
+            main models using cross-validated slices of the dataset and fitting the resulting models on
+            the entire dataset. This constructs a dataset of [N*K, D] observations nad squared losses, which
+            are used to train the auxiliary predictor.
         """
 
         super().__init__(optimizer)
@@ -472,7 +475,7 @@ class DirectEpistemicUncertaintyPredictor(
     @property
     def model(self) -> tuple[DeepEnsemble, tf.keras.Model]:
         """
-        [DOCSTRING]
+        Returns two compiled models: A Keras ensemble model and an epistemic uncertainty predictor.
         """
         assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), "[DAV]"
         assert issubclass(type(self._model["e_model"]), tf.keras.Model), "[DAV]"
@@ -480,8 +483,14 @@ class DirectEpistemicUncertaintyPredictor(
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
         """
-        [DOCSTRING] In their code they use the posterior GP to compute samples.
-        According to the paper, more accurate would be to use as variances "f_var - e_pred". TEST
+        Return ``num_samples`` samples at ``query_points``. We use the mixture approximation in
+        :meth:`predict` for ``query_points`` and sample ``num_samples`` times from a Gaussian
+        distribution given by the predicted mean and variance.
+
+        :param query_points: The points at which to sample, with shape [..., N, D].
+        :param num_samples: The number of samples at each point.
+        :return: The samples. For a predictive distribution with event shape E, this has shape
+            [..., S, N] + E, where S is the number of samples.
         """
 
         predicted_means, predicted_vars = self.predict(query_points)
@@ -492,14 +501,33 @@ class DirectEpistemicUncertaintyPredictor(
 
     def update(self, dataset: Dataset) -> None:
         """
-        [DOCSTRING]
+        Neural networks are parametric models and do not need to update data.
+        `TrainableProbabilisticModel` interface, however, requires an update method, so
+        here we simply pass the execution.
         """
         pass
 
     def optimize(self, dataset: Dataset) -> None:
         """
-        [DOCSTRING]
-        """        
+        Optimize the underlying Direct Epistemic Uncertainty Prediction model with the 
+        specified ``dataset``.
+
+        Optimization is performed by using the Keras `fit` method, rather than applying the
+        optimizer and using the batches supplied with the optimizer wrapper. User can pass
+        arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
+        These default to using 100 epochs, batch size 32, and verbose 0. See
+        https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
+        arguments.
+
+        Note that optimization does not return the result, instead optimization results are
+        stored in a history attribute of the model object. The algorithm iterates
+        over two copies of the dataset's observations to account for the
+        stationarizing features and the two targets: the target outcome for the main
+        predictor and the squared loss for the auxiliary predictor. The procedure follows
+        the main proposed algorithm in <cite data-cite="jain2022"/>.
+
+        :param dataset: The data with which to optimize the model.
+        """     
         # optional init buffer
         if self._data_u is None: 
             self._prior_size = dataset.query_points.shape[0]
@@ -518,7 +546,6 @@ class DirectEpistemicUncertaintyPredictor(
         x, y = dataset.astuple()
 
         # post-oracle, pre-refit append
-        # new_points, new_targets = dataset.query_points[self._prior_size:,:], dataset.observations[self._prior_size:,:]
         self._data_u = self.data_u_appender(x, y)
 
         # post-oracle, post-refit
@@ -539,8 +566,36 @@ class DirectEpistemicUncertaintyPredictor(
         self._prior_size = dataset.query_points.shape[0]
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
-        """
-        [DOCSTRING]
+        r"""
+        Returns mean and variance at ``query_points`` for the Direct Epistemic
+        Uncertainty Prediction model.
+
+        Following <cite data-cite="jain2022"/>, we consider the case for a model with
+        a Gaussian ground truth, i.e.
+                .. math:: p(y \mid x)=\mathcal{N}\left(y ; f^{*}(x), \sigma^{2}(x)\right).
+
+        In this scenario, it can be shown that the epistemic uncertainty can be estimated
+        as the squared difference between main-model predictions and the Bayes optimal
+        prediction at a given point, that is:
+                .. math:: \mathcal{E}(\hat{f}, x)=\left(\hat{f}(x)-f^{*}(x)\right)^{2}
+
+        As the Bayes optimal is unattainable, we instead approximate the epistemic uncertainty
+        by computing the total uncertainty of the model, which is captured by the expected
+        squared loss of the main-model predictions. This can be deconstructed as follows
+                .. math:: \mathcal{U}(\hat{f}, x)=E_{P(. \mid x)}\left[(\hat{f}(x)-y)^{2}\right]=\left(\hat{f}(x)-f^{*}(x)\right)^{2}+\sigma^{2}(x)
+        
+        The predict method returns the point estimates of the main predictor, and uses point estimates
+        of the squared loss to return predictions for model uncertainty. Note that the dataset used to
+        train the models in a BO setting grows over time, which renders estimates of uncertainty
+        as iteration dependent. Following the original paper, we account for this evolving uncertainty 
+        space by considering stationarizing variables, namely the predicted variance from the ensemble 
+        model and the Gaussian density of our queried points. These are used to enhance the dataset of
+        features the auxiliary model predicts on, so that a D-dimensional queried point will be passed
+        as a [D+2,1] observation to the error predictor.
+
+        :param query_points: The points at which to make predictions.
+        :return: The predicted mean and variance of the observations at the specified
+            ``query_points``.
         """
         if not tf.is_tensor(query_points):
             query_points = tf.convert_to_tensor(query_points)
@@ -554,11 +609,17 @@ class DirectEpistemicUncertaintyPredictor(
         return f_pred, e_pred
 
     def __copy__(self):
+        r"""
+        Creates a copy of the model used in the initial buffering of the data for the 
+        uncertainty predictor.
+        """
         return DirectEpistemicUncertaintyPredictor(model=self._model)
 
     def data_u_appender(self, query_points, observations):
         """
-        [DOCSTRING] This uses fact that only variance is being included as stationarizing vars. Need to rethink when adding density
+        Enhances the new queried observations with estimates of their Gaussian density
+        and main model variance, and appends them as new observations to optimize the
+        auxiliary model.
         """
         new_points = query_points[self._prior_size:,:]
         new_observations = observations[self._prior_size:,:]
@@ -581,7 +642,11 @@ class DirectEpistemicUncertaintyPredictor(
 
     def uncertainty_buffer(self, dataset: Dataset, iterations: int) -> Dataset:
         """
-        [DOCSTRING] Use this one to replicate init_buffer
+        Builds an initial dataset of observations to kickstart the error predictor. The 
+        scheme employs cross-validation to train multiple main models using partial datasets
+        of the initial data points, and predicts both in sample and out of sample outcomes.
+        The squared loss of these predictions are used to construct the target dataset for
+        the error predictor.
         """
         points, targets = [], []
 
@@ -603,5 +668,4 @@ class DirectEpistemicUncertaintyPredictor(
                 points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
         
         points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
-        # self.model[1].fit(points, targets) # [DAV] potentially unnecessary, we fit again in optimize before first candidate
         return Dataset(points, targets)
