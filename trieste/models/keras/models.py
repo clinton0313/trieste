@@ -34,7 +34,7 @@ from ..optimizer import KerasOptimizer
 from .architectures import KerasEnsemble, MultivariateNormalTriL
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler
-from .utils import negative_log_likelihood, sample_with_replacement, SmoothKernelDensityEstimator
+from .utils import negative_log_likelihood, sample_with_replacement, KernelDensityEstimator
 
 import datetime
 
@@ -503,7 +503,7 @@ class DirectEpistemicUncertaintyPredictor(
         # optional init buffer
         if self._data_u is None: 
             self._prior_size = dataset.query_points.shape[0]
-            self.density_estimator = SmoothKernelDensityEstimator(kernel="gaussian")
+            self.density_estimator = KernelDensityEstimator(kernel="gaussian")
             if self._init_buffer:
                 print("Access uncertainty buffer", datetime.datetime.now())
                 self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
@@ -513,6 +513,8 @@ class DirectEpistemicUncertaintyPredictor(
                     tf.zeros([0, 1], dtype=tf.float64)
                 )
         
+        print("optim loop", datetime.datetime.now(), self._prior_size)
+
         x, y = dataset.astuple()
 
         # post-oracle, pre-refit append
@@ -540,6 +542,8 @@ class DirectEpistemicUncertaintyPredictor(
         """
         [DOCSTRING]
         """
+        if not tf.is_tensor(query_points):
+            query_points = tf.convert_to_tensor(query_points)
         if query_points.shape.rank == 1:
             query_points = tf.expand_dims(query_points, axis=-1)
 

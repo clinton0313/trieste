@@ -3,6 +3,8 @@
 # %%
 import os
 
+from trieste.objectives.single_objectives import MICHALEWICZ_2_MINIMIZER
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import numpy as np
@@ -17,8 +19,8 @@ tf.get_logger().setLevel("ERROR")
 # %% [markdown]
 
 # %%
-np.random.seed(1795)
-tf.random.set_seed(1795)
+np.random.seed(1792)
+tf.random.set_seed(1792)
 tf.keras.backend.set_floatx("float64")
 
 
@@ -140,7 +142,7 @@ from util.plotting_plotly import plot_function_plotly
 search_space = MICHALEWICZ_2_SEARCH_SPACE
 function = michalewicz_2
 MINIMUM = MICHALEWICZ_2_MINIMUM
-MINIMIZER = MICHALEWICZ_2_MINIMUM
+MINIMIZER = MICHALEWICZ_2_MINIMIZER
 
 # we illustrate the 2-dimensional Michalewicz function
 fig = plot_function_plotly(
@@ -204,17 +206,17 @@ model = build_model(initial_data)
 
 from trieste.acquisition.rule import DiscreteThompsonSampling, EfficientGlobalOptimization
 
-# grid_size = 2000
-# num_samples = 4
+grid_size = 2000
+num_samples = 4
 
-# # note that `DiscreteThompsonSampling` by default uses `ExactThompsonSampler`
+# note that `DiscreteThompsonSampling` by default uses `ExactThompsonSampler`
 # acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
 
 acquisition_rule = EfficientGlobalOptimization(num_query_points=1)
 # %%
 bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
 
-num_steps = 25
+num_steps = 3
 
 # The Keras interface does not currently support using `track_state=True` which saves the model
 # in each iteration. This will be addressed in a future update.
@@ -260,3 +262,53 @@ fig = add_bo_points_plotly(
 fig.show()
 
 # %%
+import matplotlib.pyplot as plt
+from util.plotting import plot_regret
+from util.plotting_plotly import plot_model_predictions_plotly
+
+fig = plot_model_predictions_plotly(
+    result.try_get_final_model(),
+    search_space.lower,
+    search_space.upper,
+)
+
+fig = add_bo_points_plotly(
+    x=query_points[:, 0],
+    y=query_points[:, 1],
+    z=observations[:, 0],
+    num_init=num_initial_points,
+    idx_best=arg_min_idx,
+    fig=fig,
+    figrow=1,
+    figcol=1,
+)
+fig.update_layout(height=800, width=800)
+fig.show()
+fig.write_html("run_predict.html")
+# %%
+
+# %%
+from util.plotting import plot_regret, plot_bo_points
+
+suboptimality = observations - MINIMUM.numpy()
+
+fig, ax = plt.subplots(1, 2)
+plot_regret(
+    suboptimality,
+    ax[0],
+    num_init=num_initial_points,
+    idx_best=arg_min_idx,
+)
+plot_bo_points(
+    query_points, ax[1], num_init=num_initial_points, idx_best=arg_min_idx
+)
+ax[0].set_title("Minimum achieved")
+ax[0].set_ylabel("Regret")
+ax[0].set_xlabel("# evaluations")
+ax[1].set_ylabel("$x_2$")
+ax[1].set_xlabel("$x_1$")
+ax[1].set_title("Points in the search space")
+fig.show()
+
+
+# %% [markdown]
