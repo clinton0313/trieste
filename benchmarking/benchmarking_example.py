@@ -83,7 +83,7 @@ simulate_experiment(
 #CROSS MULTIPLE EXPERIMENTS LIKE THIS:
 
 simul_args = {
-    "objective": [michal2],
+    "objective": [michal2, branin],
     "num_initial_points": [1],
     "acquisition_rule": [EfficientGlobalOptimization()],
     "acquisition_name": ["ei"],
@@ -91,8 +91,8 @@ simul_args = {
     "model_builder": [deepensemble_builder],
     "model_name": ["der"],
     "output_path": ["deep_ensemble_test"],
-    "ensemble_size": [2, 3],
-    "num_hidden_layers": [2, 3],
+    "ensemble_size": [5],
+    "num_hidden_layers": [2],
     "units": [25]
 }
 
