@@ -99,9 +99,22 @@ def build_vanilla_deup(
     }
 ) -> tuple[DeepEnsemble, EpistemicUncertaintyPredictor]:
     """
-    [DOCSTRING]
-    - I may want to instantiate here both models
-    - Yes, and the args should be passed as a dictionary
+    Builds a simple direct epistemic uncertainty prediction model by combining an 
+    ensemble of neural networks in Keras as a main predictor with a multilayer
+    fully connected perceptron model that estimates the uncertainty embedded in the model.
+    
+    Number of hidden layers and units per layer in the ensembles or the MLP should be modified according
+    to the dataset size and complexity of the function - the default values seem to work well
+    for small datasets common in Bayesian optimization. 
+
+    :param dataset: Data for training, used for extracting input and output tensor specifications.
+    :param f_model_args: Parameters for each of the networks in the ensemble. This includes
+        the `ensemble_size`, `number_hidden_layers`, `units`, `activation` and the use of
+        `independent_normal` for model outputs.
+    :param e_model_args: Parameters for the error predictor, it defaults to four hidden layers,
+        128 units per layer and ReLU activations.
+    :return: A main model to predict point estimates of the target variable and an auxiliary model
+        trained to predict uncertainty around predictions.
     """
 
     f_model = build_vanilla_keras_ensemble(

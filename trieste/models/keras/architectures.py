@@ -280,29 +280,10 @@ class GaussianNetwork(KerasEnsembleNetwork):
 
 class EpistemicUncertaintyPredictor(tf.keras.Model):
     """
-    NONO, for f_predictor we use DeepEnsembles.
-    # % # % # %
-    # % # % # %
-    # % # % # %
-    # % # % # %
-    Use this as f_predictor. This should be sequential, and only take X as inputs
-    - Dense / Relu / Dropout * 4 + Output Dense
-
-    How to use?
-    This actually potentially approximates more the GaussianNetwork, and is wrapped around
-    the DEUP model. 
-    This should train the y_hat, which is then used by the UncertaintyRegression as part of the target
-    MSE loss. Note that in their code they use it twice:
-    - first, at beginning of loop we fit predictor f_hat and features phi (ie. variance and eventually density) on the available data
-    - we then add to the dataset for UncertaintyReg the set phi and the loss with the f_hat preds
-    - then, fit the uncertainty on the n + 1 dataset
-        - predict eventually outputs a bunch of f_hat, u_hat as mean and variance to acquire from
-    - In SMO, we next call the oracle.
-    - This is the second use of f_estimator: they'll compute f_hat(x_acq), add to D_u as loss
-    - To D, we add the oracle y_acq and x_acq 
-
-    Current doubts
-    - Pbem 
+    This class builds a fully connected neural network using Keras. The network architecture is a 
+    multilayer fully-connected feed-forward network with a single output parameter: the loss function
+    of the main predictor. This network is meant to be used with 
+    :class:`~trieste.models.keras.models.DirectEpistemicUncertaintyPredictor`.
     """
 
     def __init__(
@@ -314,12 +295,21 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
             {"units": 128, "activation": "relu"},
             {"units": 128, "activation": "relu"},
             {"units": 128, "activation": "relu"},
-        ),
-        # stationarizing_features: Sequence = ["variance"]
+        )
     ):
         """
-        [DOCSTRING]
+        :param input_tensor_spec: Tensor specification for the input to the network.
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
+            available arguments. Objects in the sequence will sequentially be used to add
+            :class:`~tf.keras.layers.Dense` layers. Length of this sequence determines the number of
+            hidden layers in the network. Default value is four hidden layers, 128 nodes each, with
+            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
+
         super().__init__()
         self.input_tensor_spec = input_tensor_spec
         self.output_tensor_spec = output_tensor_spec
@@ -360,10 +350,8 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
         return output_layer
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """
-        [DOCSTRING]
-        """
-        if inputs.shape.rank == 1:                      # it should only evaluate to True if no additional variables are passed as Phi.
+
+        if inputs.shape.rank == 1:
             inputs = tf.expand_dims(inputs, axis=-1)
 
         hidden_output = self.hidden_layers(inputs)

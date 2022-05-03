@@ -106,13 +106,22 @@ def negative_log_likelihood(
 
 class KernelDensityEstimator:
     """
-    [DOCSTRING]
+    Kernel density estimator of the D-dimensional parameter space.
     """
-
     def __init__(self, kernel: str = 'gaussian'):
         self.kernel = kernel
         
     def fit(self, query_points: tf.Tensor, bandwidth: int = None):
+        """
+        Fits an optimal bandwidth given a number of query points. We use a grid search to find
+        the optimal value in the bandwidth space, defined as the bandwidth that maximizes the
+        in-sample posterior probability of observing the points. 
+
+        Given a bandwidth, individual Gaussian distributions are constructed for each observation.
+
+        :param query_points: The points to use while searching the optimal bandwidth.
+        :param bandwidth: A fixed bandwidth can be instead provides, by default is None.
+        """
         if bandwidth is not None:
             self.bandwidth = bandwidth
         else:
@@ -122,17 +131,23 @@ class KernelDensityEstimator:
                 param_grid={"bandwidth": bandwidth_search_space}, 
                 cv=query_points.shape[0]
             )
-            print(query_points.shape[0]) # % # % # % # % # % # % # %
             grid.fit(query_points.numpy())
             self.bandwidth = grid.best_estimator_.bandwidth
-            self.kernels = [
-                tfp.distributions.MultivariateNormalDiag(loc=x, scale_identity_multiplier=self.bandwidth) 
-                for x in query_points
-            ]
+        self.kernels = [
+            tfp.distributions.MultivariateNormalDiag(loc=x, scale_identity_multiplier=self.bandwidth) 
+            for x in query_points
+        ]
 
     def score_samples(self, query_points):
-        # assert bandwwidth is not nonbe
-        print(self.bandwidth) # % # % # % # % # % # % # %
+        """
+        Computes the kernel density estimation given the optimal bandwidth on data points and
+        the distributions computed during fitting. The probability of a query point is aggregated
+        across individual Gaussian distributions, which yields the density estimator.
+
+        :param query_points: The [N, D] points to predict the density on.
+        :return: An [N, 1] vector of densities computed as the sum of individual probabilities.
+        """
+        assert self.bandwidth is not None, "The scoring of points requires a fitted kernel density estimator."
         if not tf.is_tensor(query_points):
             query_points = tf.convert_to_tensor(query_points)
         if query_points.shape.rank == 1:
@@ -143,13 +158,3 @@ class KernelDensityEstimator:
                 axis=-1
             )
         )
-        # return tf.expand_dims(tf.math.log(tf.reduce_sum([kernel._prob(query_points) for kernel in self.kernels], axis=0)), axis=-1)
-
-
-
-        # return tf.expand_dims(tf.convert_to_tensor(self.kde.evaluate(tf.transpose(query_points)), dtype=tf.float64), axis=-1)
-        # try:
-        #     scores = self.kde.score_samples(tf.squeeze(query_points))
-        #     return tf.constant(scores, shape=(query_points.shape[0],1))
-        # except:
-        #     return tf.constant(0,shape=(0,1), dtype=tf.float64)

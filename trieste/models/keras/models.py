@@ -620,6 +620,12 @@ class DirectEpistemicUncertaintyPredictor(
         Enhances the new queried observations with estimates of their Gaussian density
         and main model variance, and appends them as new observations to optimize the
         auxiliary model.
+
+        :param query_points: The points at which to make predictions.
+        :param observations: The target observations.
+        :return: A new dataset for the uncertainty prediction, which includes the previous
+            observations and the new batch of points.
+
         """
         new_points = query_points[self._prior_size:,:]
         new_observations = observations[self._prior_size:,:]
@@ -647,6 +653,11 @@ class DirectEpistemicUncertaintyPredictor(
         of the initial data points, and predicts both in sample and out of sample outcomes.
         The squared loss of these predictions are used to construct the target dataset for
         the error predictor.
+
+        :param dataset: The data with which to optimize the model.
+        :param iterations: The number of full cross-validation passes. 
+        :return: A dataset of queried points and stabilizing variables as features, and squared losses
+            as targets.
         """
         points, targets = [], []
 
