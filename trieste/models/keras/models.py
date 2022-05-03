@@ -424,7 +424,7 @@ class DirectEpistemicUncertaintyPredictor(
         :param model: A dictionary with two models: the main predictor and the auxiliary error model.
             The main Keras model should be a compiled model of class :class:`trieste.models.DeepEnsemble`
             or class :class:`trieste.models.keras.MonteCarloDropout`. The auxiliary model is an instance of
-            :class:`trieste.models.keras.EpistemicUncertaintyPredictor`. The model has to be built but not
+            :class:`trieste.models.keras.EpistemicUncertaintyNetwork`. The model has to be built but not
             compiled.
         :param optimizer: The optimizer wrapper with necessary specifications for compiling and
             training the model. Defaults to :class:`~trieste.models.optimizer.KerasOptimizer` with
@@ -530,16 +530,19 @@ class DirectEpistemicUncertaintyPredictor(
         """     
         # optional init buffer
         if self._data_u is None: 
-            self._prior_size = dataset.query_points.shape[0]
             self.density_estimator = KernelDensityEstimator(kernel="gaussian")
             if self._init_buffer:
                 print("Access uncertainty buffer", datetime.datetime.now())
                 self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
+                self._prior_size = dataset.query_points.shape[0]
             else:
                 self._data_u = Dataset(
                     tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=tf.float64), 
                     tf.zeros([0, 1], dtype=tf.float64)
                 )
+                self.density_estimator.fit(dataset.query_points)
+                self._prior_size = 0
+
         
         print("optim loop", datetime.datetime.now(), self._prior_size)
 
@@ -555,15 +558,14 @@ class DirectEpistemicUncertaintyPredictor(
 
         xu, yu = self._data_u.astuple()
 
-        # pre-new-oracle, fit u (it is empty if not init_buffering at the moment)
-        try:
+        # pre-new-oracle, fit u
+        if xu.shape[0] > 0:
             self.model[1].fit(xu, yu, **self.optimizer.fit_args)
-        except:
-            pass
-        self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
 
         # increase "seen" observations (only after first set of candidates)
         self._prior_size = dataset.query_points.shape[0]
+        self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
+
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""

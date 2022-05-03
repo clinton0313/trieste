@@ -21,7 +21,7 @@ to `False`.
 """
 
 from . import config
-from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork, EpistemicUncertaintyPredictor
+from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork, EpistemicUncertaintyNetwork
 from .builders import build_vanilla_keras_ensemble, build_vanilla_deup
 from .interface import KerasPredictor
 from .models import DeepEnsemble, DirectEpistemicUncertaintyPredictor

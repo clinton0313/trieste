@@ -22,12 +22,14 @@ import tensorflow_probability as tfp
 
 from tests.util.misc import empty_dataset
 from tests.util.models.gpflow.models import gpr_model
-from tests.util.models.keras.models import trieste_keras_ensemble_model
+from tests.util.models.keras.models import trieste_keras_ensemble_model, trieste_direct_epistemic_uncertainty_prediction
 from tests.util.models.models import fnc_3x_plus_10
 from trieste.models.keras import (
     GaussianNetwork,
     KerasEnsemble,
     KerasEnsembleNetwork,
+    EpistemicUncertaintyNetwork,
+    DirectEpistemicUncertaintyPredictor,
     get_tensor_spec_from_data,
     negative_log_likelihood,
 )
@@ -273,3 +275,25 @@ def test_multivariatenormaltril_layer_fails_to_serialilze() -> None:
         tf.keras.utils.deserialize_keras_object(
             serialized, custom_objects={"MultivariateNormalTriL": tfp.layers.MultivariateNormalTriL}
         )
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_predictor_is_model() -> None:
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    deep_evidential = EpistemicUncertaintyNetwork(inputs, outputs)
+
+    assert isinstance(deep_evidential, tf.keras.Model)
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_network_can_be_compiled() -> None:
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    deep_evidential = DeepEvidentialNetwork(inputs, outputs)
+
+    deep_evidential.compile(tf.optimizers.Adam(), negative_log_likelihood)
+
+    assert deep_evidential.compiled_loss is not None
+    assert deep_evidential.compiled_metrics is not None
+    assert deep_evidential.optimizer is not None

@@ -26,7 +26,7 @@ import tensorflow as tf
 from trieste.models.keras.models import DeepEnsemble
 
 from ...data import Dataset
-from .architectures import GaussianNetwork, KerasEnsemble, EpistemicUncertaintyPredictor
+from .architectures import GaussianNetwork, KerasEnsemble, EpistemicUncertaintyNetwork
 from .utils import get_tensor_spec_from_data
 
 
@@ -85,19 +85,12 @@ def build_vanilla_keras_ensemble(
 
 def build_vanilla_deup(
     data: Dataset,
-    f_model_args: dict = {
-        "ensemble_size": 5,
-        "num_hidden_layers": 2,
-        "units": 25,
-        "activation": "relu",
-        "independent_normal": False
-    },
-    e_model_args: dict = {
-        "num_hidden_layers": 4,
-        "units": 128,
-        "activation": "relu"
-    }
-) -> tuple[DeepEnsemble, EpistemicUncertaintyPredictor]:
+    e_num_hidden_layers: int = 4,
+    e_units: int = 128,
+    e_activation: str = "relu",
+    f_model_builder: Callable = build_vanilla_keras_ensemble,
+    **f_model_args
+) -> tuple[DeepEnsemble, EpistemicUncertaintyNetwork]:
     """
     Builds a simple direct epistemic uncertainty prediction model by combining an 
     ensemble of neural networks in Keras as a main predictor with a multilayer
@@ -117,22 +110,20 @@ def build_vanilla_deup(
         trained to predict uncertainty around predictions.
     """
 
-    f_model = build_vanilla_keras_ensemble(
-        data, **f_model_args)
+    f_model = f_model_builder(data, **f_model_args)
 
-    # [DAV] These seem insensitive to the second axis? ie adding cols still returns (1,)
     e_input_tensor_spec, e_output_tensor_spec = get_tensor_spec_from_data(data)
 
     hidden_layer_args = []
-    for _ in range(e_model_args["num_hidden_layers"]):
+    for _ in range(e_num_hidden_layers):
         hidden_layer_args.append(
             {
-                "units": e_model_args["units"], 
-                "activation": e_model_args["activation"]
+                "units": e_units, 
+                "activation": e_activation
             }
         )
 
-    e_model = EpistemicUncertaintyPredictor(
+    e_model = EpistemicUncertaintyNetwork(
         e_input_tensor_spec,
         e_output_tensor_spec,
         hidden_layer_args
