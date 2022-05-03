@@ -104,7 +104,6 @@ def negative_log_likelihood(
     """
     return -y_pred.log_prob(y_true)
 
-<<<<<<< HEAD
 
 class KernelDensityEstimator:
     """
@@ -160,7 +159,6 @@ class KernelDensityEstimator:
                 axis=-1
             )
         )
-=======
 def normal_inverse_gamma_negative_log_likelihood(
     y_true: TensorType, 
     y_pred: TensorType,
@@ -237,4 +235,3 @@ class DeepEvidentialCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         if self.verbose == 1 and epoch % 100 == 0:
             print(f"Epoch: {epoch};  Loss = {logs['loss']:4f}; NLL_LOSS = {logs['output_1_loss']:4f}; reg_loss = {logs['output_2_loss']:4f}; lambda: {self.reg_weight.numpy():4f}")
->>>>>>> clinton/der_model
