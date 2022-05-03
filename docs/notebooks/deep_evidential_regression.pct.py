@@ -11,6 +11,7 @@ import numpy as np
 import os
 import tensorflow as tf
 import trieste
+from trieste.acquisition.rule import EfficientGlobalOptimization
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -31,8 +32,8 @@ tf.get_logger().setLevel("ERROR")
 # Trieste works with `tf.float64` as a default. It is advised to set the Keras backend float to the same value using `tf.keras.backend.set_floatx()`. Otherwise code might crash with a ValueError!
 
 # %%
-np.random.seed(1794)
-tf.random.set_seed(1794)
+# np.random.seed(1794)
+# tf.random.set_seed(1794)
 tf.keras.backend.set_floatx("float64")
 
 # %% [markdown]
@@ -139,7 +140,7 @@ def plot_cubic(train_data:Dataset, test_data: Dataset, ood_predictions):
     ax.axvline(-4, color="grey", linestyle="dashed")
     ax.axvline(4, color="grey", linestyle="dashed")
     ax.plot(test_data.query_points, test_data.observations, color="red", linestyle="dashed")
-    plot_scatter_with_var(test_data.query_points, ood_predictions[0], ood_predictions[1], ax=ax)
+    plot_scatter_with_var(test_data.query_points, ood_predictions[0], np.log(ood_predictions[1]), ax=ax)
     ax.scatter(train_data.query_points, train_data.observations, color="tab:red", s=20, alpha = 0.8)
     ax.set_ylim(-150, 150)
     return fig
@@ -150,6 +151,25 @@ test_data = Dataset(x_test, y_test)
 ood_predictions = model.predict(x_test, aleatoric=False)
 
 fig = plot_cubic(data, test_data, ood_predictions)
+
+#%% TESTING
+
+evidential_output = model.model(x_test)[0]
+gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=1)
+sample_var = tf.math.reduce_variance(model.sample(x_test, 3000), axis=0)
+aleatoric = beta/(alpha - 1)
+epistemic = beta/((alpha - 1) * v)
+
+total = aleatoric + epistemic
+
+#%%
+
+f, a = plt.subplots(figsize = (12, 12))
+a.plot(x_test, sample_var, color="black", label="Sample Variance")
+a.plot(x_test, np.log(epistemic + 1), color="red", label="Epistemic")
+a.plot(x_test, np.log(aleatoric + 1), color="blue", label="Aleatoric")
+a.plot(x_test, np.log(aleatoric * epistemic + 1), color = "orange", label="Total Uncertainty")
+a.legend()
 
 # %% [markdown]
 # ## Non-stationary toy problem
@@ -163,7 +183,10 @@ fig = plot_cubic(data, test_data, ood_predictions)
 from trieste.objectives import (
     michalewicz_2,
     MICHALEWICZ_2_MINIMUM,
-    MICHALEWICZ_2_SEARCH_SPACE
+    MICHALEWICZ_2_SEARCH_SPACE,
+    scaled_branin,
+    SCALED_BRANIN_MINIMUM,
+    BRANIN_SEARCH_SPACE
 )
 from util.plotting_plotly import plot_function_plotly
 
@@ -172,12 +195,18 @@ function = michalewicz_2
 MINIMUM = MICHALEWICZ_2_MINIMUM
 MINIMIZER = MICHALEWICZ_2_MINIMUM
 
+
+search_space = BRANIN_SEARCH_SPACE
+function = scaled_branin
+MINIMUM = SCALED_BRANIN_MINIMUM
+MINIMIZER = SCALED_BRANIN_MINIMUM
+
 # we illustrate the 2-dimensional Michalewicz function
-fig = plot_function_plotly(
-    function, search_space.lower, search_space.upper, grid_density=100
-)
-fig.update_layout(height=800, width=800)
-fig.show()
+# fig = plot_function_plotly(
+#     function, search_space.lower, search_space.upper, grid_density=100
+# )
+# fig.update_layout(height=800, width=800)
+# fig.show()
 
 
 # %% [markdown]
@@ -188,7 +217,7 @@ fig.show()
 # %%
 from trieste.objectives.utils import mk_observer
 
-num_initial_points = 5
+num_initial_points = 1
 
 initial_query_points = search_space.sample(num_initial_points)
 observer = trieste.objectives.utils.mk_observer(function)
@@ -210,9 +239,7 @@ initial_data = observer(initial_query_points)
 
 # %%
 
-def build_model(data: Dataset) -> DeepEvidentialRegression:
-    num_hidden_layers = 4
-    num_nodes = 200
+def build_model(data: Dataset, num_hidden_layers: int = 4, num_nodes: int = 200, **model_args) -> DeepEvidentialRegression:
 
     deep_evidential = build_vanilla_keras_deep_evidential(
         data, num_hidden_layers, num_nodes
@@ -230,150 +257,207 @@ def build_model(data: Dataset) -> DeepEvidentialRegression:
 
     return DeepEvidentialRegression(
         deep_evidential, 
-        optimizer
+        optimizer, 
+        **model_args
     )
 
-
-# building and optimizing the model
-model = build_model(initial_data)
-
-
-# %% [markdown]
-# ## Run the optimization loop
-#
-# In Bayesian optimization we use an acquisition function to choose where in the search space to evaluate the objective function in each optimization step. Deep Evidential Regression model uses a feed forward network whose parameters act to approximate an evidential higher order distribution allowing it to output both aleatoric and epsitemic uncertainty. This means that many acquisition functions may be used such as Expected improvement (see `ExpectedImprovement`), Lower confidence bound (see `NegativeLowerConfidenceBound`) or Thompson sampling (see `ExactThompsonSampling`).
-#
-# Here we will illustrate Deep Evidential Regression with a Thompson sampling acquisition function. We use a discrete Thompson sampling strategy that samples a fixed number of points (`grid_size`) from the search space and takes a certain number of samples at each point based on the model posterior (`num_samples`, if more than 1 then this is a batch strategy).
-
-
-# %%
-from trieste.acquisition.rule import DiscreteThompsonSampling
-
-grid_size = 2000
-num_samples = 4
-
-# note that `DiscreteThompsonSampling` by default uses `ExactThompsonSampler`
-acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
+def parse_rate(rate:float)-> str:
+    out = str(rate)
+    if out == "0":
+        return out
+    elif out.count("e") == 1:
+        out = out.replace("-", "").replace("0", "")
+        return out
+    else:
+        zeros = out.count("0")
+        out = out.replace("0", "").replace(".", "")
+        return out + "e" + str(zeros)
 
 
-# %% [markdown]
-# We can now run the Bayesian optimization loop by defining a `BayesianOptimizer` and calling its `optimize` method.
-#
-# Note that the optimization might take a while!
+def hacky_sim(num_hidden_layers, num_nodes, reg_maxi: tuple, seed = 0):
+    # building and optimizing the model
+    np.random.seed(seed)
+    tf.random.set_seed(seed) 
+    reg_weight = reg_maxi[0]
+    maxi_rate = reg_maxi[1]
+    fig_title = f"TS(4) log_norm2 epistemic layers: {num_hidden_layers}, nodes: {num_nodes}, reg_maxi: {reg_maxi} seed: {seed}"
+    save_title = f"TS(4)_log_norm2_l{num_hidden_layers}_n{num_nodes}_r{parse_rate(reg_weight)}_m{parse_rate(maxi_rate)}_branin{seed}"
 
-# %%
-bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
+    fig_path = f"/home/clinton/Documents/bse/masters_thesis/trieste/notebooks/der_figs/branin"
+    os.makedirs(fig_path, exist_ok = True)
 
-num_steps = 25
-
-# The Keras interface does not currently support using `track_state=True` which saves the model
-# in each iteration. This will be addressed in a future update.
-result = bo.optimize(
-    num_steps,
-    initial_data,
-    model,
-    acquisition_rule=acquisition_rule,
-    track_state=False,
-)
-dataset = result.try_get_final_dataset()
+    initial_query_points = search_space.sample(num_initial_points)
+    observer = trieste.objectives.utils.mk_observer(function)
+    initial_data = observer(initial_query_points)
+    model = build_model(initial_data, num_hidden_layers, num_nodes, reg_weight=reg_weight, maxi_rate=maxi_rate)
 
 
-# %% [markdown]
-# ## Explore the results
-#
-# We can now get the best point found by the optimizer. Note this isn't necessarily the point that was last evaluated.
-
-# %%
-query_points = dataset.query_points.numpy()
-observations = dataset.observations.numpy()
-
-arg_min_idx = tf.squeeze(tf.argmin(observations, axis=0))
-
-print(f"Minimizer query point: {query_points[arg_min_idx, :]}")
-print(f"Minimum observation: {observations[arg_min_idx, :]}")
-print(f"True minimum: {MINIMUM}")
+    # %% [markdown]
+    # ## Run the optimization loop
+    #
+    # In Bayesian optimization we use an acquisition function to choose where in the search space to evaluate the objective function in each optimization step. Deep Evidential Regression model uses a feed forward network whose parameters act to approximate an evidential higher order distribution allowing it to output both aleatoric and epsitemic uncertainty. This means that many acquisition functions may be used such as Expected improvement (see `ExpectedImprovement`), Lower confidence bound (see `NegativeLowerConfidenceBound`) or Thompson sampling (see `ExactThompsonSampling`).
+    #
+    # Here we will illustrate Deep Evidential Regression with a Thompson sampling acquisition function. We use a discrete Thompson sampling strategy that samples a fixed number of points (`grid_size`) from the search space and takes a certain number of samples at each point based on the model posterior (`num_samples`, if more than 1 then this is a batch strategy).
 
 
-# %% [markdown]
-# We can visualise how the optimizer performed as a three-dimensional plot. Crosses mark the initial data points while dots mark the points chosen during the Bayesian optimization run. The points are colored from purple to yellow in order of their query from earliest to latest. You can see that there are some samples on the flat regions of the space, but the function very efficiently moves to the minimum where most of the points are concentrated.
+    # %%
+    from trieste.acquisition.rule import DiscreteThompsonSampling
 
-# %%
-from util.plotting_plotly import add_bo_points_plotly
+    grid_size = 2000
+    num_samples = 4
 
-fig = plot_function_plotly(
-    function,
-    search_space.lower,
-    search_space.upper,
-    grid_density=100,
-    alpha=0.7,
-)
-fig.update_layout(height=800, width=800)
+    # note that `DiscreteThompsonSampling` by default uses `ExactThompsonSampler`
+    acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
+    # acquisition_rule = EfficientGlobalOptimization()
 
-fig = add_bo_points_plotly(
-    x=query_points[:, 0],
-    y=query_points[:, 1],
-    z=observations[:, 0],
-    num_init=num_initial_points,
-    idx_best=arg_min_idx,
-    fig=fig,
-)
-fig.show()
+    
+    # %% [markdown]
+    # We can now run the Bayesian optimization loop by defining a `BayesianOptimizer` and calling its `optimize` method.
+    #
+    # Note that the optimization might take a while!
 
+    # %%
+    bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
 
-# %% [markdown]
-# We can visualise the model over the objective function by plotting the mean and 95% confidence intervals of its predictive distribution. Since it is not easy to choose the architecture of the deep ensemble we advise to always check with these types of plots whether the model seems to be doing a good job at modelling the objective function. In this case we can see that the model was able to capture the relevant parts of the objective function.
+    num_steps = 25
 
-# %%
-from util.plotting import plot_regret
-from util.plotting_plotly import plot_model_predictions_plotly
-
-fig = plot_model_predictions_plotly(
-    result.try_get_final_model(),
-    search_space.lower,
-    search_space.upper,
-)
-
-fig = add_bo_points_plotly(
-    x=query_points[:, 0],
-    y=query_points[:, 1],
-    z=observations[:, 0],
-    num_init=num_initial_points,
-    idx_best=arg_min_idx,
-    fig=fig,
-    figrow=1,
-    figcol=1,
-)
-fig.update_layout(height=800, width=800)
-fig.show()
+    # The Keras interface does not currently support using `track_state=True` which saves the model
+    # in each iteration. This will be addressed in a future update.
+    result = bo.optimize(
+        num_steps,
+        initial_data,
+        model,
+        acquisition_rule=acquisition_rule,
+        track_state=False,
+    )
+    dataset = result.try_get_final_dataset()
 
 
-# %% [markdown]
-# Finally, let's plot the regret over time, i.e. difference between the minimum of the objective function and lowest observations found by the Bayesian optimization over time. Below you can see two plots. The left hand plot shows the regret over time: the observations (crosses and dots), the current best (orange line), and the start of the optimization loop (blue line). The right hand plot is a two-dimensional search space that shows where in the search space initial points were located (crosses again) and where Bayesian optimization allocated samples (dots). The best point is shown in each (purple dot) and on the left plot you can see that we come very close to 0 which is the minimum of the objective function.
+    # %% [markdown]
+    # ## Explore the results
+    #
+    # We can now get the best point found by the optimizer. Note this isn't necessarily the point that was last evaluated.
 
-# %%
-from util.plotting import plot_regret, plot_bo_points
+    # %%
+    query_points = dataset.query_points.numpy()
+    observations = dataset.observations.numpy()
 
-suboptimality = observations - MINIMUM.numpy()
+    arg_min_idx = tf.squeeze(tf.argmin(observations, axis=0))
 
-fig, ax = plt.subplots(1, 2)
-plot_regret(
-    suboptimality,
-    ax[0],
-    num_init=num_initial_points,
-    idx_best=arg_min_idx,
-)
-plot_bo_points(
-    query_points, ax[1], num_init=num_initial_points, idx_best=arg_min_idx
-)
-ax[0].set_title("Minimum achieved")
-ax[0].set_ylabel("Regret")
-ax[0].set_xlabel("# evaluations")
-ax[1].set_ylabel("$x_2$")
-ax[1].set_xlabel("$x_1$")
-ax[1].set_title("Points in the search space")
-fig.show()
+    print(f"Minimizer query point: {query_points[arg_min_idx, :]}")
+    print(f"Minimum observation: {observations[arg_min_idx, :]}")
+    print(f"True minimum: {MINIMUM}")
 
 
+    # %% [markdown]
+    # We can visualise how the optimizer performed as a three-dimensional plot. Crosses mark the initial data points while dots mark the points chosen during the Bayesian optimization run. The points are colored from purple to yellow in order of their query from earliest to latest. You can see that there are some samples on the flat regions of the space, but the function very efficiently moves to the minimum where most of the points are concentrated.
+
+    # %%
+    from util.plotting_plotly import add_bo_points_plotly
+
+    fig = plot_function_plotly(
+        function,
+        search_space.lower,
+        search_space.upper,
+        grid_density=100,
+        alpha=0.7,
+    )
+    fig.update_layout(height=800, width=800)
+
+    fig = add_bo_points_plotly(
+        x=query_points[:, 0],
+        y=query_points[:, 1],
+        z=observations[:, 0],
+        num_init=num_initial_points,
+        idx_best=arg_min_idx,
+        fig=fig,
+    )
+    fig.update_layout(title = "fit " + fig_title)
+    # fig.show()
+    fig.write_html(os.path.join(fig_path, f"{save_title}_fit.html"))
+    print(f"{save_title}_fit saved!")
+
+
+    # %% [markdown]
+    # We can visualise the model over the objective function by plotting the mean and 95% confidence intervals of its predictive distribution. Since it is not easy to choose the architecture of the deep ensemble we advise to always check with these types of plots whether the model seems to be doing a good job at modelling the objective function. In this case we can see that the model was able to capture the relevant parts of the objective function.
+
+    # %%
+    from util.plotting import plot_regret
+    from util.plotting_plotly import plot_model_predictions_plotly
+
+    fig = plot_model_predictions_plotly(
+        result.try_get_final_model(),
+        search_space.lower,
+        search_space.upper,
+    )
+
+    fig = add_bo_points_plotly(
+        x=query_points[:, 0],
+        y=query_points[:, 1],
+        z=observations[:, 0],
+        num_init=num_initial_points,
+        idx_best=arg_min_idx,
+        fig=fig,
+        figrow=1,
+        figcol=1,
+    )
+    fig.update_layout(height=800, width=800)
+    fig.update_layout(title="predict " + fig_title)
+    # fig.show()
+    fig.write_html(os.path.join(fig_path, f"{save_title}_predict.html"))
+    print(f"{save_title}_predict saved!")
+
+# # %% [markdown]
+# # Finally, let's plot the regret over time, i.e. difference between the minimum of the objective function and lowest observations found by the Bayesian optimization over time. Below you can see two plots. The left hand plot shows the regret over time: the observations (crosses and dots), the current best (orange line), and the start of the optimization loop (blue line). The right hand plot is a two-dimensional search space that shows where in the search space initial points were located (crosses again) and where Bayesian optimization allocated samples (dots). The best point is shown in each (purple dot) and on the left plot you can see that we come very close to 0 which is the minimum of the objective function.
+
+# # %%
+# from util.plotting import plot_regret, plot_bo_points
+
+# suboptimality = observations - MINIMUM.numpy()
+
+# fig, ax = plt.subplots(1, 2)
+# plot_regret(
+#     suboptimality,
+#     ax[0],
+#     num_init=num_initial_points,
+#     idx_best=arg_min_idx,
+# )
+# plot_bo_points(
+#     query_points, ax[1], num_init=num_initial_points, idx_best=arg_min_idx
+# )
+# ax[0].set_title("Minimum achieved")
+# ax[0].set_ylabel("Regret")
+# ax[0].set_xlabel("# evaluations")
+# ax[1].set_ylabel("$x_2$")
+# ax[1].set_xlabel("$x_1$")
+# ax[1].set_title("Points in the search space")
+# fig.show()
+
+layers = [2]
+num_nodes = [50]
+reg_maxis = [
+    # (1e-4, 0),
+    # (1e-4, 0.01),
+    (0, 0.001),
+    (1e-4, 0)
+]
+seeds = range(10)
+
+import itertools
+for num_hidden_layers, num_nodes, reg_maxi, seed in itertools.product(layers, num_nodes, reg_maxis, seeds):
+    hacky_sim(num_hidden_layers, num_nodes, reg_maxi, seed)
+
+for seed in seeds:
+    for num_hidden_layers, num_nodes, reg_maxi, seed in zip(
+        [4, 2, 4, 2, 4, 2, 4, 4, 4, 4],
+        [50, 100, 50, 50, 25, 100, 50, 25, 100, 50],
+        zip(
+            [0.01, 0.001, 0.001, 0, 0, 0, 0, 1e-5, 0.001, 0.01],
+            [0, 0, 0, 0.001, 0.0001, 0.001, 0.001, 0.01, 0.01, 0.1]
+        ),
+        [seed for _ in range(10)]
+    ):
+        hacky_sim(num_hidden_layers, num_nodes, reg_maxi, seed)
 # %% [markdown]
 # ## LICENSE
 #

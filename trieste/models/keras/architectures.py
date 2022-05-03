@@ -282,24 +282,6 @@ class GaussianNetwork(KerasEnsembleNetwork):
         return input_tensor, output_tensor
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-class EpistemicUncertaintyPredictor(tf.keras.Model):
-    """
-    This class builds a fully connected neural network using Keras. The network architecture is a 
-    multilayer fully-connected feed-forward network with a single output parameter: the loss function
-    of the main predictor. This network is meant to be used with 
-    :class:`~trieste.models.keras.models.DirectEpistemicUncertaintyPredictor`.
-=======
-class DropoutNetwork(tf.keras.Model):
-    """
-    This class builds a standard dropout neural network using Keras. The network
-    architecture is a multilayer fully-connected feed-forward network, with Dropout layers
-    preceding each fully connected dense layer. The network is meant to be passed to
-    :class:`~trieste.models.keras.models.MonteCarloDropout` which will define the predict method 
-    to make this a probabilistic model. Otherwise this class will only use dropout in training.
->>>>>>> clinton_david/mcdropout
-=======
 class DeepEvidentialNetwork(tf.keras.Model):
     """
     This class builds a fully connected neural network with a deep evidential output using Keras. 
@@ -307,7 +289,6 @@ class DeepEvidentialNetwork(tf.keras.Model):
     outputs four distributional parameters meant to be used with a deep evidential loss function. 
     This network is meant to be used with :class:`~trieste.models.keras.models.DeepEvidentialRegression` 
     which will define the predict method to make this a probabilistic model. 
->>>>>>> clinton/der_model
     """
 
     def __init__(
@@ -315,29 +296,6 @@ class DeepEvidentialNetwork(tf.keras.Model):
         input_tensor_spec: tf.TensorSpec,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
-<<<<<<< HEAD
-<<<<<<< HEAD
-            {"units": 128, "activation": "relu"},
-            {"units": 128, "activation": "relu"},
-            {"units": 128, "activation": "relu"},
-            {"units": 128, "activation": "relu"},
-        )
-    ):
-        """
-        :param input_tensor_spec: Tensor specification for the input to the network.
-=======
-            {"units": 300, "activation": "relu"},
-            {"units": 300, "activation": "relu"},
-            {"units": 300, "activation": "relu"},
-            {"units": 300, "activation": "relu"},
-            {"units": 300, "activation": "relu"}
-        ),
-        rate: float = 0.1,
-    ):
-        """
-        :param input_tensor_spec: Tensor specification for the input of the network. 
->>>>>>> clinton_david/mcdropout
-=======
             {"units": 200, "activation": "relu"},
             {"units": 200, "activation": "relu"},
             {"units": 200, "activation": "relu"},
@@ -347,32 +305,10 @@ class DeepEvidentialNetwork(tf.keras.Model):
     ):
         """
         :param input_tensor_spec: Tensor specification for the input of the network. 
->>>>>>> clinton/der_model
         :param output_tensor_spec: Tensor specification for the output of the network.
         :param hidden_layer_args: Specification for building dense hidden layers. Each element in
             the sequence should be a dictionary containing arguments (keys) and their values for a
             :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
-<<<<<<< HEAD
-            available arguments. Objects in the sequence will sequentially be used to add
-<<<<<<< HEAD
-            :class:`~tf.keras.layers.Dense` layers. Length of this sequence determines the number of
-            hidden layers in the network. Default value is four hidden layers, 128 nodes each, with
-            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
-        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
-        """
-
-=======
-            :class:`~tf.keras.layers.Dense` layers with :class:`~tf.keras.layers.Dropout` layers 
-            added before each :class:`~tf.keras.layers.Dense` layer. Length of this sequence 
-            determines the number of hidden layers in the network. Default value is five hidden 
-            layers, 300 nodes each, with ReLu activation functions. Empty sequence needs to be passed 
-            to have no hidden layers.
-        :param rate: Probability of dropout assigned to each `~tf.keras.layers.Dropout` layer. By default
-            a rate of 0.1 is used. 
-        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
-        """
->>>>>>> clinton_david/mcdropout
-=======
             available arguments. Default value is four hidden layers, 200 nodes each, with ReLu 
             activation functions. Empty sequence needs to be passed to have no hidden layers.
         :param evidence_activation: Activation function to be used to ensure that evidential 
@@ -380,44 +316,12 @@ class DeepEvidentialNetwork(tf.keras.Model):
             By default the "softplus" is used. Alternatively, "relu" or "exp" can be chosen. 
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
->>>>>>> clinton/der_model
         super().__init__()
         self.input_tensor_spec = input_tensor_spec
         self.output_tensor_spec = output_tensor_spec
         self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
         self._hidden_layer_args = hidden_layer_args
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-        self.hidden_layers = self._gen_hidden_layers()
-        self.output_layer = self._gen_output_layer()
-
-    def _gen_input_tensor(self) -> tf.keras.Input:
-
-        input_tensor = tf.keras.Input(
-            shape=self.input_tensor_spec.shape,
-            dtype=self.input_tensor_spec.dtype,
-            name=self.input_layer_name,
-        )
-        return input_tensor
-=======
-        tf.debugging.assert_greater_equal(
-            rate, 0.0, f"Rate needs to be a valid probability, instead got {rate}"
-        )
-        tf.debugging.assert_less_equal(
-            rate, 1.0, f"Rate needs to be a valid probability, instead got {rate}"
-        )
-        self._rate = rate
-
-        self.hidden_layers = self._gen_hidden_layers()
-        self.output_layer = self._gen_output_layer()
-
-    @property
-    def rate(self) -> float:
-        return self._rate
->>>>>>> clinton_david/mcdropout
-
-=======
         self.hidden_layers = self._gen_hidden_layers()
         self.output_layer = self._gen_output_layer()
 
@@ -438,15 +342,10 @@ class DeepEvidentialNetwork(tf.keras.Model):
         else:
             self._evidence_activation = evidence_activation
     
->>>>>>> clinton/der_model
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> clinton/der_model
             hidden_layers.add(tf.keras.layers.Dense(
                 dtype=self.input_tensor_spec.dtype,
                 **hidden_layer_args
@@ -457,17 +356,114 @@ class DeepEvidentialNetwork(tf.keras.Model):
     def _gen_output_layer(self) -> tf.keras.layers.Layer:
 
         output_layer = tf.keras.layers.Dense(
-<<<<<<< HEAD
-            units=self.flattened_output_shape,
-=======
             units= 4 * self.flattened_output_shape,
->>>>>>> clinton/der_model
             dtype=self.input_tensor_spec.dtype,
             name="output"
         )
 
-<<<<<<< HEAD
-=======
+        return output_layer
+
+    def _get_evidence(self, evidence: tf.Tensor) -> tf.Tensor:
+        '''Applies an activation function to ensure all evidential parameters are positive.'''
+
+        if self.evidence_activation == "softplus":
+            return tf.nn.softplus(evidence) + 1e-15
+        elif self.evidence_activation == "relu":
+            return tf.nn.relu(evidence) + 1e-15
+        elif self.evidence_activation == "exp":
+            return tf.math.exp(evidence)
+
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        The forward method of a Deep Evidential Regression model outputs four evidential
+        parameters: gamma, v, alpha, beta that parametrize the Gaussian and Inverse Gamma
+        evidential distributions. This forward method outputs a tuple of identical [N x 4]
+        outputs to be used with :class:`~trieste.models.keras.DeepEvidentialRegression` 's 
+        double headed loss function. 
+
+        :param inputs: The inputs. [N x d].
+
+        :return: Tuple of identical outputs of evidential parameters: [N x 4], [N x 4]
+        """
+
+        if inputs.shape.rank == 1:
+            inputs = tf.expand_dims(inputs, axis=-1)
+
+        hidden_output = self.hidden_layers(inputs)
+        output = self.output_layer(hidden_output)
+        
+        gamma, v, alpha, beta = tf.split(output, 4, axis=-1)
+        v = self._get_evidence(v)
+        beta = self._get_evidence(beta)
+        # We need alpha > 1 so that the aleatoric and epistemic uncertainties will
+        # be positive. 
+        alpha = self._get_evidence(alpha) + 1
+        output = tf.concat([gamma, v, alpha, beta], axis=-1)
+        return output, output
+class DropoutNetwork(tf.keras.Model):
+    """
+    This class builds a standard dropout neural network using Keras. The network
+    architecture is a multilayer fully-connected feed-forward network, with Dropout layers
+    preceding each fully connected dense layer. The network is meant to be passed to
+    :class:`~trieste.models.keras.models.MonteCarloDropout` which will define the predict method 
+    to make this a probabilistic model. Otherwise this class will only use dropout in training.
+    """
+
+    def __init__(
+        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"}
+        ),
+        rate: float = 0.1,
+    ):
+        """
+        :param input_tensor_spec: Tensor specification for the input of the network. 
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
+            available arguments. Objects in the sequence will sequentially be used to add
+            :class:`~tf.keras.layers.Dense` layers with :class:`~tf.keras.layers.Dropout` layers 
+            added before each :class:`~tf.keras.layers.Dense` layer. Length of this sequence 
+            determines the number of hidden layers in the network. Default value is five hidden 
+            layers, 300 nodes each, with ReLu activation functions. Empty sequence needs to be passed 
+            to have no hidden layers.
+        :param rate: Probability of dropout assigned to each `~tf.keras.layers.Dropout` layer. By default
+            a rate of 0.1 is used. 
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
+        super().__init__()
+        self.input_tensor_spec = input_tensor_spec
+        self.output_tensor_spec = output_tensor_spec
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
+        self._hidden_layer_args = hidden_layer_args
+
+        tf.debugging.assert_greater_equal(
+            rate, 0.0, f"Rate needs to be a valid probability, instead got {rate}"
+        )
+        tf.debugging.assert_less_equal(
+            rate, 1.0, f"Rate needs to be a valid probability, instead got {rate}"
+        )
+        self._rate = rate
+
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
+
+    @property
+    def rate(self) -> float:
+        return self._rate
+
+    def _gen_hidden_layers(self) -> tf.keras.Model:
+
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
             hidden_layers.add(tf.keras.layers.Dropout(
                 rate=self.rate, 
                 dtype=self.input_tensor_spec.dtype
@@ -489,7 +485,6 @@ class DeepEvidentialNetwork(tf.keras.Model):
             units=self.flattened_output_shape,
             dtype=self.input_tensor_spec.dtype
         ))
->>>>>>> clinton_david/mcdropout
         return output_layer
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
@@ -500,9 +495,6 @@ class DeepEvidentialNetwork(tf.keras.Model):
         hidden_output = self.hidden_layers(inputs)
         output = self.output_layer(hidden_output)
 
-<<<<<<< HEAD
-        return output
-=======
         return output
 
 
@@ -573,46 +565,85 @@ class DropConnectNetwork(DropoutNetwork):
         )
 
         return output_layer
->>>>>>> clinton_david/mcdropout
-=======
+
+
+class EpistemicUncertaintyPredictor(tf.keras.Model):
+    """
+    This class builds a fully connected neural network using Keras. The network architecture is a 
+    multilayer fully-connected feed-forward network with a single output parameter: the loss function
+    of the main predictor. This network is meant to be used with 
+    :class:`~trieste.models.keras.models.DirectEpistemicUncertaintyPredictor`.
+    """
+
+    def __init__(
+        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+        )
+    ):
+        """
+        :param input_tensor_spec: Tensor specification for the input to the network.
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
+            available arguments. Objects in the sequence will sequentially be used to add
+            :class:`~tf.keras.layers.Dense` layers. Length of this sequence determines the number of
+            hidden layers in the network. Default value is four hidden layers, 128 nodes each, with
+            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
+
+        super().__init__()
+        self.input_tensor_spec = input_tensor_spec
+        self.output_tensor_spec = output_tensor_spec
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
+        self._hidden_layer_args = hidden_layer_args
+
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
+
+    def _gen_input_tensor(self) -> tf.keras.Input:
+
+        input_tensor = tf.keras.Input(
+            shape=self.input_tensor_spec.shape,
+            dtype=self.input_tensor_spec.dtype,
+            name=self.input_layer_name,
+        )
+        return input_tensor
+
+    def _gen_hidden_layers(self) -> tf.keras.Model:
+
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
+            hidden_layers.add(tf.keras.layers.Dense(
+                dtype=self.input_tensor_spec.dtype,
+                **hidden_layer_args
+            ))
+
+        return hidden_layers
+
+    def _gen_output_layer(self) -> tf.keras.layers.Layer:
+
+        output_layer = tf.keras.layers.Dense(
+            units=self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype,
+            name="output"
+        )
+
         return output_layer
 
-    def _get_evidence(self, evidence: tf.Tensor) -> tf.Tensor:
-        '''Applies an activation function to ensure all evidential parameters are positive.'''
-
-        if self.evidence_activation == "softplus":
-            return tf.nn.softplus(evidence) + 1e-15
-        elif self.evidence_activation == "relu":
-            return tf.nn.relu(evidence) + 1e-15
-        elif self.evidence_activation == "exp":
-            return tf.math.exp(evidence)
-
-
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """
-        The forward method of a Deep Evidential Regression model outputs four evidential
-        parameters: gamma, v, alpha, beta that parametrize the Gaussian and Inverse Gamma
-        evidential distributions. This forward method outputs a tuple of identical [N x 4]
-        outputs to be used with :class:`~trieste.models.keras.DeepEvidentialRegression` 's 
-        double headed loss function. 
-
-        :param inputs: The inputs. [N x d].
-
-        :return: Tuple of identical outputs of evidential parameters: [N x 4], [N x 4]
-        """
 
         if inputs.shape.rank == 1:
             inputs = tf.expand_dims(inputs, axis=-1)
 
         hidden_output = self.hidden_layers(inputs)
         output = self.output_layer(hidden_output)
-        
-        gamma, v, alpha, beta = tf.split(output, 4, axis=-1)
-        v = self._get_evidence(v)
-        beta = self._get_evidence(beta)
-        # We need alpha > 1 so that the aleatoric and epistemic uncertainties will
-        # be positive. 
-        alpha = self._get_evidence(alpha) + 1
-        output = tf.concat([gamma, v, alpha, beta], axis=-1)
-        return output, output
->>>>>>> clinton/der_model
+
+        return output

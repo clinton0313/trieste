@@ -90,9 +90,6 @@ def build_vanilla_keras_ensemble(
 
     return keras_ensemble
 
-
-<<<<<<< HEAD
-<<<<<<< HEAD
 def build_vanilla_deup(
     data: Dataset,
     f_model_args: dict = {
@@ -149,7 +146,7 @@ def build_vanilla_deup(
     )
 
     return f_model, e_model
-=======
+
 def build_vanilla_keras_mcdropout(
     data: Dataset,
     num_hidden_layers: int = 5,
@@ -180,7 +177,25 @@ def build_vanilla_keras_mcdropout(
         performs dropout for the inputs of each layer or :class: `DropConnectNetwork` which performs
         dropout for the weights of each layer. 
     :return: Keras MonteCarloDropout model.
-=======
+    """
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
+
+    hidden_layer_args = []
+    for _ in range(num_hidden_layers):
+        hidden_layer_args.append({"units": units, "activation": activation})
+
+    keras_mcdropout = dropout_network(
+        input_tensor_spec, 
+        output_tensor_spec, 
+        hidden_layer_args, 
+        rate
+    )
+
+    keras_mcdropout.build(data.query_points.shape)
+
+    return keras_mcdropout
+
+
 def build_vanilla_keras_deep_evidential(
     data: Dataset,
     num_hidden_layers: int = 4,
@@ -201,7 +216,6 @@ def build_vanilla_keras_deep_evidential(
             outputs alpha, beta and lambda will be well behaved (alpha > 1, beta > 0, lambda > 0).
             By default the "softplus" is used. Alternatively, "relu" or "exp" can be chosen. 
     :return: Keras deep evidential regression model.
->>>>>>> clinton/der_model
     """
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
 
@@ -209,23 +223,9 @@ def build_vanilla_keras_deep_evidential(
     for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
-<<<<<<< HEAD
-    keras_mcdropout = dropout_network(
-        input_tensor_spec, 
-        output_tensor_spec, 
-        hidden_layer_args, 
-        rate
-    )
-
-    keras_mcdropout.build(data.query_points.shape)
-
-    return keras_mcdropout
->>>>>>> clinton_david/mcdropout
-=======
     return DeepEvidentialNetwork(
             input_tensor_spec,
             output_tensor_spec,
             hidden_layer_args,
             evidence_activation
         )
->>>>>>> clinton/der_model

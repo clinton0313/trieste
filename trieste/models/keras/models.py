@@ -14,14 +14,10 @@
 
 from __future__ import annotations
 
-<<<<<<< HEAD
 from typing import Any, Dict, Optional, Sequence
 from copy import deepcopy
-=======
-from typing import Dict, Optional, Sequence
->>>>>>> clinton/der_model
-
 import dill
+
 import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow.python.keras.callbacks import Callback
@@ -37,17 +33,8 @@ from ..interfaces import (
     TrajectorySampler,
 )
 from ..optimizer import KerasOptimizer
-<<<<<<< HEAD
-<<<<<<< HEAD
-from .architectures import KerasEnsemble, MultivariateNormalTriL
-=======
-from .architectures import DropoutNetwork, KerasEnsemble
->>>>>>> clinton_david/mcdropout
-from .interface import KerasPredictor
-from .sampler import EnsembleTrajectorySampler
-from .utils import negative_log_likelihood, sample_with_replacement, KernelDensityEstimator
-=======
-from .architectures import KerasEnsemble, DeepEvidentialNetwork
+
+from .architectures import DropoutNetwork, KerasEnsemble, MultivariateNormalTriL, DeepEvidentialNetwork
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler
 from .utils import (
@@ -57,7 +44,6 @@ from .utils import (
     normal_inverse_gamma_regularizer,
     sample_with_replacement,
 )
->>>>>>> clinton/der_model
 
 import datetime
 
@@ -367,7 +353,6 @@ class DeepEnsemble(
         x, y = self.prepare_dataset(dataset)
         self.model.fit(x=x, y=y, **self.optimizer.fit_args)
 
-<<<<<<< HEAD
     def __getstate__(self) -> dict[str, Any]:
         # When pickling use to_json to save any optimizer fit_arg callback models
         state = self.__dict__.copy()
@@ -404,501 +389,6 @@ class DeepEnsemble(
             metrics=[self.optimizer.metrics] * self._model.ensemble_size,
             )
 
-class DirectEpistemicUncertaintyPredictor(
-    KerasPredictor, TrainableProbabilisticModel
-):
-    """
-    A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a direct epistemic uncertainty
-    prediction (DEUP) model built using Keras.
-
-    The method employs an auxiliary deep neural network to predict the uncertainty that stems
-    from the generalization error of the main predictor, which in principle is reducible with more
-    data and higher effective capacity. Unlike other available Keras models, which solely exploit 
-    model variance to approximate the total uncertainty, DEUP accounts for the bias induced in
-    training neural networks with limited data, which can induce a preference on the functions it
-    learns away from the Bayes-optimal predictor (<cite data-cite="jain2022"/>). The main model,
-    `f_model`, is trained to predict outcomes of the function of interest and is built as an
-    ensemble of deep neural networks using the :class:`~trieste.models.keras.DeepEvidentialRgression` wrapper.
-    each a fully connected multilayer probabilistic network. The auxiliary model, `e_model`, is trained.
-    to predict the squared loss of the main predictor, which in the regression setup can be shown to 
-    approximate the total uncertainty stemming both from the model variance and the potential misspecification 
-    caused by, for example, early stopping.
-
-    A particular advantage of training the auxiliary model is that the error predictor can be explicitly
-    trained to account for examples that may come from a distribution different from the distribution of
-    most of the training examples. These non-stationary settings, likely in the context of Bayesian 
-    optimization, make it challenging to train the error predictor, as the measured error around a parameter
-    combination will differ before and after the incorporation of the queried set of arguments to the training set.
-    We account for this by using additional features as input to the error predictor, namely the log-density
-    of the function parameters and the model variance estimates. The former is computed using kernel density
-    estimation and assuming a Gaussian kernel, while the latter is computed from the variance estimates of the 
-    main deep ensemble model.  
-
-    In practice, we provide a warm start to the error predictor by creating multiple versions of the main
-    predictor trained on different subsets of the training data. This approach, inspired by standard cross
-    validation, builds a larger set of targets for the error predictor and avoids discarding valuable observations
-    in the early training of the error predictor. The warm start is enabled by default, and can be disabled by
-    setting the ``init_buffer`` argument to False.
-=======
-
-class DeepEvidentialRegression(
-    KerasPredictor, EvidentialPriorModel, TrainableProbabilisticModel
-):
-    """
-    A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a deep evidential model 
-    built using Keras.
-
-    Deep evidential regression is a deterministic deep neural network that seeks to learn the 
-    parameters to the posterior higher order deep evidential distributions and has good 
-    quantifications of uncertainty at fast speeds in practice (<cite data-cite="amini2020evidential"/>). 
-    Furthermore, the deep evidential model can easily separate between aleatoric and epistemic uncertainty.  
-    The model consists of a simple fully connected feed forward network whose final output layer is 
-    configured to output the necessary evidential parameters. The model trains using a combination 
-    of the negative log-likelihood of the Normal Inverse Gamma distribution and a custom regularizer 
-    (<cite data-cite="amini2020evidential"/>) that makes the problem well defined. 
-
-    The dual loss functions are controlled by a single weight coefficient, ``reg_weight`` and although
-    the original paper does not explicitly note the use of an iterative search procedure to optimize
-    this parameter, the author's original code does, and we include its use here. In practice, it 
-    improves performance of the model and makes it less sensitive to the hyperparameter choice. 
-
-    We provide classes for constructing the base network using Keras
-    (:class:`~trieste.models.keras.DeepEvidentialNetwork`) in the `architectures` package that should 
-    be used with the :class:`~trieste.models.keras.DeepEvidentialRgression` wrapper. We also provide 
-    the necessary loss functions and a custom callback to implement the iterative procedures for 
-    computing the loss in the `utils` package. These methods are implented by default in the model wrapper. 
->>>>>>> clinton/der_model
-
-    Note that currently we do not support setting up the model with dictionary configs and saving
-    the model during Bayesian optimization loop (``track_state`` argument in
-    :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
-    """
-    def __init__(
-        self,
-<<<<<<< HEAD
-        model: Sequence[dict[str, Any]],
-        optimizer: Optional[KerasOptimizer] = None,
-        init_buffer: bool = False
-    ) -> None:
-
-        """
-        :param model: A dictionary with two models: the main predictor and the auxiliary error model.
-            The main Keras model should be a compiled model of class :class:`trieste.models.DeepEnsemble`
-            or class :class:`trieste.models.keras.MonteCarloDropout`. The auxiliary model is an instance of
-            :class:`trieste.models.keras.EpistemicUncertaintyPredictor`. The model has to be built but not
-            compiled.
-        :param optimizer: The optimizer wrapper with necessary specifications for compiling and
-            training the model. Defaults to :class:`~trieste.models.optimizer.KerasOptimizer` with
-            :class:`~tf.optimizers.Adam` optimizer, mean squared error loss and a dictionary
-            of default arguments for Keras `fit` method: 1000 epochs, batch size 16, early stopping
-            callback with patience of 50, and verbose 0. 
-            See https://keras.io/api/models/model_training_apis/#fit-method for a list 
-            of possible arguments.
-        :param init_buffer: A boolean that enables the pre-training of the error predictor by training several
-            main models using cross-validated slices of the dataset and fitting the resulting models on
-            the entire dataset. This constructs a dataset of [N*K, D] observations nad squared losses, which
-            are used to train the auxiliary predictor.
-=======
-        model: DeepEvidentialNetwork,
-        optimizer: Optional[KerasOptimizer] = None,
-        reg_weight: float = 0.,
-        maxi_rate: float = 1e-4,
-        epsilon: float = 1e-2,
-        verbose: int = 0 #Temporary parameter to be used with Callback for diagnosing in development.
-    ) -> None:
-        
-        """
-        :param model: A Keras model built to output evidential parameters: an instance of 
-            :class:`trieste.models.keras.DeepEvidentialNetwork`. Themodel has to be built but 
-            not compiled.
-        :param optimizer: The optimizer wrapper with necessary specifications for compiling and
-            training the model. Loss function passed with this optimizer will be ignored and will
-            instead use a weighted combination, controlled by ``reg_weight``, of 
-            :function:`~trieste.models.keras.utils.normal_inverse_gamma_log_likelihood` and
-            :function:`~trieste.models.keras.utils.normal_inverse_gamma_regularizer`. The constructor
-            will also add :class:`~trieste.models.keras.utils.DeepEvidentialCallback` to the optimizer, 
-            which is required to run this model. This callback is not meant to be instantiated outside 
-            of this model's constructor. Otherwise the optimizer defaults to 
-            :class:`~trieste.models.optimizer.KerasOptimizer` with :class:`~tf.optimizers.Adam` 
-            optimizer, and a dictionary of default arguments for Keras `fit` method: 1000 epochs, 
-            batch size 16, early stopping callback with patience of 100, resotre_best_weights True, 
-            and verbose 0. See https://keras.io/api/models/model_training_apis/#fit-method for a list 
-            of possible arguments.
-        :param reg_weight: The weight attributed to the regularization loss that trades off between 
-            uncertainty inflation and model fit. Smaller values lead to higher degrees of confidence, 
-            whereas larger values lead to inflation of uncertainty. A fixed value of around 0.01 
-            seems to work well for small datasets, but ``reg_weight`` defualts to 0 to allow for 
-            an automatic incremental search for the best value using ``maxi_rate``.
-        :param maxi_rate: Throughout training, the ``reg_weight`` is automatically adjusted based on 
-            previous outputs of the regularization loss. This update is applied at the end of every 
-            batch by: ``reg_weight`` += ``maxi_rate`` * (regularization loss - ``epsilon``). A default
-            of 1e-4 in conjunction with a ``reg_weight`` of 0 and ``epsilon`` of 0.01 seems to work well. 
-        :param epsilon: A parameter used in updating ``reg_weight`` throughout training as described above.
->>>>>>> clinton/der_model
-        """
-
-        super().__init__(optimizer)
-
-        if not self.optimizer.fit_args:
-            self.optimizer.fit_args = {
-                "verbose": 0,
-                "epochs": 1000,
-<<<<<<< HEAD
-                "batch_size": 32,
-=======
-                "batch_size": 16,
->>>>>>> clinton/der_model
-                "callbacks": [
-                    tf.keras.callbacks.EarlyStopping(
-                        monitor="loss", patience=100, restore_best_weights=True
-                    )
-                ],
-            }
-
-<<<<<<< HEAD
-        self.optimizer.loss = "mse"
-
-        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
-        
-        model["e_model"].compile(
-            self.optimizer.optimizer,
-            loss=[self.optimizer.loss],
-=======
-        self.reg_weight = tf.Variable(reg_weight, dtype=model.layers[-1].dtype)
-        self.epsilon = epsilon
-        self.maxi_rate = maxi_rate
-        self.verbose = verbose
-        
-        try:
-            if not isinstance(self.optimizer.fit_args["callbacks"], list):
-                if isinstance(self.optimizer.fit_args["callbacks"], Sequence):
-                    self.optimizer.fit_args["callbacks"] = list(self.optimizer.fit_args["callbacks"])
-                else:
-                    self.optimizer.fit_args["callbacks"] = [self.optimizer.fit_args["callbacks"]]
-            self.optimizer.fit_args["callbacks"].append(
-                DeepEvidentialCallback(
-                    self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
-                )
-            )
-        except KeyError:
-            self.optimizer.fit_args["callbacks"] = [
-                    DeepEvidentialCallback(
-                        self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
-                    )
-                ]
-
-        model.compile(
-            self.optimizer.optimizer,
-            loss=[
-                normal_inverse_gamma_negative_log_likelihood, 
-                normal_inverse_gamma_regularizer
-            ],
-            loss_weights = [1., self.reg_weight],
->>>>>>> clinton/der_model
-            metrics=[self.optimizer.metrics],
-        )
-
-        self._model = model
-<<<<<<< HEAD
-        self._init_buffer = init_buffer
-        self._data_u = None     # [DAV] uncertainty dataset
-        self._prior_size = None # [DAV] track new observations
-
-    def __repr__(self) -> str:
-        """"""
-        return f"DirectEpistemicUncertaintyPredictor({self.model!r}, {self.optimizer!r})"
-
-    @property
-    def model(self) -> tuple[DeepEnsemble, tf.keras.Model]:
-        """
-        Returns two compiled models: A Keras ensemble model and an epistemic uncertainty predictor.
-        """
-        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), "[DAV]"
-        assert issubclass(type(self._model["e_model"]), tf.keras.Model), "[DAV]"
-        return self._model["f_model"], self._model["e_model"]
-
-    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
-        """
-        Return ``num_samples`` samples at ``query_points``. We use the mixture approximation in
-        :meth:`predict` for ``query_points`` and sample ``num_samples`` times from a Gaussian
-        distribution given by the predicted mean and variance.
-
-        :param query_points: The points at which to sample, with shape [..., N, D].
-        :param num_samples: The number of samples at each point.
-        :return: The samples. For a predictive distribution with event shape E, this has shape
-            [..., S, N] + E, where S is the number of samples.
-        """
-
-        predicted_means, predicted_vars = self.predict(query_points)
-        normal = tfp.distributions.Normal(predicted_means, tf.sqrt(predicted_vars))
-        samples = normal.sample(num_samples)
-
-        return samples  # [num_samples, len(query_points), 1]
-=======
-        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
-    
-    @property
-    def model(self) -> tf.keras.Model:
-        """ Returns compiled Keras ensemble model."""
-        return self._model
-
-    def __repr__(self) -> str:
-        return f"DeepEvidentialRegression({self.model!r}, {self.optimizer!r})"
-
-
-    def sample_normal_parameters(
-        self, 
-        gamma: TensorType,
-        v: TensorType,
-        alpha: TensorType,
-        beta: TensorType, 
-        num_samples:int
-    ) -> tuple[TensorType, TensorType]:
-        """
-        Returns a tensor of means and a tensor of variances that parametrized the
-        posterior Gaussian distribution of our outputs. We use the evidential parameters
-        gamma, v, alpha, beta to sample from a Gaussian distribution to sample our means
-        and an Inverse Gamma distribution sample our variances.
-
-        :param gamma: the mean of the evidential Gaussian distribution.
-        :param v: sigma/v parameterizes the variance of the evidential Gaussian distribution.
-        :param alpha: the concentration (shape) of the evidential Inverse Gamma distribution.
-        :param beta: the scale of the evidential Inverse Gamma distribution.
-        :num_samples: number of samples: S. 
-
-        :return: mean and variance tensors with shape [S, N, 1] each. 
-        """
-
-        sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
-        sigma_samples = sigma_dist.sample(num_samples)
-        
-        mu_dist = tfp.distributions.Normal(gamma, (sigma_samples/v)**0.5)
-
-        mu_samples = mu_dist.sample(1)
-        mu_samples = tf.reshape(mu_samples, sigma_samples.shape)
-        
-        return mu_samples, sigma_samples # [num_samples, len(query_points), 1] x2
-
-    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
-        """
-        Return ``num_samples`` samples at ``query_points``. We use :meth:`predict` for 
-        ``query_points`` to get the evidential parameters. We use :meth:`sample_normal_parameters`
-        to sample mu and sigma tensors from our evidential distributions to parametrize
-        our posterior Gaussian distribution. We draw our samples from this Gaussian distribution.
-
-        :param query_points: The points at which to sample, with shape [..., N, D].
-        :param num_samples: The number of samples at each point: S. 
-        :return: The samples. This has shape [S, N, 1]
-        """
-        evidential_output = self.model(query_points)[0]
-        gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
-
-        mu, sigma = self.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
-       
-        observation_dist = tfp.distributions.Normal(mu, sigma**0.5)
-        samples = observation_dist.sample(1)
-        
-        samples = tf.reshape(tf.squeeze(samples), (num_samples, len(query_points), 1))
-        
-        return samples # [num_samples, len(query_points), 1]
-
->>>>>>> clinton/der_model
-
-    def update(self, dataset: Dataset) -> None:
-        """
-        Neural networks are parametric models and do not need to update data.
-        `TrainableProbabilisticModel` interface, however, requires an update method, so
-        here we simply pass the execution.
-        """
-        pass
-<<<<<<< HEAD
-
-    def optimize(self, dataset: Dataset) -> None:
-        """
-        Optimize the underlying Direct Epistemic Uncertainty Prediction model with the 
-        specified ``dataset``.
-
-        Optimization is performed by using the Keras `fit` method, rather than applying the
-        optimizer and using the batches supplied with the optimizer wrapper. User can pass
-        arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
-        These default to using 100 epochs, batch size 32, and verbose 0. See
-=======
-    
-    def optimize(self, dataset: Dataset) -> None:
-        """
-        Optimize the underlying Keras ensemble model with the specified ``dataset``.
-
-        Optimization is performed by using the Keras `fit` method, rather than applying the
-        optimizer and using the batches supplied with the optimizer wrapper. User can pass
-        arguments to the `fit` method through ``fit_args`` argument in the optimizer wrapper.
-        These default to using 1000 epochs, batch size 16, and verbose 0 as well as a custom
-        loss function and callback necessary for this model described in the constructor. See
->>>>>>> clinton/der_model
-        https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
-        arguments.
-
-        Note that optimization does not return the result, instead optimization results are
-<<<<<<< HEAD
-        stored in a history attribute of the model object. The algorithm iterates
-        over two copies of the dataset's observations to account for the
-        stationarizing features and the two targets: the target outcome for the main
-        predictor and the squared loss for the auxiliary predictor. The procedure follows
-        the main proposed algorithm in <cite data-cite="jain2022"/>.
-
-        :param dataset: The data with which to optimize the model.
-        """     
-        # optional init buffer
-        if self._data_u is None: 
-            self._prior_size = dataset.query_points.shape[0]
-            self.density_estimator = KernelDensityEstimator(kernel="gaussian")
-            if self._init_buffer:
-                print("Access uncertainty buffer", datetime.datetime.now())
-                self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
-            else:
-                self._data_u = Dataset(
-                    tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=tf.float64), 
-                    tf.zeros([0, 1], dtype=tf.float64)
-                )
-        
-        print("optim loop", datetime.datetime.now(), self._prior_size)
-
-        x, y = dataset.astuple()
-
-        # post-oracle, pre-refit append
-        self._data_u = self.data_u_appender(x, y)
-
-        # post-oracle, post-refit
-        self.model[0].optimize(dataset)
-        self.density_estimator.fit(dataset.query_points)
-        self._data_u = self.data_u_appender(x, y)
-
-        xu, yu = self._data_u.astuple()
-
-        # pre-new-oracle, fit u (it is empty if not init_buffering at the moment)
-        try:
-            self.model[1].fit(xu, yu, **self.optimizer.fit_args)
-        except:
-            pass
-        self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
-
-        # increase "seen" observations (only after first set of candidates)
-        self._prior_size = dataset.query_points.shape[0]
-
-    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
-        r"""
-        Returns mean and variance at ``query_points`` for the Direct Epistemic
-        Uncertainty Prediction model.
-
-        Following <cite data-cite="jain2022"/>, we consider the case for a model with
-        a Gaussian ground truth, i.e.
-                .. math:: p(y \mid x)=\mathcal{N}\left(y ; f^{*}(x), \sigma^{2}(x)\right).
-
-        In this scenario, it can be shown that the epistemic uncertainty can be estimated
-        as the squared difference between main-model predictions and the Bayes optimal
-        prediction at a given point, that is:
-                .. math:: \mathcal{E}(\hat{f}, x)=\left(\hat{f}(x)-f^{*}(x)\right)^{2}
-
-        As the Bayes optimal is unattainable, we instead approximate the epistemic uncertainty
-        by computing the total uncertainty of the model, which is captured by the expected
-        squared loss of the main-model predictions. This can be deconstructed as follows
-                .. math:: \mathcal{U}(\hat{f}, x)=E_{P(. \mid x)}\left[(\hat{f}(x)-y)^{2}\right]=\left(\hat{f}(x)-f^{*}(x)\right)^{2}+\sigma^{2}(x)
-        
-        The predict method returns the point estimates of the main predictor, and uses point estimates
-        of the squared loss to return predictions for model uncertainty. Note that the dataset used to
-        train the models in a BO setting grows over time, which renders estimates of uncertainty
-        as iteration dependent. Following the original paper, we account for this evolving uncertainty 
-        space by considering stationarizing variables, namely the predicted variance from the ensemble 
-        model and the Gaussian density of our queried points. These are used to enhance the dataset of
-        features the auxiliary model predicts on, so that a D-dimensional queried point will be passed
-        as a [D+2,1] observation to the error predictor.
-
-        :param query_points: The points at which to make predictions.
-        :return: The predicted mean and variance of the observations at the specified
-            ``query_points``.
-        """
-        if not tf.is_tensor(query_points):
-            query_points = tf.convert_to_tensor(query_points)
-        if query_points.shape.rank == 1:
-            query_points = tf.expand_dims(query_points, axis=-1)
-
-        f_pred, f_var = self.model[0].predict(query_points)
-        density_scores = self.density_estimator.score_samples(query_points)
-        data_u = tf.concat((query_points, f_var, density_scores), axis=1)
-        e_pred = self.model[1](data_u)
-        return f_pred, e_pred
-
-    def __copy__(self):
-        r"""
-        Creates a copy of the model used in the initial buffering of the data for the 
-        uncertainty predictor.
-        """
-        return DirectEpistemicUncertaintyPredictor(model=self._model)
-
-    def data_u_appender(self, query_points, observations):
-        """
-        Enhances the new queried observations with estimates of their Gaussian density
-        and main model variance, and appends them as new observations to optimize the
-        auxiliary model.
-
-        :param query_points: The points at which to make predictions.
-        :param observations: The target observations.
-        :return: A new dataset for the uncertainty prediction, which includes the previous
-            observations and the new batch of points.
-
-        """
-        new_points = query_points[self._prior_size:,:]
-        new_observations = observations[self._prior_size:,:]
-
-        # stationarizing feature: variance
-        f_pred, f_var = self.model[0].predict(new_points)
-        
-        # stationarizing feature: density
-        density_scores = self.density_estimator.score_samples(new_points)
-
-        new_data_u = Dataset(
-            tf.concat((new_points, f_var, density_scores), axis=1),   # [N, D+2]
-            tf.pow(tf.subtract(f_pred, new_observations), 2)
-        )
-        return Dataset(
-            (self._data_u + new_data_u).query_points,
-            (self._data_u + new_data_u).observations,            
-
-        )
-
-    def uncertainty_buffer(self, dataset: Dataset, iterations: int) -> Dataset:
-        """
-        Builds an initial dataset of observations to kickstart the error predictor. The 
-        scheme employs cross-validation to train multiple main models using partial datasets
-        of the initial data points, and predicts both in sample and out of sample outcomes.
-        The squared loss of these predictions are used to construct the target dataset for
-        the error predictor.
-
-        :param dataset: The data with which to optimize the model.
-        :param iterations: The number of full cross-validation passes. 
-        :return: A dataset of queried points and stabilizing variables as features, and squared losses
-            as targets.
-        """
-        points, targets = [], []
-
-        data = tf.concat((dataset.query_points, dataset.observations), axis=1)
-        for _ in tf.range(iterations):
-            for set in tf.random.shuffle(tf.split(data, 2, axis=0)):
-                data_ = Dataset(set[:,:-1], tf.expand_dims(set[:,-1], axis=1))
-
-                # stationarizing feature: variance
-                f_ = self.__copy__().model[0]
-                f_.optimize(data_)
-                f_pred, f_var = f_.predict(dataset.query_points)
-
-                # stationarizing feature: density
-                self.density_estimator.fit(dataset.query_points)
-                density_scores = self.density_estimator.score_samples(dataset.query_points)
-
-                targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
-                points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
-        
-        points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
-        return Dataset(points, targets)
 
 class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
     """
@@ -1071,7 +561,216 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
             tf.math.square(predicted_means),
         )
         return predicted_means, predicted_vars
-=======
+
+
+
+class DeepEvidentialRegression(
+    KerasPredictor, EvidentialPriorModel, TrainableProbabilisticModel
+):
+    """
+    A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a deep evidential model 
+    built using Keras.
+
+    Deep evidential regression is a deterministic deep neural network that seeks to learn the 
+    parameters to the posterior higher order deep evidential distributions and has good 
+    quantifications of uncertainty at fast speeds in practice (<cite data-cite="amini2020evidential"/>). 
+    Furthermore, the deep evidential model can easily separate between aleatoric and epistemic uncertainty.  
+    The model consists of a simple fully connected feed forward network whose final output layer is 
+    configured to output the necessary evidential parameters. The model trains using a combination 
+    of the negative log-likelihood of the Normal Inverse Gamma distribution and a custom regularizer 
+    (<cite data-cite="amini2020evidential"/>) that makes the problem well defined. 
+
+    The dual loss functions are controlled by a single weight coefficient, ``reg_weight`` and although
+    the original paper does not explicitly note the use of an iterative search procedure to optimize
+    this parameter, the author's original code does, and we include its use here. In practice, it 
+    improves performance of the model and makes it less sensitive to the hyperparameter choice. 
+
+    We provide classes for constructing the base network using Keras
+    (:class:`~trieste.models.keras.DeepEvidentialNetwork`) in the `architectures` package that should 
+    be used with the :class:`~trieste.models.keras.DeepEvidentialRgression` wrapper. We also provide 
+    the necessary loss functions and a custom callback to implement the iterative procedures for 
+    computing the loss in the `utils` package. These methods are implented by default in the model wrapper. 
+
+    Note that currently we do not support setting up the model with dictionary configs and saving
+    the model during Bayesian optimization loop (``track_state`` argument in
+    :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
+    """
+    def __init__(
+        self,
+        model: DeepEvidentialNetwork,
+        optimizer: Optional[KerasOptimizer] = None,
+        reg_weight: float = 0.,
+        maxi_rate: float = 1e-4,
+        epsilon: float = 1e-2,
+        verbose: int = 0 #Temporary parameter to be used with Callback for diagnosing in development.
+    ) -> None:
+        
+        """
+        :param model: A Keras model built to output evidential parameters: an instance of 
+            :class:`trieste.models.keras.DeepEvidentialNetwork`. Themodel has to be built but 
+            not compiled.
+        :param optimizer: The optimizer wrapper with necessary specifications for compiling and
+            training the model. Loss function passed with this optimizer will be ignored and will
+            instead use a weighted combination, controlled by ``reg_weight``, of 
+            :function:`~trieste.models.keras.utils.normal_inverse_gamma_log_likelihood` and
+            :function:`~trieste.models.keras.utils.normal_inverse_gamma_regularizer`. The constructor
+            will also add :class:`~trieste.models.keras.utils.DeepEvidentialCallback` to the optimizer, 
+            which is required to run this model. This callback is not meant to be instantiated outside 
+            of this model's constructor. Otherwise the optimizer defaults to 
+            :class:`~trieste.models.optimizer.KerasOptimizer` with :class:`~tf.optimizers.Adam` 
+            optimizer, and a dictionary of default arguments for Keras `fit` method: 1000 epochs, 
+            batch size 16, early stopping callback with patience of 100, resotre_best_weights True, 
+            and verbose 0. See https://keras.io/api/models/model_training_apis/#fit-method for a list 
+            of possible arguments.
+        :param reg_weight: The weight attributed to the regularization loss that trades off between 
+            uncertainty inflation and model fit. Smaller values lead to higher degrees of confidence, 
+            whereas larger values lead to inflation of uncertainty. A fixed value of around 0.01 
+            seems to work well for small datasets, but ``reg_weight`` defualts to 0 to allow for 
+            an automatic incremental search for the best value using ``maxi_rate``.
+        :param maxi_rate: Throughout training, the ``reg_weight`` is automatically adjusted based on 
+            previous outputs of the regularization loss. This update is applied at the end of every 
+            batch by: ``reg_weight`` += ``maxi_rate`` * (regularization loss - ``epsilon``). A default
+            of 1e-4 in conjunction with a ``reg_weight`` of 0 and ``epsilon`` of 0.01 seems to work well. 
+        :param epsilon: A parameter used in updating ``reg_weight`` throughout training as described above.
+        """
+
+        super().__init__(optimizer)
+
+        if not self.optimizer.fit_args:
+            self.optimizer.fit_args = {
+                "verbose": 0,
+                "epochs": 1000,
+                "batch_size": 16,
+                "callbacks": [
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor="loss", patience=100, restore_best_weights=True
+                    )
+                ],
+            }
+
+        self.reg_weight = tf.Variable(reg_weight, dtype=model.layers[-1].dtype)
+        self.epsilon = epsilon
+        self.maxi_rate = maxi_rate
+        self.verbose = verbose
+        
+        try:
+            if not isinstance(self.optimizer.fit_args["callbacks"], list):
+                if isinstance(self.optimizer.fit_args["callbacks"], Sequence):
+                    self.optimizer.fit_args["callbacks"] = list(self.optimizer.fit_args["callbacks"])
+                else:
+                    self.optimizer.fit_args["callbacks"] = [self.optimizer.fit_args["callbacks"]]
+            self.optimizer.fit_args["callbacks"].append(
+                DeepEvidentialCallback(
+                    self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
+                )
+            )
+        except KeyError:
+            self.optimizer.fit_args["callbacks"] = [
+                    DeepEvidentialCallback(
+                        self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
+                    )
+                ]
+
+        model.compile(
+            self.optimizer.optimizer,
+            loss=[
+                normal_inverse_gamma_negative_log_likelihood, 
+                normal_inverse_gamma_regularizer
+            ],
+            loss_weights = [1., self.reg_weight],
+            metrics=[self.optimizer.metrics],
+        )
+
+        self._model = model
+        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
+    
+    @property
+    def model(self) -> tf.keras.Model:
+        """ Returns compiled Keras ensemble model."""
+        return self._model
+
+    def __repr__(self) -> str:
+        return f"DeepEvidentialRegression({self.model!r}, {self.optimizer!r})"
+
+
+    def sample_normal_parameters(
+        self, 
+        gamma: TensorType,
+        v: TensorType,
+        alpha: TensorType,
+        beta: TensorType, 
+        num_samples:int
+    ) -> tuple[TensorType, TensorType]:
+        """
+        Returns a tensor of means and a tensor of variances that parametrized the
+        posterior Gaussian distribution of our outputs. We use the evidential parameters
+        gamma, v, alpha, beta to sample from a Gaussian distribution to sample our means
+        and an Inverse Gamma distribution sample our variances.
+
+        :param gamma: the mean of the evidential Gaussian distribution.
+        :param v: sigma/v parameterizes the variance of the evidential Gaussian distribution.
+        :param alpha: the concentration (shape) of the evidential Inverse Gamma distribution.
+        :param beta: the scale of the evidential Inverse Gamma distribution.
+        :num_samples: number of samples: S. 
+
+        :return: mean and variance tensors with shape [S, N, 1] each. 
+        """
+
+        sigma_dist = tfp.distributions.InverseGamma(alpha, beta)
+        sigma_samples = sigma_dist.sample(num_samples)
+        
+        mu_dist = tfp.distributions.Normal(gamma, (sigma_samples/v)**0.5)
+
+        mu_samples = mu_dist.sample(1)
+        mu_samples = tf.reshape(mu_samples, sigma_samples.shape)
+        
+        return mu_samples, sigma_samples # [num_samples, len(query_points), 1] x2
+
+    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
+        """
+        Return ``num_samples`` samples at ``query_points``. We use :meth:`predict` for 
+        ``query_points`` to get the evidential parameters. We use :meth:`sample_normal_parameters`
+        to sample mu and sigma tensors from our evidential distributions to parametrize
+        our posterior Gaussian distribution. We draw our samples from this Gaussian distribution.
+
+        :param query_points: The points at which to sample, with shape [..., N, D].
+        :param num_samples: The number of samples at each point: S. 
+        :return: The samples. This has shape [S, N, 1]
+        """
+        evidential_output = self.model(query_points)[0]
+        gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+
+        mu, sigma = self.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
+       
+        observation_dist = tfp.distributions.Normal(mu, sigma**0.5)
+        samples = observation_dist.sample(1)
+        
+        samples = tf.reshape(tf.squeeze(samples), (num_samples, len(query_points), 1))
+        
+        return samples # [num_samples, len(query_points), 1]
+
+
+    def update(self, dataset: Dataset) -> None:
+        """
+        Neural networks are parametric models and do not need to update data.
+        `TrainableProbabilisticModel` interface, however, requires an update method, so
+        here we simply pass the execution.
+        """
+        pass
+    
+    def optimize(self, dataset: Dataset) -> None:
+        """
+        Optimize the underlying Keras ensemble model with the specified ``dataset``.
+
+        Optimization is performed by using the Keras `fit` method, rather than applying the
+        optimizer and using the batches supplied with the optimizer wrapper. User can pass
+        arguments to the `fit` method through ``fit_args`` argument in the optimizer wrapper.
+        These default to using 1000 epochs, batch size 16, and verbose 0 as well as a custom
+        loss function and callback necessary for this model described in the constructor. See
+        https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
+        arguments.
+
+        Note that optimization does not return the result, instead optimization results are
         stored in a history attribute of the model object. Optimization fits to two copies of
         the dataset's observations to leverage a dynamic weighting of the loss function and its
         regularizer. The history attribute contains three losses where ``loss`` referes to the 
@@ -1126,4 +825,313 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
         uncertainty = epistemic + beta/(alpha-1) if aleatoric else epistemic
         
         return gamma, uncertainty
->>>>>>> clinton/der_model
+
+
+
+class DirectEpistemicUncertaintyPredictor(
+    KerasPredictor, TrainableProbabilisticModel
+):
+    """
+    A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a direct epistemic uncertainty
+    prediction (DEUP) model built using Keras.
+
+    The method employs an auxiliary deep neural network to predict the uncertainty that stems
+    from the generalization error of the main predictor, which in principle is reducible with more
+    data and higher effective capacity. Unlike other available Keras models, which solely exploit 
+    model variance to approximate the total uncertainty, DEUP accounts for the bias induced in
+    training neural networks with limited data, which can induce a preference on the functions it
+    learns away from the Bayes-optimal predictor (<cite data-cite="jain2022"/>). The main model,
+    `f_model`, is trained to predict outcomes of the function of interest and is built as an
+    ensemble of deep neural networks using the :class:`~trieste.models.keras.DeepEvidentialRgression` wrapper.
+    each a fully connected multilayer probabilistic network. The auxiliary model, `e_model`, is trained.
+    to predict the squared loss of the main predictor, which in the regression setup can be shown to 
+    approximate the total uncertainty stemming both from the model variance and the potential misspecification 
+    caused by, for example, early stopping.
+
+    A particular advantage of training the auxiliary model is that the error predictor can be explicitly
+    trained to account for examples that may come from a distribution different from the distribution of
+    most of the training examples. These non-stationary settings, likely in the context of Bayesian 
+    optimization, make it challenging to train the error predictor, as the measured error around a parameter
+    combination will differ before and after the incorporation of the queried set of arguments to the training set.
+    We account for this by using additional features as input to the error predictor, namely the log-density
+    of the function parameters and the model variance estimates. The former is computed using kernel density
+    estimation and assuming a Gaussian kernel, while the latter is computed from the variance estimates of the 
+    main deep ensemble model.  
+
+    In practice, we provide a warm start to the error predictor by creating multiple versions of the main
+    predictor trained on different subsets of the training data. This approach, inspired by standard cross
+    validation, builds a larger set of targets for the error predictor and avoids discarding valuable observations
+    in the early training of the error predictor. The warm start is enabled by default, and can be disabled by
+    setting the ``init_buffer`` argument to False.
+
+    Note that currently we do not support setting up the model with dictionary configs and saving
+    the model during Bayesian optimization loop (``track_state`` argument in
+    :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
+    """
+    def __init__(
+        self,
+        model: Sequence[dict[str, Any]],
+        optimizer: Optional[KerasOptimizer] = None,
+        init_buffer: bool = False
+    ) -> None:
+
+        """
+        :param model: A dictionary with two models: the main predictor and the auxiliary error model.
+            The main Keras model should be a compiled model of class :class:`trieste.models.DeepEnsemble`
+            or class :class:`trieste.models.keras.MonteCarloDropout`. The auxiliary model is an instance of
+            :class:`trieste.models.keras.EpistemicUncertaintyPredictor`. The model has to be built but not
+            compiled.
+        :param optimizer: The optimizer wrapper with necessary specifications for compiling and
+            training the model. Defaults to :class:`~trieste.models.optimizer.KerasOptimizer` with
+            :class:`~tf.optimizers.Adam` optimizer, mean squared error loss and a dictionary
+            of default arguments for Keras `fit` method: 1000 epochs, batch size 16, early stopping
+            callback with patience of 50, and verbose 0. 
+            See https://keras.io/api/models/model_training_apis/#fit-method for a list 
+            of possible arguments.
+        :param init_buffer: A boolean that enables the pre-training of the error predictor by training several
+            main models using cross-validated slices of the dataset and fitting the resulting models on
+            the entire dataset. This constructs a dataset of [N*K, D] observations nad squared losses, which
+            are used to train the auxiliary predictor.
+        """
+
+        super().__init__(optimizer)
+
+        if not self.optimizer.fit_args:
+            self.optimizer.fit_args = {
+                "verbose": 0,
+                "epochs": 1000,
+                "batch_size": 32,
+                "callbacks": [
+                    tf.keras.callbacks.EarlyStopping(
+                        monitor="loss", patience=100, restore_best_weights=True
+                    )
+                ],
+            }
+
+        self.optimizer.loss = "mse"
+
+        self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
+        
+        model["e_model"].compile(
+            self.optimizer.optimizer,
+            loss=[self.optimizer.loss],
+            metrics=[self.optimizer.metrics],
+        )
+
+        self._model = model
+        self._init_buffer = init_buffer
+        self._data_u = None     # [DAV] uncertainty dataset
+        self._prior_size = None # [DAV] track new observations
+
+    def __repr__(self) -> str:
+        """"""
+        return f"DirectEpistemicUncertaintyPredictor({self.model!r}, {self.optimizer!r})"
+
+    @property
+    def model(self) -> tuple[DeepEnsemble, tf.keras.Model]:
+        """
+        Returns two compiled models: A Keras ensemble model and an epistemic uncertainty predictor.
+        """
+        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), "[DAV]"
+        assert issubclass(type(self._model["e_model"]), tf.keras.Model), "[DAV]"
+        return self._model["f_model"], self._model["e_model"]
+
+    def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
+        """
+        Return ``num_samples`` samples at ``query_points``. We use the mixture approximation in
+        :meth:`predict` for ``query_points`` and sample ``num_samples`` times from a Gaussian
+        distribution given by the predicted mean and variance.
+
+        :param query_points: The points at which to sample, with shape [..., N, D].
+        :param num_samples: The number of samples at each point.
+        :return: The samples. For a predictive distribution with event shape E, this has shape
+            [..., S, N] + E, where S is the number of samples.
+        """
+
+        predicted_means, predicted_vars = self.predict(query_points)
+        normal = tfp.distributions.Normal(predicted_means, tf.sqrt(predicted_vars))
+        samples = normal.sample(num_samples)
+
+        return samples  # [num_samples, len(query_points), 1]
+
+    def update(self, dataset: Dataset) -> None:
+        """
+        Neural networks are parametric models and do not need to update data.
+        `TrainableProbabilisticModel` interface, however, requires an update method, so
+        here we simply pass the execution.
+        """
+        pass
+
+    def optimize(self, dataset: Dataset) -> None:
+        """
+        Optimize the underlying Direct Epistemic Uncertainty Prediction model with the 
+        specified ``dataset``.
+
+        Optimization is performed by using the Keras `fit` method, rather than applying the
+        optimizer and using the batches supplied with the optimizer wrapper. User can pass
+        arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
+        These default to using 100 epochs, batch size 32, and verbose 0. See
+        https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
+        arguments.
+
+        Note that optimization does not return the result, instead optimization results are
+        stored in a history attribute of the model object. The algorithm iterates
+        over two copies of the dataset's observations to account for the
+        stationarizing features and the two targets: the target outcome for the main
+        predictor and the squared loss for the auxiliary predictor. The procedure follows
+        the main proposed algorithm in <cite data-cite="jain2022"/>.
+
+        :param dataset: The data with which to optimize the model.
+        """     
+        # optional init buffer
+        if self._data_u is None: 
+            self._prior_size = dataset.query_points.shape[0]
+            self.density_estimator = KernelDensityEstimator(kernel="gaussian")
+            if self._init_buffer:
+                print("Access uncertainty buffer", datetime.datetime.now())
+                self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
+            else:
+                self._data_u = Dataset(
+                    tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=tf.float64), 
+                    tf.zeros([0, 1], dtype=tf.float64)
+                )
+        
+        print("optim loop", datetime.datetime.now(), self._prior_size)
+
+        x, y = dataset.astuple()
+
+        # post-oracle, pre-refit append
+        self._data_u = self.data_u_appender(x, y)
+
+        # post-oracle, post-refit
+        self.model[0].optimize(dataset)
+        self.density_estimator.fit(dataset.query_points)
+        self._data_u = self.data_u_appender(x, y)
+
+        xu, yu = self._data_u.astuple()
+
+        # pre-new-oracle, fit u (it is empty if not init_buffering at the moment)
+        try:
+            self.model[1].fit(xu, yu, **self.optimizer.fit_args)
+        except:
+            pass
+        self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
+
+        # increase "seen" observations (only after first set of candidates)
+        self._prior_size = dataset.query_points.shape[0]
+
+    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
+        r"""
+        Returns mean and variance at ``query_points`` for the Direct Epistemic
+        Uncertainty Prediction model.
+
+        Following <cite data-cite="jain2022"/>, we consider the case for a model with
+        a Gaussian ground truth, i.e.
+                .. math:: p(y \mid x)=\mathcal{N}\left(y ; f^{*}(x), \sigma^{2}(x)\right).
+
+        In this scenario, it can be shown that the epistemic uncertainty can be estimated
+        as the squared difference between main-model predictions and the Bayes optimal
+        prediction at a given point, that is:
+                .. math:: \mathcal{E}(\hat{f}, x)=\left(\hat{f}(x)-f^{*}(x)\right)^{2}
+
+        As the Bayes optimal is unattainable, we instead approximate the epistemic uncertainty
+        by computing the total uncertainty of the model, which is captured by the expected
+        squared loss of the main-model predictions. This can be deconstructed as follows
+                .. math:: \mathcal{U}(\hat{f}, x)=E_{P(. \mid x)}\left[(\hat{f}(x)-y)^{2}\right]=\left(\hat{f}(x)-f^{*}(x)\right)^{2}+\sigma^{2}(x)
+        
+        The predict method returns the point estimates of the main predictor, and uses point estimates
+        of the squared loss to return predictions for model uncertainty. Note that the dataset used to
+        train the models in a BO setting grows over time, which renders estimates of uncertainty
+        as iteration dependent. Following the original paper, we account for this evolving uncertainty 
+        space by considering stationarizing variables, namely the predicted variance from the ensemble 
+        model and the Gaussian density of our queried points. These are used to enhance the dataset of
+        features the auxiliary model predicts on, so that a D-dimensional queried point will be passed
+        as a [D+2,1] observation to the error predictor.
+
+        :param query_points: The points at which to make predictions.
+        :return: The predicted mean and variance of the observations at the specified
+            ``query_points``.
+        """
+        if not tf.is_tensor(query_points):
+            query_points = tf.convert_to_tensor(query_points)
+        if query_points.shape.rank == 1:
+            query_points = tf.expand_dims(query_points, axis=-1)
+
+        f_pred, f_var = self.model[0].predict(query_points)
+        density_scores = self.density_estimator.score_samples(query_points)
+        data_u = tf.concat((query_points, f_var, density_scores), axis=1)
+        e_pred = self.model[1](data_u)
+        return f_pred, e_pred
+
+    def __copy__(self):
+        r"""
+        Creates a copy of the model used in the initial buffering of the data for the 
+        uncertainty predictor.
+        """
+        return DirectEpistemicUncertaintyPredictor(model=self._model)
+
+    def data_u_appender(self, query_points, observations):
+        """
+        Enhances the new queried observations with estimates of their Gaussian density
+        and main model variance, and appends them as new observations to optimize the
+        auxiliary model.
+
+        :param query_points: The points at which to make predictions.
+        :param observations: The target observations.
+        :return: A new dataset for the uncertainty prediction, which includes the previous
+            observations and the new batch of points.
+
+        """
+        new_points = query_points[self._prior_size:,:]
+        new_observations = observations[self._prior_size:,:]
+
+        # stationarizing feature: variance
+        f_pred, f_var = self.model[0].predict(new_points)
+        
+        # stationarizing feature: density
+        density_scores = self.density_estimator.score_samples(new_points)
+
+        new_data_u = Dataset(
+            tf.concat((new_points, f_var, density_scores), axis=1),   # [N, D+2]
+            tf.pow(tf.subtract(f_pred, new_observations), 2)
+        )
+        return Dataset(
+            (self._data_u + new_data_u).query_points,
+            (self._data_u + new_data_u).observations,            
+
+        )
+
+    def uncertainty_buffer(self, dataset: Dataset, iterations: int) -> Dataset:
+        """
+        Builds an initial dataset of observations to kickstart the error predictor. The 
+        scheme employs cross-validation to train multiple main models using partial datasets
+        of the initial data points, and predicts both in sample and out of sample outcomes.
+        The squared loss of these predictions are used to construct the target dataset for
+        the error predictor.
+
+        :param dataset: The data with which to optimize the model.
+        :param iterations: The number of full cross-validation passes. 
+        :return: A dataset of queried points and stabilizing variables as features, and squared losses
+            as targets.
+        """
+        points, targets = [], []
+
+        data = tf.concat((dataset.query_points, dataset.observations), axis=1)
+        for _ in tf.range(iterations):
+            for set in tf.random.shuffle(tf.split(data, 2, axis=0)):
+                data_ = Dataset(set[:,:-1], tf.expand_dims(set[:,-1], axis=1))
+
+                # stationarizing feature: variance
+                f_ = self.__copy__().model[0]
+                f_.optimize(data_)
+                f_pred, f_var = f_.predict(dataset.query_points)
+
+                # stationarizing feature: density
+                self.density_estimator.fit(dataset.query_points)
+                density_scores = self.density_estimator.score_samples(dataset.query_points)
+
+                targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
+                points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
+        
+        points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
+        return Dataset(points, targets)
