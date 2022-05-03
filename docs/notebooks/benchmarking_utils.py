@@ -7,8 +7,28 @@ import time
 import trieste
 
 from tqdm import tqdm
-
+from trieste.models.gpflow import GaussianProcessRegression, build_gpr
+from trieste.models.keras import (
+    DeepEvidentialRegression,
+    MonteCarloDropout,
+    DeepEnsemble,
+    build_vanilla_keras_ensemble,
+    build_vanilla_keras_mcdropout,
+    build_vanilla_keras_deep_evidential, 
+)
+from trieste.models.keras.architectures import DropConnectNetwork
+from trieste.objectives import (
+    michalewicz_2,
+    MICHALEWICZ_2_MINIMUM,
+    MICHALEWICZ_2_SEARCH_SPACE,
+    MICHALEWICZ_2_MINIMIZER,
+    scaled_branin,
+    SCALED_BRANIN_MINIMUM,
+    BRANIN_MINIMIZERS,
+    BRANIN_SEARCH_SPACE
+)
 from trieste.objectives.utils import mk_observer
+from trieste.models.optimizer import KerasOptimizer
 from typing import Callable, Tuple
 from util.plotting_plotly import (
     plot_model_predictions_plotly, 
@@ -22,6 +42,58 @@ tf.keras.backend.set_floatx("float64")
 
 #%%
 
+global_save_title_prefixes = {
+    "num_hidden_layers": "L",
+    "units": "n",
+    "reg_weight": "rw",
+    "maxi_rate": "m",
+    "rate": "dr",
+    "lr": "lr",
+    "ensemble_size": "es"
+}
+
+# OBJECTIVES
+
+michal2 = ("michal2", michalewicz_2, MICHALEWICZ_2_SEARCH_SPACE, MICHALEWICZ_2_MINIMUM, MICHALEWICZ_2_MINIMIZER)
+branin = ("scaled_branin", scaled_branin, BRANIN_SEARCH_SPACE, SCALED_BRANIN_MINIMUM, BRANIN_MINIMIZERS)
+
+# MODEL BUILDERS
+
+def der_builder(data, num_hidden_layers, units, reg_weight, maxi_rate, lr):
+    network = build_vanilla_keras_deep_evidential(
+        data=data,
+        num_hidden_layers=num_hidden_layers,
+        units=units,
+        )
+    model = DeepEvidentialRegression(
+        network, 
+        optimizer=KerasOptimizer(tf.optimizers.Adam(lr)),
+        reg_weight=reg_weight, 
+        maxi_rate=maxi_rate
+    )
+    return model
+
+def mcdropout_builder(data, num_hidden_layers, units, rate, lr):
+    network = build_vanilla_keras_mcdropout(data, num_hidden_layers, units, rate=rate)
+    model = MonteCarloDropout(network, KerasOptimizer(tf.optimizers.Adam(lr)))
+    return model
+
+def mcdropconnect_builder(data, num_hidden_layers, units, rate, lr):
+    network = build_vanilla_keras_mcdropout(data, num_hidden_layers, units, rate=rate, dropout_network=DropConnectNetwork)
+    model = MonteCarloDropout(network, KerasOptimizer(tf.optimizers.Adam(lr)))
+    return model
+
+def deepensemble_builder(data, ensemble_size, num_hidden_layers, units):
+    network = build_vanilla_keras_ensemble(data, ensemble_size, num_hidden_layers, units)
+    model = DeepEnsemble(network)
+    return model
+
+def gpr_builder(data, search_space):
+    network = build_gpr(data, search_space)
+    model = GaussianProcessRegression(network)
+    return model
+
+# SIMULATOR
 def parse_rate(rate:float)-> str:
     '''Helpful function taht parses floats into scientific notation strings'''
     if rate > 10 or rate < -10:
@@ -167,11 +239,12 @@ def simulate_experiment(
 
         save_title_suffix = []
         for key in save_title_prefixes.keys():
-            if isinstance(model_args[key], float):
-                arg = parse_rate(model_args[key])
-            else:
-                arg = model_args[key]
-            save_title_suffix.append(f"{save_title_prefixes[key]}{arg}")
+            if key in model_args.keys():
+                if isinstance(model_args[key], float):
+                    arg = parse_rate(model_args[key])
+                else:
+                    arg = model_args[key]
+                save_title_suffix.append(f"{save_title_prefixes[key]}{arg}")
         
         save_title = f"{model_name}_{acquisition_name}_s{seed}_" + "_".join(save_title_suffix)
 
