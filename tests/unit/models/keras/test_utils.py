@@ -12,13 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from distutils.command.build import build
 import numpy as np
+import numpy.testing as npt
 import pytest
 import tensorflow as tf
 
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
 from trieste.data import Dataset
-from trieste.models.keras.utils import get_tensor_spec_from_data, sample_with_replacement
+from trieste.models.keras.utils import (
+    get_tensor_spec_from_data,
+    normal_inverse_gamma_negative_log_likelihood,
+    normal_inverse_gamma_regularizer,
+    sample_with_replacement,
+
+)
+from trieste.types import TensorType
+from typing import Callable, Union
 
 
 def test_get_tensor_spec_from_data_raises_for_incorrect_dataset() -> None:
@@ -102,3 +113,38 @@ def test_sample_with_replacement_seems_correct(rank: int) -> None:
     x = tf.cast(x[:, 0], dtype=tf.float32)
     assert (tf.reduce_mean(mean) - tf.reduce_mean(x)) < 1
     assert tf.math.abs(tf.math.reduce_std(mean) - tf.math.reduce_std(x) / 10.0) < 0.1
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "y_true, y_pred, true_loss",
+    [
+        (0.8, tf.constant([[1., 0.2, 1.5, 0.3]]), 1.1141493),
+        (1.8, tf.constant([[2.3, 0.5, 2.3, 0.7]]), 1.0892888)
+    ]
+)
+def test_normal_inverse_gamma_negative_log_likelihood_is_accurate(
+    y_true: float,
+    y_pred: TensorType,
+    true_loss: float
+) -> None:
+    loss = normal_inverse_gamma_negative_log_likelihood(y_true, y_pred)
+    npt.assert_approx_equal(loss, true_loss)
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "y_true, y_pred, true_loss",
+    [
+        (0.8, tf.constant([[1., 0.2, 1.5, 0.3]]), 0.37999997),
+        (1.8, tf.constant([[2.3, 0.5, 2.3, 0.7]]), 1.6499999)
+    ]
+)
+def test_normal_inverse_gamma_regularizer_is_accurate(
+    y_true: float,
+    y_pred: TensorType,
+    true_loss: float
+) -> None:
+    loss = normal_inverse_gamma_regularizer(y_true, y_pred)
+    npt.assert_approx_equal(loss, true_loss)
+

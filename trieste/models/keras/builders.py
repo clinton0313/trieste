@@ -27,10 +27,14 @@ from trieste.models.keras.models import DeepEnsemble
 
 from ...data import Dataset
 <<<<<<< HEAD
+<<<<<<< HEAD
 from .architectures import GaussianNetwork, KerasEnsemble, EpistemicUncertaintyPredictor
 =======
 from .architectures import DropoutNetwork, GaussianNetwork, KerasEnsemble
 >>>>>>> clinton_david/mcdropout
+=======
+from .architectures import DeepEvidentialNetwork, GaussianNetwork, KerasEnsemble
+>>>>>>> clinton/der_model
 from .utils import get_tensor_spec_from_data
 
 
@@ -87,6 +91,7 @@ def build_vanilla_keras_ensemble(
     return keras_ensemble
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 def build_vanilla_deup(
     data: Dataset,
@@ -175,6 +180,28 @@ def build_vanilla_keras_mcdropout(
         performs dropout for the inputs of each layer or :class: `DropConnectNetwork` which performs
         dropout for the weights of each layer. 
     :return: Keras MonteCarloDropout model.
+=======
+def build_vanilla_keras_deep_evidential(
+    data: Dataset,
+    num_hidden_layers: int = 4,
+    units: int = 200,
+    activation: Union[str, tf.keras.layers.Activation] = "relu",
+    evidence_activation: str = "softplus"
+) -> DeepEvidentialNetwork:
+
+    """
+    Builds a simple feed-forward neural network in Keras that has an output layer adapted for
+    the deep evidential regression framework. 
+
+    :param dataset: Data for training, used for extracting input and output tensor specifications.
+    :param num_hidden_layers: The number of hidden layers in each network.
+    :param units: The number of nodes in each hidden layer.
+    :param activation: The activation function in each hidden layer.
+    :param evidence_activation: Activation function to be used to ensure that evidential 
+            outputs alpha, beta and lambda will be well behaved (alpha > 1, beta > 0, lambda > 0).
+            By default the "softplus" is used. Alternatively, "relu" or "exp" can be chosen. 
+    :return: Keras deep evidential regression model.
+>>>>>>> clinton/der_model
     """
     input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(data)
 
@@ -182,6 +209,7 @@ def build_vanilla_keras_mcdropout(
     for _ in range(num_hidden_layers):
         hidden_layer_args.append({"units": units, "activation": activation})
 
+<<<<<<< HEAD
     keras_mcdropout = dropout_network(
         input_tensor_spec, 
         output_tensor_spec, 
@@ -193,3 +221,11 @@ def build_vanilla_keras_mcdropout(
 
     return keras_mcdropout
 >>>>>>> clinton_david/mcdropout
+=======
+    return DeepEvidentialNetwork(
+            input_tensor_spec,
+            output_tensor_spec,
+            hidden_layer_args,
+            evidence_activation
+        )
+>>>>>>> clinton/der_model

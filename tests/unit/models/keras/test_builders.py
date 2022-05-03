@@ -19,6 +19,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from tests.util.misc import empty_dataset
+<<<<<<< HEAD
 from trieste.models.keras import (
     DropConnect,
     DropConnectNetwork,
@@ -27,7 +28,12 @@ from trieste.models.keras import (
     build_vanilla_keras_ensemble
 )
 
+=======
+from trieste.models.keras import build_vanilla_keras_ensemble, build_vanilla_keras_deep_evidential
+from trieste.models.keras.architectures import DeepEvidentialNetwork
+>>>>>>> clinton/der_model
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
 @pytest.mark.parametrize("ensemble_size", [2, 5])
 @pytest.mark.parametrize("independent_normal", [False, True])
@@ -61,6 +67,7 @@ def test_build_vanilla_keras_ensemble(
             assert layer.activation == activation or layer.activation.__name__ == activation
 
 
+<<<<<<< HEAD
 @pytest.mark.mcdropout
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
 @pytest.mark.parametrize("num_hidden_layers", [0, 1, 3])
@@ -108,3 +115,39 @@ def test_build_vanilla_keras_mcdropout(
         assert isinstance(mcdropout.layers[1].layers[0], tf.keras.layers.Dropout)
         assert mcdropout.layers[1].layers[0].rate == rate
         assert isinstance(mcdropout.layers[1].layers[1], tf.keras.layers.Dense)
+=======
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
+@pytest.mark.parametrize("num_hidden_layers", [0, 1, 3])
+@pytest.mark.parametrize("evidence_activation", ["relu", "exp"])
+def test_build_vanilla_deep_evidential_network(
+    num_hidden_layers: int,
+    units: int,
+    activation: Union[str, tf.keras.layers.Activation],
+    evidence_activation: str
+) -> None:
+    example_data = empty_dataset([1], [1])
+    deep_evidential = build_vanilla_keras_deep_evidential(
+        example_data,
+        num_hidden_layers,
+        units,
+        activation,
+        evidence_activation
+    )
+
+    assert isinstance(deep_evidential, DeepEvidentialNetwork)
+    assert len(deep_evidential.layers) == 2
+    assert isinstance(deep_evidential.layers[0], tf.keras.models.Sequential)
+    assert len(deep_evidential.layers[0].layers) == num_hidden_layers
+
+    if num_hidden_layers > 0:
+        for layer in deep_evidential.layers[0].layers:
+            assert isinstance(layer, tf.keras.layers.Dense)
+            assert layer.units == units
+            assert layer.activation == activation or layer.activation.__name__ == activation
+    
+    assert isinstance(deep_evidential.layers[1], tf.keras.layers.Dense)
+    assert deep_evidential.layers[1].units == 4
+
+    assert deep_evidential.evidence_activation == evidence_activation
+>>>>>>> clinton/der_model

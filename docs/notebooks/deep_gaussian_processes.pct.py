@@ -131,7 +131,7 @@ print(f"query point: {dgp_query_points[dgp_arg_min_idx, :]}")
 print(f"observation: {dgp_observations[dgp_arg_min_idx, :]}")
 
 # %% [markdown]
-# We can visualise how the optimizer performed as a three-dimensional plot
+# We can visualise how the optimizer performed as a three-dimensional plot. The points are colored from purple to yellow in order of their query from earliest to latest.
 
 # %%
 from util.plotting_plotly import add_bo_points_plotly

@@ -72,6 +72,8 @@ from trieste.models.keras import (
     MonteCarloDropout,
     DropConnectNetwork,
     DropoutNetwork,
+    DeepEvidentialRegression,
+    build_vanilla_keras_deep_evidential, 
     build_vanilla_keras_mcdropout,
     build_vanilla_keras_ensemble
 )
@@ -533,6 +535,50 @@ def test_bayesian_optimizer_with_mcdropconnect_finds_minima_of_scaled_branin(
 
 
 
+
+@random_seed
+@pytest.mark.slow
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(30, DiscreteThompsonSampling(2000, 3), id="DiscreteThompsonSampling"),
+    ],
+)
+def test_bayesian_optimizer_with_deep_evidential_finds_minima_of_scaled_branin(
+    num_steps: int,
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepEvidentialRegression],
+) -> None:
+    _test_optimizer_finds_minimum(
+        DeepEvidentialRegression,
+        num_steps,
+        acquisition_rule,
+        optimize_branin=True,
+        model_args = {"reg_weight": 1e-2, "maxi_rate": 0.}
+    )
+
+
+@random_seed
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(5, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(5, DiscreteThompsonSampling(500, 1), id="DiscreteThompsonSampling"),
+    ],
+)
+def test_bayesian_optimizer_with_deep_evidential_finds_minima_of_simple_quadratic(
+    num_steps: int, acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DeepEvidentialRegression]
+) -> None:
+    _test_optimizer_finds_minimum(
+        DeepEvidentialRegression, 
+        num_steps, 
+        acquisition_rule,
+        model_args = {"reg_weight": 1e-2, "maxi_rate": 0.}
+    )
+
+
 def _test_optimizer_finds_minimum(
     model_type: Type[TrainableProbabilisticModelType],
     num_steps: Optional[int],
@@ -561,7 +607,13 @@ def _test_optimizer_finds_minimum(
         rtol_level = 0.05
         num_initial_query_points = 10
 
-    if model_type in [SparseVariational, DeepEnsemble]:
+    if model_type in [
+        SparseVariational, 
+        DeepGaussianProcess, 
+        DeepEnsemble, 
+        DeepEvidentialRegression,
+        MonteCarloDropout
+    ]:
         num_initial_query_points = 20
     elif model_type in [DeepGaussianProcess]:
         num_initial_query_points = 25
@@ -649,6 +701,11 @@ def _test_optimizer_finds_minimum(
         mc_optimizer = KerasOptimizer(tf.keras.optimizers.Adam(learning_rate=0.001), fit_args)
 
         model = MonteCarloDropout(dropout_network, mc_optimizer, num_passes=200, **model_args)
+    elif model_type is DeepEvidentialRegression:
+        track_state = False
+        
+        deep_evidential = build_vanilla_keras_deep_evidential(initial_data, 4, 200)
+        model = DeepEvidentialRegression(deep_evidential, **model_args)
 
     else:
         raise ValueError(f"Unsupported model_type '{model_type}'")

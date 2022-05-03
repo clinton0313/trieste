@@ -21,24 +21,18 @@ to `False`.
 """
 
 from . import config
-<<<<<<< HEAD
-from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork, EpistemicUncertaintyPredictor
-from .builders import build_vanilla_keras_ensemble, build_vanilla_deup
-from .interface import KerasPredictor
-from .models import DeepEnsemble, DirectEpistemicUncertaintyPredictor
-from .sampler import EnsembleTrajectorySampler
-=======
 from .architectures import (
     DropConnectNetwork,
     DropoutNetwork,
+    DeepEvidentialNetwork,
+    EpistemicUncertaintyPredictor,
     GaussianNetwork,
     KerasEnsemble,
     KerasEnsembleNetwork,
 )
-from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_mcdropout
+from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_mcdropout, build_vanilla_deup, build_vanilla_keras_deep_evidential
 from .interface import KerasPredictor
 from .layers import DropConnect
-from .models import DeepEnsemble, MonteCarloDropout
+from .models import DeepEnsemble, MonteCarloDropout, DeepEvidentialRegression, DirectEpistemicUncertaintyPredictor
 from .sampler import EnsembleTrajectorySampler, DropoutTrajectorySampler
->>>>>>> clinton_david/mcdropout
 from .utils import get_tensor_spec_from_data, negative_log_likelihood, sample_with_replacement

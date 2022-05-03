@@ -19,17 +19,25 @@ import tensorflow as tf
 
 from tests.util.misc import branin_dataset, random_seed
 from trieste.models.keras import (
+<<<<<<< HEAD
     DeepEnsemble,
     DropoutNetwork,
     DropConnectNetwork,
     MonteCarloDropout,
     build_vanilla_keras_ensemble,
     build_vanilla_keras_mcdropout,
+=======
+    DeepEnsemble, 
+    DeepEvidentialRegression, 
+    build_vanilla_keras_ensemble,
+    build_vanilla_keras_deep_evidential
+>>>>>>> clinton/der_model
 )
 from trieste.models.optimizer import KerasOptimizer
 
 @pytest.mark.slow
 @random_seed
+@pytest.mark.deep_ensemble
 def test_neural_network_ensemble_predictions_close_to_actuals(keras_float: None) -> None:
     ensemble_size = 5
     dataset_size = 1000
@@ -59,6 +67,7 @@ def test_neural_network_ensemble_predictions_close_to_actuals(keras_float: None)
 
 
 @pytest.mark.slow
+<<<<<<< HEAD
 @pytest.mark.parametrize(
     "dropout_network, max_error, rate", 
     [(DropoutNetwork, 10., 0.03), (DropConnectNetwork, 3., 0.05)]
@@ -92,11 +101,31 @@ def test_dropout_network_predictions_close_to_actuals(
         model=dropout_nn,
         optimizer=KerasOptimizer(optimizer, fit_args),
         num_passes=200
+=======
+@random_seed
+@pytest.mark.deep_evidential
+def test_deep_evidential_predictions_close_to_actuals() -> None:
+
+    dataset_size = 1000
+
+    example_data = branin_dataset(dataset_size)
+
+    deep_evidential = build_vanilla_keras_deep_evidential(example_data)
+
+    model = DeepEvidentialRegression(
+        deep_evidential,
+        KerasOptimizer(tf.keras.optimizers.Adam(1e-3)),
+>>>>>>> clinton/der_model
     )
     model.optimize(example_data)
 
     predicted_means, _ = model.predict(example_data.query_points)
     mean_abs_deviation = tf.reduce_mean(tf.abs(predicted_means - example_data.observations))
 
+<<<<<<< HEAD
     # Abitrary accuracy levels given the dropout rates that hinder overfitting to the data
     assert mean_abs_deviation < max_error
+=======
+    # somewhat arbitrary accuracy level, seems good for the range of branin values
+    assert mean_abs_deviation < 2
+>>>>>>> clinton/der_model

@@ -37,10 +37,7 @@ def format_point_markers(
     m_add="circle",
     c_fail="red",
     c_best="black",
-<<<<<<< HEAD
     cmap = "RdYlGn"
-=======
->>>>>>> clinton_david/mcdropout
 ):
     """
     Prepares point marker styles according to some BO factors
@@ -55,13 +52,10 @@ def format_point_markers(
     :param cmap: color scheme for BO points in query order
     :return: 2 string vectors col_pts, mark_pts containing marker styles and colors
     """
-<<<<<<< HEAD
     cm = plt.get_cmap(cmap)
     col_pts = list(np.arange(num_pts))
-=======
     cm = plt.get_cmap("RdYlGn")
     col_pts = list(np.arange(num_pts)) #np.repeat(c_pass, num_pts).astype("<U15")
->>>>>>> clinton_david/mcdropout
     mark_pts = np.repeat(m_init, num_pts).astype("<U15")
     mark_pts[num_init:] = m_add
     if mask_fail is not None:
