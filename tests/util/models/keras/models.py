@@ -27,6 +27,9 @@ from trieste.models.keras import (
     DeepEnsemble,
     GaussianNetwork,
     KerasEnsemble,
+    DropoutNetwork,
+    DropConnectNetwork,
+    MonteCarloDropout,
     get_tensor_spec_from_data,
 )
 from trieste.models.optimizer import KerasOptimizer
@@ -78,3 +81,53 @@ def trieste_deep_ensemble_model(
     model = DeepEnsemble(keras_ensemble, optimizer_wrapper, bootstrap_data)
 
     return model, keras_ensemble, optimizer_wrapper
+
+def trieste_dropout_network_model(
+    example_data: Dataset,
+    rate: float = 0.1,
+    dropout: DropoutNetwork = DropoutNetwork
+) -> DropoutNetwork:
+    
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
+
+    dropout_network = dropout(
+        input_tensor_spec,
+        output_tensor_spec,
+        hidden_layer_args=[
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+        ],
+        rate=rate
+    )
+
+    return dropout_network
+
+def trieste_mcdropout_model(
+    example_data:Dataset, 
+    rate: float = 0.1,
+    dropout:DropoutNetwork=DropoutNetwork
+) -> MonteCarloDropout:
+
+    dropout_network = trieste_dropout_network_model(
+        example_data, 
+        rate=rate,
+        dropout=dropout
+    )
+
+    optimizer = tf.keras.optimizers.Adam(0.01)
+    fit_args = {
+        "batch_size": 10,
+        "epochs": 100,
+        "verbose": 0,
+    }
+    optimizer_wrapper = KerasOptimizer(optimizer, fit_args)
+
+    model = MonteCarloDropout(dropout_network, optimizer_wrapper)
+
+    return model, dropout_network, optimizer_wrapper
+
+class MCDropConnect(MonteCarloDropout):
+    '''Placeholder class for Bayesian optimization integration tests.'''
+    def __init__(self, model:DropConnectNetwork, **model_args):
+        super().__init__(model=model, **model_args)

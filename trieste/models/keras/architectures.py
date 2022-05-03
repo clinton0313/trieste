@@ -28,6 +28,8 @@ from tensorflow_probability.python.layers.distribution_layer import Distribution
 
 from trieste.types import TensorType
 
+from .layers import DropConnect
+
 
 class KerasEnsemble:
     """
@@ -278,12 +280,22 @@ class GaussianNetwork(KerasEnsembleNetwork):
         return input_tensor, output_tensor
 
 
+<<<<<<< HEAD
 class EpistemicUncertaintyPredictor(tf.keras.Model):
     """
     This class builds a fully connected neural network using Keras. The network architecture is a 
     multilayer fully-connected feed-forward network with a single output parameter: the loss function
     of the main predictor. This network is meant to be used with 
     :class:`~trieste.models.keras.models.DirectEpistemicUncertaintyPredictor`.
+=======
+class DropoutNetwork(tf.keras.Model):
+    """
+    This class builds a standard dropout neural network using Keras. The network
+    architecture is a multilayer fully-connected feed-forward network, with Dropout layers
+    preceding each fully connected dense layer. The network is meant to be passed to
+    :class:`~trieste.models.keras.models.MonteCarloDropout` which will define the predict method 
+    to make this a probabilistic model. Otherwise this class will only use dropout in training.
+>>>>>>> clinton_david/mcdropout
     """
 
     def __init__(
@@ -291,6 +303,7 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
         input_tensor_spec: tf.TensorSpec,
         output_tensor_spec: tf.TensorSpec,
         hidden_layer_args: Sequence[dict[str, Any]] = (
+<<<<<<< HEAD
             {"units": 128, "activation": "relu"},
             {"units": 128, "activation": "relu"},
             {"units": 128, "activation": "relu"},
@@ -299,23 +312,48 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
     ):
         """
         :param input_tensor_spec: Tensor specification for the input to the network.
+=======
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"}
+        ),
+        rate: float = 0.1,
+    ):
+        """
+        :param input_tensor_spec: Tensor specification for the input of the network. 
+>>>>>>> clinton_david/mcdropout
         :param output_tensor_spec: Tensor specification for the output of the network.
         :param hidden_layer_args: Specification for building dense hidden layers. Each element in
             the sequence should be a dictionary containing arguments (keys) and their values for a
             :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
             available arguments. Objects in the sequence will sequentially be used to add
+<<<<<<< HEAD
             :class:`~tf.keras.layers.Dense` layers. Length of this sequence determines the number of
             hidden layers in the network. Default value is four hidden layers, 128 nodes each, with
             ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
         :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
         """
 
+=======
+            :class:`~tf.keras.layers.Dense` layers with :class:`~tf.keras.layers.Dropout` layers 
+            added before each :class:`~tf.keras.layers.Dense` layer. Length of this sequence 
+            determines the number of hidden layers in the network. Default value is five hidden 
+            layers, 300 nodes each, with ReLu activation functions. Empty sequence needs to be passed 
+            to have no hidden layers.
+        :param rate: Probability of dropout assigned to each `~tf.keras.layers.Dropout` layer. By default
+            a rate of 0.1 is used. 
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
+>>>>>>> clinton_david/mcdropout
         super().__init__()
         self.input_tensor_spec = input_tensor_spec
         self.output_tensor_spec = output_tensor_spec
         self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
         self._hidden_layer_args = hidden_layer_args
 
+<<<<<<< HEAD
         self.hidden_layers = self._gen_hidden_layers()
         self.output_layer = self._gen_output_layer()
 
@@ -327,11 +365,28 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
             name=self.input_layer_name,
         )
         return input_tensor
+=======
+        tf.debugging.assert_greater_equal(
+            rate, 0.0, f"Rate needs to be a valid probability, instead got {rate}"
+        )
+        tf.debugging.assert_less_equal(
+            rate, 1.0, f"Rate needs to be a valid probability, instead got {rate}"
+        )
+        self._rate = rate
+
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
+
+    @property
+    def rate(self) -> float:
+        return self._rate
+>>>>>>> clinton_david/mcdropout
 
     def _gen_hidden_layers(self) -> tf.keras.Model:
 
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
+<<<<<<< HEAD
             hidden_layers.add(tf.keras.layers.Dense(
                 dtype=self.input_tensor_spec.dtype,
                 **hidden_layer_args
@@ -347,6 +402,29 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
             name="output"
         )
 
+=======
+            hidden_layers.add(tf.keras.layers.Dropout(
+                rate=self.rate, 
+                dtype=self.input_tensor_spec.dtype
+            ))
+            hidden_layers.add(tf.keras.layers.Dense(
+                dtype=self.input_tensor_spec.dtype, 
+                **hidden_layer_args
+            ))
+        return hidden_layers
+
+    def _gen_output_layer(self) -> tf.keras.Model:
+
+        output_layer = tf.keras.Sequential(name="output_layer")
+        output_layer.add(tf.keras.layers.Dropout(
+            rate=self.rate, 
+            dtype=self.input_tensor_spec.dtype
+        ))
+        output_layer.add(tf.keras.layers.Dense(
+            units=self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype
+        ))
+>>>>>>> clinton_david/mcdropout
         return output_layer
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
@@ -357,4 +435,77 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
         hidden_output = self.hidden_layers(inputs)
         output = self.output_layer(hidden_output)
 
+<<<<<<< HEAD
         return output
+=======
+        return output
+
+
+class DropConnectNetwork(DropoutNetwork):
+    """
+    This class builds a variation of a dropout network using Keras. The network
+    architecture is a multilayer fully-connected feed-forward network of 
+    :class: `~trieste.models.keras.layers.DropConnect` layers. This is a generalization of 
+    standard dropout where each weight is dropped out with a certain probability. This network 
+    is meant to be passed to :class:`~trieste.models.keras.models.MonteCarloDropout` which will define 
+    the predict method to make this a probabilistic model. Otherwise this class only uses dropout 
+    in training.
+    """
+
+    def __init__(        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"},
+            {"units": 300, "activation": "relu"}
+        ),
+        rate: float = 0.35,
+        *args,
+        **kwargs
+    ):
+        super().__init__(
+            input_tensor_spec,
+            output_tensor_spec,
+            hidden_layer_args,
+            rate,
+            *args, 
+            **kwargs
+            )
+        """
+        :param input_tensor_spec: Tensor specification for the input of the network. 
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~trieste.models.keras.layers.DropConnect` hidden layer. Check Keras Dense layer 
+            API for available arguments. Length of this sequence determines the number of
+            hidden layers in the network. Default value is five hidden layers, 300 nodes each, with
+            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :param rate: Probability of dropout assigned to each layer of a fully connected network.
+            By default a rate of 0.35 is used. 
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
+    def _gen_hidden_layers(self) -> tf.keras.Model:
+
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
+            hidden_layers.add(DropConnect(
+                rate=self.rate,
+                dtype=self.input_tensor_spec.dtype,
+                **hidden_layer_args
+            ))
+        return hidden_layers
+
+    def _gen_output_layer(self) -> tf.keras.Model:
+
+        output_layer = DropConnect(
+            units=self.flattened_output_shape, 
+            rate=self.rate, 
+            dtype=self.input_tensor_spec.dtype,
+            name="output_layer"
+        )
+
+        return output_layer
+>>>>>>> clinton_david/mcdropout
