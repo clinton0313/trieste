@@ -12,12 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-<<<<<<< HEAD
-from typing import Any, List
-=======
 from distutils.command.build import build
-from typing import Any, Callable
->>>>>>> clinton/der_model
+from typing import Any, Callable, List
 
 import numpy as np
 import numpy.testing as npt
@@ -26,14 +22,11 @@ import tensorflow as tf
 
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
 from tests.util.models.keras.models import (
-<<<<<<< HEAD
-    trieste_deep_ensemble_model, trieste_keras_ensemble_model,
-    trieste_mcdropout_model, trieste_dropout_network_model
-=======
     trieste_deep_ensemble_model,
     trieste_deep_evidential_model, 
-    trieste_keras_ensemble_model
->>>>>>> clinton/der_model
+    trieste_keras_ensemble_model,
+    trieste_dropout_network_model,
+    trieste_mcdropout_model,
 )
 from tests.util.models.models import fnc_2sin_x_over_3
 from trieste.data import Dataset
@@ -42,25 +35,21 @@ from trieste.models.keras import (
     DeepEnsemble,
     DeepEvidentialRegression,
     KerasEnsemble,
-<<<<<<< HEAD
     MonteCarloDropout,
     DropoutNetwork,
     negative_log_likelihood,
     sample_with_replacement,
-)
-
-from trieste.models.keras.architectures import DropConnectNetwork
-=======
     build_vanilla_keras_deep_evidential,
     negative_log_likelihood,
     sample_with_replacement,
 )
+
 from trieste.models.keras.utils import (
-    DeepEvidentialCallback,
     normal_inverse_gamma_negative_log_likelihood,
     normal_inverse_gamma_regularizer
 )
->>>>>>> clinton/der_model
+
+from trieste.models.keras.architectures import DropConnectNetwork
 from trieste.models.optimizer import KerasOptimizer, TrainingData
 
 _ENSEMBLE_SIZE = 3
@@ -505,7 +494,7 @@ def test_deep_ensemble_prepare_data_call(
         assert tf.reduce_all(inputs[member_data] == x)
 
 
-<<<<<<< HEAD
+
 @pytest.mark.mcdropout
 @pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
 def test_mcdropout_repr(
@@ -521,28 +510,11 @@ def test_mcdropout_repr(
 
     expected_repr = (
         f"MonteCarloDropout({dropout_network!r}, {optimizer_wrapper!r})"
-=======
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
-def test_deep_evidential_repr(
-    optimizer: tf.optimizers.Optimizer,
-) -> None:
-    example_data = empty_dataset([1], [1])
-
-    evidential_network = build_vanilla_keras_deep_evidential(example_data)
-    evidential_network.compile(optimizer)
-    optimizer_wrapper = KerasOptimizer(optimizer)
-    model = DeepEvidentialRegression(evidential_network, optimizer_wrapper)
-
-    expected_repr = (
-        f"DeepEvidentialRegression({evidential_network!r}, {optimizer_wrapper!r})"
->>>>>>> clinton/der_model
     )
 
     assert type(model).__name__ in repr(model)
     assert repr(model) == expected_repr
 
-<<<<<<< HEAD
 def test_dropout_network_model_attributes(rate: List) -> None:
     example_data = empty_dataset([1], [1])
     model, dropout_network, optimizer = trieste_mcdropout_model(
@@ -566,100 +538,21 @@ def test_dropout_network_default_optimizer_is_correct(rate: List, loss: str) -> 
         "epochs": 1000,
         "verbose": 0,
     }
-=======
-
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize("dtype", [tf.float16, tf.float32, tf.float64])
-def test_deep_evidential_reg_weight_has_correct_dtype(
-    dtype
-)-> None:
-    qp = tf.zeros(tf.TensorShape([0]) + [1], dtype)
-    obs = tf.zeros(tf.TensorShape([0]) + [1], dtype)
-    example_data = Dataset(qp, obs)
-    reg_weight = 1e-2
-    model = trieste_deep_evidential_model(example_data, reg_weight = reg_weight)
-
-    assert model.reg_weight.dtype == model.model.layers[-1].dtype
-
-
-@pytest.mark.deep_evidential
-def test_deep_evidential_default_optimizer_is_correct() -> None:
-    example_data = empty_dataset([1], [1])
-
-    model = trieste_deep_evidential_model(example_data)
-    default_fit_args = {
-                "verbose": 0,
-                "epochs": 1000,
-                "batch_size": 16
-            }
-
-    assert isinstance(model.optimizer.fit_args["callbacks"][0], tf.keras.callbacks.EarlyStopping)
-    assert isinstance(model.optimizer.fit_args["callbacks"][1], DeepEvidentialCallback)
->>>>>>> clinton/der_model
     del model.optimizer.fit_args["callbacks"]
 
     assert isinstance(model.optimizer, KerasOptimizer)
     assert isinstance(model.optimizer.optimizer, tf.optimizers.Optimizer)
     assert model.optimizer.fit_args == default_fit_args
-<<<<<<< HEAD
     assert model.optimizer.loss == default_loss
 
 
 @pytest.mark.mcdropout
 def test_mcdropout_optimizer_changed_correctly(rate: List) -> None:
-=======
-    assert model.optimizer.loss is None
-    assert model.model.compiled_loss._losses == [
-        normal_inverse_gamma_negative_log_likelihood,
-        normal_inverse_gamma_regularizer
-    ]
-    assert model.model.compiled_loss._loss_weights[0] == 1.0
-    assert model.model.compiled_loss._loss_weights[1] == tf.Variable(0., dtype=tf.float64)
-
-
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize(
-    "fit_args",
-    [
-        {},
-        {"callbacks": tf.keras.callbacks.EarlyStopping()},
-        {"callbacks": (tf.keras.callbacks.ReduceLROnPlateau(),)},
-        {"callbacks": [
-            tf.keras.callbacks.EarlyStopping(), 
-            tf.keras.callbacks.ReduceLROnPlateau()
-            ]
-        }
-    ]
-)
-def test_deep_evidential_optimizer_adds_default_callback(fit_args: dict) -> None:
-    example_data = empty_dataset([1], [1])
-    deep_evidential = build_vanilla_keras_deep_evidential(example_data)
-    model = DeepEvidentialRegression(
-        deep_evidential,
-        KerasOptimizer(
-            tf.keras.optimizers.Adam(),
-            fit_args
-        )
-    )
-    callbacks = model.optimizer.fit_args["callbacks"]
-    assert isinstance(callbacks, list)
-    has_callback = list(
-        map(
-            lambda x: isinstance(x, DeepEvidentialCallback), callbacks
-        )
-    )
-    assert sum(has_callback) == 1
-
-
-@pytest.mark.deep_evidential
-def test_deep_evidential_optimizer_changes_correctly() -> None:
->>>>>>> clinton/der_model
     example_data = empty_dataset([1], [1])
 
     custom_fit_args = {
         "verbose": 1,
         "epochs": 10,
-<<<<<<< HEAD
         "batch_size": 10,
     }
     custom_optimizer = tf.optimizers.RMSprop()
@@ -668,53 +561,22 @@ def test_deep_evidential_optimizer_changes_correctly() -> None:
 
     dropout_network = trieste_dropout_network_model(example_data, rate)
     model = MonteCarloDropout(dropout_network, optimizer_wrapper)
-=======
-        "batch_size": 10
-    }
-    custom_optimizer = tf.optimizers.RMSprop()
-    custom_loss = tf.keras.losses.MeanAbsoluteError() #Intentional incorrect loss
-    optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
-
-    model = trieste_deep_evidential_model(example_data, optimizer_wrapper)
-
->>>>>>> clinton/der_model
 
     assert model.optimizer == optimizer_wrapper
     assert model.optimizer.optimizer == custom_optimizer
     assert model.optimizer.fit_args == custom_fit_args
-<<<<<<< HEAD
 
 
 @pytest.mark.mcdropout
 def test_mcdropout_is_compiled(rate: List) -> None:
     example_data = empty_dataset([1], [1])
     model, _, _ = trieste_mcdropout_model(example_data, rate)
-=======
-    assert model.optimizer.loss == custom_loss
-    assert model.model.compiled_loss._losses == [
-        normal_inverse_gamma_negative_log_likelihood,
-        normal_inverse_gamma_regularizer
-    ]
-    assert model.model.compiled_loss._loss_weights == [
-        1.0,
-        tf.Variable(0., dtype=tf.float64)
-    ]
-    assert isinstance(model.optimizer.fit_args["callbacks"][0], DeepEvidentialCallback)
-    
-
-
-@pytest.mark.deep_evidential
-def test_deep_evidential_is_compiled() -> None:
-    example_data = empty_dataset([1], [1])
-    model = trieste_deep_evidential_model(example_data)
->>>>>>> clinton/der_model
 
     assert model.model.compiled_loss is not None
     assert model.model.compiled_metrics is not None
     assert model.model.optimizer is not None
 
 
-<<<<<<< HEAD
 @pytest.mark.skip
 def test_config_builds_mcdropout_and_default_optimizer_is_correct(rate: List) -> None:
     example_data = empty_dataset([1], [1])
@@ -730,43 +592,16 @@ def test_config_builds_mcdropout_and_default_optimizer_is_correct(rate: List) ->
     }
 
     assert isinstance(model, MonteCarloDropout)
-=======
-@pytest.mark.deep_evidential
-def test_config_builds_deep_evidential_and_default_optimizer_is_correct() -> None:
-    example_data = empty_dataset([1], [1])
-
-    evidential_network = build_vanilla_keras_deep_evidential(example_data)
-
-    model_config = {"model": evidential_network}
-    model = create_model(model_config)
-    default_fit_args = {
-                "verbose": 0,
-                "epochs": 1000,
-                "batch_size": 16
-            }
-
-    del model.optimizer.fit_args["callbacks"]
-
-    assert isinstance(model, DeepEvidentialRegression)
->>>>>>> clinton/der_model
     assert isinstance(model.optimizer, KerasOptimizer)
     assert isinstance(model.optimizer.optimizer, tf.keras.optimizers.Optimizer)
     assert model.optimizer.fit_args == default_fit_args
 
 
-<<<<<<< HEAD
 @pytest.mark.mcdropout
 @pytest.mark.parametrize("dataset_size", [10, 100])
 def test_mcdropout_predict_call_shape(dataset_size: int, rate: List) -> None:
     example_data = _get_example_data([dataset_size, 1])
     model, _, _ = trieste_mcdropout_model(example_data, rate)
-=======
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize("dataset_size", [10, 100])
-def test_deep_evidential_predict_call_shape(dataset_size: int) -> None:
-    example_data = _get_example_data([dataset_size, 1])
-    model = trieste_deep_evidential_model(example_data)
->>>>>>> clinton/der_model
 
     predicted_means, predicted_vars = model.predict(example_data.query_points)
 
@@ -776,42 +611,12 @@ def test_deep_evidential_predict_call_shape(dataset_size: int) -> None:
     assert predicted_means.shape == example_data.observations.shape
 
 
-<<<<<<< HEAD
 @pytest.mark.mcdropout
 @pytest.mark.parametrize("num_samples", [6, 12])
 @pytest.mark.parametrize("dataset_size", [4, 8])
 def test_mcdropout_sample_call_shape(num_samples: int, dataset_size: int, rate: List) -> None:
     example_data = _get_example_data([dataset_size, 1])
     model, _, _ = trieste_mcdropout_model(example_data, rate)
-=======
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize("num_samples", [6, 12])
-@pytest.mark.parametrize("dataset_size", [4, 8])
-def test_deep_evidential_sample_normal_parameters_call_shape(
-    num_samples: int, 
-    dataset_size: int
-) -> None:
-
-    example_data = _get_example_data([dataset_size, 1])
-    model = trieste_deep_evidential_model(example_data)
-
-    evidential_output = model.model(example_data.query_points)[0]
-    gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
-    mu, sigma = model.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
-
-    assert tf.is_tensor(mu)
-    assert mu.shape == [num_samples, dataset_size, 1]
-    assert tf.is_tensor(sigma)
-    assert sigma.shape == [num_samples, dataset_size, 1]
-
-
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize("num_samples", [6, 12])
-@pytest.mark.parametrize("dataset_size", [4, 8])
-def test_deep_evidential_sample_call_shape(num_samples: int, dataset_size: int) -> None:
-    example_data = _get_example_data([dataset_size, 1])
-    model = trieste_deep_evidential_model(example_data)
->>>>>>> clinton/der_model
 
     samples = model.sample(example_data.query_points, num_samples)
 
@@ -820,7 +625,6 @@ def test_deep_evidential_sample_call_shape(num_samples: int, dataset_size: int) 
 
 
 @random_seed
-<<<<<<< HEAD
 @pytest.mark.mcdropout
 def test_mcdropout_optimize_with_defaults(rate: List) -> None:
     example_data = _get_example_data([100, 1])
@@ -828,20 +632,12 @@ def test_mcdropout_optimize_with_defaults(rate: List) -> None:
     dropout_network = trieste_dropout_network_model(example_data, rate)
 
     model = MonteCarloDropout(dropout_network)
-=======
-@pytest.mark.deep_evidential
-def test_deep_evidential_optimize_with_defaults() -> None:
-    example_data = _get_example_data([100, 1])
-
-    model = trieste_deep_evidential_model(example_data)
->>>>>>> clinton/der_model
 
     model.optimize(example_data)
     loss = model.model.history.history["loss"]
 
     assert loss[-1] < loss[0]
 
-<<<<<<< HEAD
 @pytest.mark.mcdropout
 def test_mcdropout_learning_rate_resets(rate: List) -> None:
     example_data = _get_example_data([100,1])
@@ -891,23 +687,10 @@ def test_mcdropout_optimize(rate: float, epochs: int, learning_rate: float) -> N
     dropout_network = trieste_dropout_network_model(example_data, rate, DropoutNetwork)
 
     custom_optimizer = tf.optimizers.Adam(learning_rate=learning_rate)
-=======
-
-@random_seed
-@pytest.mark.deep_evidential
-@pytest.mark.parametrize("epochs", [5, 15])
-def test_deep_evidential_optimize(
-    epochs: int,
-) -> None:
-    example_data = _get_example_data([100, 1])
-
-    custom_optimizer = tf.optimizers.RMSprop()
->>>>>>> clinton/der_model
     custom_fit_args = {
         "verbose": 0,
         "epochs": epochs,
         "batch_size": 10,
-<<<<<<< HEAD
         "callbacks": [
             tf.keras.callbacks.EarlyStopping(
                 monitor="loss", patience=80, restore_best_weights=True
@@ -1007,7 +790,242 @@ def test_mcdropout_sample(rate: List, num_samples) -> None:
 
     npt.assert_allclose(sample_mean, ref_mean, atol=4 * error)
     npt.assert_allclose(sample_variance, ref_variance, atol=8 * error)
-=======
+
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
+def test_deep_evidential_repr(
+    optimizer: tf.optimizers.Optimizer,
+) -> None:
+    example_data = empty_dataset([1], [1])
+
+    evidential_network = build_vanilla_keras_deep_evidential(example_data)
+    evidential_network.compile(optimizer)
+    optimizer_wrapper = KerasOptimizer(optimizer)
+    model = DeepEvidentialRegression(evidential_network, optimizer_wrapper)
+
+    expected_repr = (
+        f"DeepEvidentialRegression({evidential_network!r}, {optimizer_wrapper!r})"
+    )
+
+    assert type(model).__name__ in repr(model)
+    assert repr(model) == expected_repr
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("dtype", [tf.float16, tf.float32, tf.float64])
+def test_deep_evidential_reg_weight_has_correct_dtype(
+    dtype
+)-> None:
+    qp = tf.zeros(tf.TensorShape([0]) + [1], dtype)
+    obs = tf.zeros(tf.TensorShape([0]) + [1], dtype)
+    example_data = Dataset(qp, obs)
+    reg_weight = 1e-2
+    model = trieste_deep_evidential_model(example_data, reg_weight = reg_weight)
+
+    assert model.reg_weight.dtype == model.model.layers[-1].dtype
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_default_optimizer_is_correct() -> None:
+    example_data = empty_dataset([1], [1])
+
+    model = trieste_deep_evidential_model(example_data)
+    default_fit_args = {
+                "verbose": 0,
+                "epochs": 1000,
+                "batch_size": 16
+            }
+
+    assert isinstance(model.optimizer.fit_args["callbacks"][0], tf.keras.callbacks.EarlyStopping)
+    assert isinstance(model.optimizer.fit_args["callbacks"][1], DeepEvidentialCallback)
+    del model.optimizer.fit_args["callbacks"]
+
+    assert isinstance(model.optimizer, KerasOptimizer)
+    assert isinstance(model.optimizer.optimizer, tf.optimizers.Optimizer)
+    assert model.optimizer.fit_args == default_fit_args
+    assert model.optimizer.loss is None
+    assert model.model.compiled_loss._losses == [
+        normal_inverse_gamma_negative_log_likelihood,
+        normal_inverse_gamma_regularizer
+    ]
+    assert model.model.compiled_loss._loss_weights[0] == 1.0
+    assert model.model.compiled_loss._loss_weights[1] == tf.Variable(0., dtype=tf.float64)
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize(
+    "fit_args",
+    [
+        {},
+        {"callbacks": tf.keras.callbacks.EarlyStopping()},
+        {"callbacks": (tf.keras.callbacks.ReduceLROnPlateau(),)},
+        {"callbacks": [
+            tf.keras.callbacks.EarlyStopping(), 
+            tf.keras.callbacks.ReduceLROnPlateau()
+            ]
+        }
+    ]
+)
+def test_deep_evidential_optimizer_adds_default_callback(fit_args: dict) -> None:
+    example_data = empty_dataset([1], [1])
+    deep_evidential = build_vanilla_keras_deep_evidential(example_data)
+    model = DeepEvidentialRegression(
+        deep_evidential,
+        KerasOptimizer(
+            tf.keras.optimizers.Adam(),
+            fit_args
+        )
+    )
+    callbacks = model.optimizer.fit_args["callbacks"]
+    assert isinstance(callbacks, list)
+    has_callback = list(
+        map(
+            lambda x: isinstance(x, DeepEvidentialCallback), callbacks
+        )
+    )
+    assert sum(has_callback) == 1
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_optimizer_changes_correctly() -> None:
+    example_data = empty_dataset([1], [1])
+
+    custom_fit_args = {
+        "verbose": 1,
+        "epochs": 10,
+        "batch_size": 10
+    }
+    custom_optimizer = tf.optimizers.RMSprop()
+    custom_loss = tf.keras.losses.MeanAbsoluteError() #Intentional incorrect loss
+    optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
+
+    model = trieste_deep_evidential_model(example_data, optimizer_wrapper)
+
+
+    assert model.optimizer == optimizer_wrapper
+    assert model.optimizer.optimizer == custom_optimizer
+    assert model.optimizer.fit_args == custom_fit_args
+    assert model.optimizer.loss == custom_loss
+    assert model.model.compiled_loss._losses == [
+        normal_inverse_gamma_negative_log_likelihood,
+        normal_inverse_gamma_regularizer
+    ]
+    assert model.model.compiled_loss._loss_weights == [
+        1.0,
+        tf.Variable(0., dtype=tf.float64)
+    ]
+    assert isinstance(model.optimizer.fit_args["callbacks"][0], DeepEvidentialCallback)
+    
+
+
+@pytest.mark.deep_evidential
+def test_deep_evidential_is_compiled() -> None:
+    example_data = empty_dataset([1], [1])
+    model = trieste_deep_evidential_model(example_data)
+
+    assert model.model.compiled_loss is not None
+    assert model.model.compiled_metrics is not None
+    assert model.model.optimizer is not None
+
+
+@pytest.mark.deep_evidential
+def test_config_builds_deep_evidential_and_default_optimizer_is_correct() -> None:
+    example_data = empty_dataset([1], [1])
+
+    evidential_network = build_vanilla_keras_deep_evidential(example_data)
+
+    model_config = {"model": evidential_network}
+    model = create_model(model_config)
+    default_fit_args = {
+                "verbose": 0,
+                "epochs": 1000,
+                "batch_size": 16
+            }
+
+    del model.optimizer.fit_args["callbacks"]
+
+    assert isinstance(model, DeepEvidentialRegression)
+    assert isinstance(model.optimizer, KerasOptimizer)
+    assert isinstance(model.optimizer.optimizer, tf.keras.optimizers.Optimizer)
+    assert model.optimizer.fit_args == default_fit_args
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("dataset_size", [10, 100])
+def test_deep_evidential_predict_call_shape(dataset_size: int) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+    model = trieste_deep_evidential_model(example_data)
+
+    predicted_means, predicted_vars = model.predict(example_data.query_points)
+
+    assert tf.is_tensor(predicted_vars)
+    assert predicted_vars.shape == example_data.observations.shape
+    assert tf.is_tensor(predicted_means)
+    assert predicted_means.shape == example_data.observations.shape
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("num_samples", [6, 12])
+@pytest.mark.parametrize("dataset_size", [4, 8])
+def test_deep_evidential_sample_normal_parameters_call_shape(
+    num_samples: int, 
+    dataset_size: int
+) -> None:
+
+    example_data = _get_example_data([dataset_size, 1])
+    model = trieste_deep_evidential_model(example_data)
+
+    evidential_output = model.model(example_data.query_points)[0]
+    gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
+    mu, sigma = model.sample_normal_parameters(gamma, v, alpha, beta, num_samples)
+
+    assert tf.is_tensor(mu)
+    assert mu.shape == [num_samples, dataset_size, 1]
+    assert tf.is_tensor(sigma)
+    assert sigma.shape == [num_samples, dataset_size, 1]
+
+
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("num_samples", [6, 12])
+@pytest.mark.parametrize("dataset_size", [4, 8])
+def test_deep_evidential_sample_call_shape(num_samples: int, dataset_size: int) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+    model = trieste_deep_evidential_model(example_data)
+
+    samples = model.sample(example_data.query_points, num_samples)
+
+    assert tf.is_tensor(samples)
+    assert samples.shape == [num_samples, dataset_size, 1]
+
+
+@random_seed
+@pytest.mark.deep_evidential
+def test_deep_evidential_optimize_with_defaults() -> None:
+    example_data = _get_example_data([100, 1])
+
+    model = trieste_deep_evidential_model(example_data)
+
+    model.optimize(example_data)
+    loss = model.model.history.history["loss"]
+
+    assert loss[-1] < loss[0]
+
+
+@random_seed
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("epochs", [5, 15])
+def test_deep_evidential_optimize(
+    epochs: int,
+) -> None:
+    example_data = _get_example_data([100, 1])
+
+    custom_optimizer = tf.optimizers.RMSprop()
+    custom_fit_args = {
+        "verbose": 0,
+        "epochs": epochs,
+        "batch_size": 10,
     }
 
     optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args)
@@ -1141,4 +1159,3 @@ def test_deep_evidential_samples_are_properly_distributed(
     npt.assert_array_almost_equal(exp_sigma, true_sigma_mean, decimal = 3)
     npt.assert_array_almost_equal(var_mu, true_mu_var, decimal = 3)
     npt.assert_array_almost_equal(var_sigma, true_sigma_var, decimal = 3)
->>>>>>> clinton/der_model
