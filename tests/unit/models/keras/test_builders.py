@@ -19,19 +19,16 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from tests.util.misc import empty_dataset
-<<<<<<< HEAD
 from trieste.models.keras import (
     DropConnect,
     DropConnectNetwork,
     DropoutNetwork,
+    DeepEvidentialNetwork,
     build_vanilla_keras_mcdropout,
-    build_vanilla_keras_ensemble
+    build_vanilla_keras_ensemble,
+    build_vanilla_keras_deep_evidential
 )
 
-=======
-from trieste.models.keras import build_vanilla_keras_ensemble, build_vanilla_keras_deep_evidential
-from trieste.models.keras.architectures import DeepEvidentialNetwork
->>>>>>> clinton/der_model
 
 @pytest.mark.deep_ensemble
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
@@ -67,7 +64,6 @@ def test_build_vanilla_keras_ensemble(
             assert layer.activation == activation or layer.activation.__name__ == activation
 
 
-<<<<<<< HEAD
 @pytest.mark.mcdropout
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
 @pytest.mark.parametrize("num_hidden_layers", [0, 1, 3])
@@ -115,7 +111,6 @@ def test_build_vanilla_keras_mcdropout(
         assert isinstance(mcdropout.layers[1].layers[0], tf.keras.layers.Dropout)
         assert mcdropout.layers[1].layers[0].rate == rate
         assert isinstance(mcdropout.layers[1].layers[1], tf.keras.layers.Dense)
-=======
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize("units, activation", [(10, "relu"), (50, tf.keras.activations.tanh)])
 @pytest.mark.parametrize("num_hidden_layers", [0, 1, 3])
@@ -150,4 +145,3 @@ def test_build_vanilla_deep_evidential_network(
     assert deep_evidential.layers[1].units == 4
 
     assert deep_evidential.evidence_activation == evidence_activation
->>>>>>> clinton/der_model
