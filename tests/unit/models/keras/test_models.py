@@ -46,7 +46,8 @@ from trieste.models.keras import (
 
 from trieste.models.keras.utils import (
     normal_inverse_gamma_negative_log_likelihood,
-    normal_inverse_gamma_regularizer
+    normal_inverse_gamma_regularizer,
+    DeepEvidentialCallback
 )
 
 from trieste.models.keras.architectures import DropConnectNetwork
