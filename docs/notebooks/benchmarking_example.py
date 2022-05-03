@@ -2,9 +2,14 @@
 
 import os
 import tensorflow as tf
-import trieste
 
-from benchmarking_utils import simulate_experiment, multi_experiment
+from benchmarking_utils import (
+    deepensemble_builder,
+    simulate_experiment, 
+    multi_experiment,
+    branin,
+    michal2
+)
 from trieste.acquisition.rule import DiscreteThompsonSampling, EfficientGlobalOptimization
 from trieste.models.keras import (
     DeepEvidentialRegression,
@@ -28,12 +33,12 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 
 #%%
-#MAKE OBJECTIVE
+#MAKE OBJECTIVE IF NOT USING PREDEFINED OBJECTIVES IN UTILS
 
 michal2 = ("michal2", michalewicz_2, MICHALEWICZ_2_SEARCH_SPACE, MICHALEWICZ_2_MINIMUM, MICHALEWICZ_2_MINIMIZER)
 branin = ("scaled_branin", scaled_branin, BRANIN_SEARCH_SPACE, SCALED_BRANIN_MINIMUM, BRANIN_MINIMIZERS)
 
-#MAKE BUILDER
+#MAKE BUILDER IF NOT USING PREDEFINED BUILDERS IN UTILS
 
 def build_der(data, num_hidden_layers, units, reg_weight, maxi_rate):
     network = build_vanilla_keras_deep_evidential(
@@ -44,7 +49,7 @@ def build_der(data, num_hidden_layers, units, reg_weight, maxi_rate):
     model = DeepEvidentialRegression(network, reg_weight=reg_weight, maxi_rate=maxi_rate)
     return model
 
-#DEFINE PREFIXES FOR SAVEFILES
+#DEFINE PREFIXES FOR SAVEFILES IF NOT USING GLOBAL DEFAULT
 
 save_title_prefixes = {
     "num_hidden_layers": "L",
@@ -63,7 +68,7 @@ simulate_experiment(
     num_steps=25,
     model_builder=build_der,
     model_name="der",
-    output_path="test",
+    output_path="der_test",
     save_title_prefixes=save_title_prefixes,
     plot=True,
     seed=0,
@@ -77,22 +82,18 @@ simulate_experiment(
 
 #CROSS MULTIPLE EXPERIMENTS LIKE THIS:
 
-# simul_args = {
-#     "objective": [branin],
-#     "num_initial_points": [1],
-#     "acquisition_rule": [DiscreteThompsonSampling(2000, 4)],
-#     "acquisition_name": ["ts"],
-#     "num_steps": [25],
-#     "model_builder": [build_der],
-#     "model_name": ["der"],
-#     "output_path": ["test"],
-#     "save_title_prefixes": [save_title_prefixes],
-#     "plot": [True],
-#     "seed": [0],
-#     "num_hidden_layers": [2, 3],
-#     "units": [10, 20],
-#     "reg_weight": [1e-4],
-#     "maxi_rate": [1e-2],
-# }
+simul_args = {
+    "objective": [michal2],
+    "num_initial_points": [1],
+    "acquisition_rule": [EfficientGlobalOptimization()],
+    "acquisition_name": ["ei"],
+    "num_steps": [25],
+    "model_builder": [deepensemble_builder],
+    "model_name": ["der"],
+    "output_path": ["deep_ensemble_test"],
+    "ensemble_size": [2, 3],
+    "num_hidden_layers": [2, 3],
+    "units": [25]
+}
 
-# multi_experiment(simul_args)
+multi_experiment(simul_args)
