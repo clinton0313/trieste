@@ -1,0 +1,231 @@
+import itertools
+import numpy as np
+import os
+import random
+import tensorflow as tf
+import time
+import trieste
+
+from tqdm import tqdm
+
+from trieste.objectives.utils import mk_observer
+from typing import Callable, Tuple
+from util.plotting_plotly import (
+    plot_model_predictions_plotly, 
+    plot_function_plotly,
+    add_bo_points_plotly
+)
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+tf.get_logger().setLevel("ERROR")
+tf.keras.backend.set_floatx("float64")
+
+#%%
+
+def parse_rate(rate:float)-> str:
+    '''Helpful function taht parses floats into scientific notation strings'''
+    if rate > 10 or rate < -10:
+        out = str(rate)
+        if out == "0":
+            return out
+        elif out.count("e") == 1:
+            out = out.replace("-", "").replace("0", "")
+            return out
+        else:
+            zeros = out.count("0")
+            out = out.replace("0", "").replace(".", "")
+            return out + "e" + str(zeros)
+    else:
+        out = str(round(rate, 2))
+        out = out.replace(".", "_")
+        return out
+
+def simulate_experiment(
+    objective: Tuple, 
+    num_initial_points: int,
+    acquisition_rule: trieste.acquisition.rule.AcquisitionRule, 
+    acquisition_name: str,
+    num_steps: int,
+    model_builder: Callable, 
+    model_name: str,
+    output_path: str,
+    save_title_prefixes: dict,
+    plot: bool = True,
+    seed: int = 0,
+    **model_args
+):
+    """
+    :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
+    :param num_initial_points: Number of initial query points.
+    :param acquisition_rule: Acquisition rule already instantiated.
+    :param acquisition_name: Name of acquisition rule for logging purposes
+    :param num_steps: Number of bayesian optimization steps.
+    :param model_builder: Function that accepts initial_data and **model_args and returns a model.
+    :param model_name: Name of model for logging purposes. 
+    :param output_path: Path to save figs and log_file
+    :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
+        example: {'num_hidden_layers': 'hl'}
+    :param plot: True or False, whether to generate plots or not. 
+    :param seed: Seed.
+    """
+
+    #Set seed
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+
+    #Unpack objective tuple:
+    objective_name, function, search_space, minimum, minimizer = objective
+
+    #Get initial data
+    initial_query_points = search_space.sample(num_initial_points)
+    observer = mk_observer(function)
+    initial_data = observer(initial_query_points)
+
+    #Build model
+    model = model_builder(initial_data, **model_args)
+
+    #Bayesian Optimizer
+
+    bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
+    start = time.time()
+    result = bo.optimize(
+        num_steps,
+        initial_data,
+        model,
+        acquisition_rule=acquisition_rule,
+        track_state=False,
+    )
+    dataset = result.try_get_final_dataset()
+    elapsed = time.time() - start
+
+    #Get Results
+
+    query_points = dataset.query_points.numpy()
+    observations = dataset.observations.numpy()
+
+    arg_min_idx = tf.squeeze(tf.argmin(observations, axis=0))
+    found_minimum = observations[arg_min_idx, :]
+    found_minimizer = query_points[arg_min_idx, :]
+
+    results = {
+        "objective": objective_name,
+        "acquisition": acquisition_name,
+        "num_initial_points": str(num_initial_points),
+        "num_steps": str(num_steps),
+        "seed": str(seed),
+        "true_min": str(minimum.numpy()[0]),
+        "true_minimizer": str(minimizer.numpy()),
+        "found_minimum": str(found_minimum[0]),
+        "found_minimizer": str(found_minimizer),
+        "runtime": str(round(elapsed, 2))
+    }
+    for key, arg in model_args.items():
+        results.update({key: str(arg)})
+
+    #Write results
+    os.makedirs(output_path, exist_ok = True)
+
+    #Check for header of log_file
+    header = ", ".join(results.keys()) + "\n"
+    log_file = os.path.join(output_path, f"{model_name}_results.csv")
+
+    try:
+        with open(log_file, "r") as infile:
+            file_header = infile.readlines(1)
+            if file_header[0] != header:
+                print(
+                    f"Output log {log_file} already contains a header {file_header[0]}\n"
+                    f"Which is not the same as the header for this simulation: \n"
+                    f"{header} \n Continuing will overwrite the current log file entirely. "
+                    f"Do you want to overwrite: y/n?"
+                )
+                overwrite = input()
+                if overwrite.lower() == "y":
+                    with open(log_file, "w") as output:
+                        output.write(header)
+                else: 
+                    print("Exiting...")
+                    exit()
+                
+    except FileNotFoundError:
+        with open(log_file, "w") as output:
+            output.write(header)
+    
+    # append results
+
+    with open(log_file, "a") as output:
+        output.write(", ".join(results.values()) + "\n")
+
+    # Plot
+
+    if plot:
+
+        #Gen fig and save titles
+        fig_title_suffix = [f"{key}: {model_args[key]}" for key in model_args.keys()]
+        fig_title = f"{model_name} {acquisition_name} ({seed}) " + " ".join(fig_title_suffix)
+
+        save_title_suffix = []
+        for key in save_title_prefixes.keys():
+            if isinstance(model_args[key], float):
+                arg = parse_rate(model_args[key])
+            else:
+                arg = model_args[key]
+            save_title_suffix.append(f"{save_title_prefixes[key]}{arg}")
+        
+        save_title = f"{model_name}_{acquisition_name}_s{seed}_" + "_".join(save_title_suffix)
+
+        #Plot and save fitted plot
+        fig = plot_function_plotly(
+            function,
+            search_space.lower,
+            search_space.upper,
+            grid_density=100,
+            alpha=0.7,
+        )
+        fig.update_layout(height=800, width=800)
+
+        fig = add_bo_points_plotly(
+            x=query_points[:, 0],
+            y=query_points[:, 1],
+            z=observations[:, 0],
+            num_init=num_initial_points,
+            idx_best=arg_min_idx,
+            fig=fig,
+        )
+        fig.update_layout(title = "fit " + fig_title)
+        fig.write_html(os.path.join(output_path, f"{save_title}_fit.html"))
+        print(f"{save_title}_fit saved!")
+
+        #Plot and save predictions
+        fig = plot_model_predictions_plotly(
+            result.try_get_final_model(),
+            search_space.lower,
+            search_space.upper,
+        )
+
+        fig = add_bo_points_plotly(
+            x=query_points[:, 0],
+            y=query_points[:, 1],
+            z=observations[:, 0],
+            num_init=num_initial_points,
+            idx_best=arg_min_idx,
+            fig=fig,
+            figrow=1,
+            figcol=1,
+        )
+        fig.update_layout(height=800, width=800)
+        fig.update_layout(title="predict " + fig_title)
+        fig.write_html(os.path.join(output_path, f"{save_title}_predict.html"))
+        print(f"{save_title}_predict saved!")
+
+
+def multi_experiment(simul_args: dict):
+    '''
+    Run all cross possibilities of experiments.
+    :param simul_args: A dict of all args
+    '''
+    for args in tqdm(itertools.product(*simul_args.values())):
+        arg_dict = dict(zip(simul_args.keys(), args))
+        simulate_experiment(**arg_dict)
+
