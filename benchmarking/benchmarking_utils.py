@@ -115,11 +115,9 @@ def parse_rate(rate:float)-> str:
 def simulate_experiment(
     objective: Tuple, 
     num_initial_points: int,
-    acquisition_rule: trieste.acquisition.rule.AcquisitionRule, 
-    acquisition_name: str,
+    acquisition: Tuple[str, trieste.acquisition.rule.AcquisitionRule],
     num_steps: int,
-    model_builder: Callable, 
-    model_name: str,
+    model: Tuple[str, Callable],
     output_path: str,
     save_title_prefixes: dict = global_save_title_prefixes,
     plot: bool = True,
@@ -129,11 +127,10 @@ def simulate_experiment(
     """
     :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
     :param num_initial_points: Number of initial query points.
-    :param acquisition_rule: Acquisition rule already instantiated.
-    :param acquisition_name: Name of acquisition rule for logging purposes
+    :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
     :param num_steps: Number of bayesian optimization steps.
-    :param model_builder: Function that accepts initial_data and **model_args and returns a model.
-    :param model_name: Name of model for logging purposes. 
+    :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
+        arguments: initial_data, and **model_args and returns a model. 
     :param output_path: Path to save figs and log_file
     :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
         example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
@@ -148,6 +145,8 @@ def simulate_experiment(
     tf.random.set_seed(seed)
 
     #Unpack objective tuple:
+    acquisition_name, acquisition_rule = acquisition
+    model_name, model_builder = model
     objective_name, function, search_space, minimum, minimizer = objective
 
     #Get initial data

@@ -63,11 +63,9 @@ save_title_prefixes = {
 simulate_experiment(
     objective=branin,
     num_initial_points=1,
-    acquisition_rule=DiscreteThompsonSampling(2000, 4),
-    acquisition_name="ts",
+    acquisition=("ts", DiscreteThompsonSampling(2000, 4)),
     num_steps=25,
-    model_builder=build_der,
-    model_name="der",
+    model=("der", build_der),
     output_path="der_test",
     save_title_prefixes=save_title_prefixes,
     plot=True,
@@ -83,16 +81,14 @@ simulate_experiment(
 #CROSS MULTIPLE EXPERIMENTS LIKE THIS:
 
 simul_args = {
-    "objective": [michal2, branin],
+    "objective": [michal2],
     "num_initial_points": [1],
-    "acquisition_rule": [EfficientGlobalOptimization()],
-    "acquisition_name": ["ei"],
+    "acquisition": [("ei", EfficientGlobalOptimization())],
     "num_steps": [25],
-    "model_builder": [deepensemble_builder],
-    "model_name": ["der"],
+    "model": [("der", deepensemble_builder)],
     "output_path": ["deep_ensemble_test"],
-    "ensemble_size": [5],
-    "num_hidden_layers": [2],
+    "ensemble_size": [2, 3],
+    "num_hidden_layers": [2, 3],
     "units": [25]
 }
 
