@@ -121,7 +121,7 @@ def simulate_experiment(
     model_builder: Callable, 
     model_name: str,
     output_path: str,
-    save_title_prefixes: dict,
+    save_title_prefixes: dict = global_save_title_prefixes,
     plot: bool = True,
     seed: int = 0,
     **model_args
@@ -136,7 +136,8 @@ def simulate_experiment(
     :param model_name: Name of model for logging purposes. 
     :param output_path: Path to save figs and log_file
     :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
-        example: {'num_hidden_layers': 'hl'}
+        example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
+        global_save_title_prefixes where we can add prefixes for all models. 
     :param plot: True or False, whether to generate plots or not. 
     :param seed: Seed.
     """
