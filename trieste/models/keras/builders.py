@@ -26,15 +26,14 @@ import tensorflow as tf
 from trieste.models.keras.models import DeepEnsemble
 
 from ...data import Dataset
-<<<<<<< HEAD
-<<<<<<< HEAD
-from .architectures import GaussianNetwork, KerasEnsemble, EpistemicUncertaintyPredictor
-=======
-from .architectures import DropoutNetwork, GaussianNetwork, KerasEnsemble
->>>>>>> clinton_david/mcdropout
-=======
-from .architectures import DeepEvidentialNetwork, GaussianNetwork, KerasEnsemble
->>>>>>> clinton/der_model
+
+from .architectures import (
+    DropoutNetwork,
+    DeepEvidentialNetwork,
+    GaussianNetwork, 
+    KerasEnsemble, 
+    EpistemicUncertaintyPredictor,
+)
 from .utils import get_tensor_spec_from_data
 
 
