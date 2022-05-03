@@ -38,6 +38,7 @@ from .architectures import DropoutNetwork, KerasEnsemble, MultivariateNormalTriL
 from .interface import KerasPredictor
 from .sampler import EnsembleTrajectorySampler
 from .utils import (
+    KernelDensityEstimator,
     DeepEvidentialCallback,
     negative_log_likelihood,
     normal_inverse_gamma_negative_log_likelihood,
