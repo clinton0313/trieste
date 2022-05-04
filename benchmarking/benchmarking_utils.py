@@ -30,6 +30,7 @@ from trieste.objectives import (
     BRANIN_MINIMIZERS,
     BRANIN_SEARCH_SPACE
 )
+from trieste.objectives.single_objectives import HARTMANN_3_SEARCH_SPACE, HARTMANN_6_MINIMIZER, HARTMANN_6_MINIMUM, hartmann_6
 from trieste.objectives.utils import mk_observer
 from trieste.models.optimizer import KerasOptimizer
 from typing import Callable, Tuple
@@ -59,6 +60,7 @@ global_save_title_prefixes = {
 
 michal2 = ("michal2", michalewicz_2, MICHALEWICZ_2_SEARCH_SPACE, MICHALEWICZ_2_MINIMUM, MICHALEWICZ_2_MINIMIZER)
 branin = ("scaled_branin", scaled_branin, BRANIN_SEARCH_SPACE, SCALED_BRANIN_MINIMUM, BRANIN_MINIMIZERS)
+hartmann6 = ("hartmann6", hartmann_6, HARTMANN_3_SEARCH_SPACE, HARTMANN_6_MINIMUM, HARTMANN_6_MINIMIZER)
 
 # MODEL BUILDERS
 
