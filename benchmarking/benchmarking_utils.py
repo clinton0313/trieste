@@ -22,7 +22,7 @@ from trieste.models.keras import (
     build_vanilla_keras_mcdropout,
     build_vanilla_keras_deep_evidential, 
 )
-from trieste.models.keras.architectures import DropConnectNetwork, EpistemicUncertaintyPredictor
+from trieste.models.keras.architectures import DropConnectNetwork, EpistemicUncertaintyNetwork
 from trieste.objectives import (
     michalewicz_2,
     MICHALEWICZ_2_MINIMUM,
@@ -60,6 +60,8 @@ tf.keras.backend.set_floatx("float64")
 global_save_title_prefixes = {
     "num_hidden_layers": "L",
     "units": "n",
+    "e_num_hidden_layers": "eL",
+    "e_units": "en",
     "reg_weight": "rw",
     "maxi_rate": "m",
     "rate": "dr",
