@@ -23,7 +23,15 @@ from trieste.objectives import (
     scaled_branin,
     SCALED_BRANIN_MINIMUM,
     BRANIN_MINIMIZERS,
-    BRANIN_SEARCH_SPACE
+    BRANIN_SEARCH_SPACE,
+    dropwave,
+    DROPWAVE_MINIMUM,
+    DROPWAVE_MINIMIZER,
+    DROPWAVE_SEARCH_SPACE,
+    eggholder,
+    EGGHOLDER_MINIMUM,
+    EGGHOLDER_MINIMIZER,
+    EGGHOLDER_SEARCH_SPACE
 )
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"

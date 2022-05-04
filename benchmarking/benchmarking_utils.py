@@ -3,6 +3,7 @@ import itertools
 import numpy as np
 import os
 import random
+from sklearn import ensemble
 import tensorflow as tf
 import tensorflow_probability as tfp 
 import time
@@ -12,14 +13,16 @@ from tqdm import tqdm
 from trieste.models.gpflow import GaussianProcessRegression, build_gpr
 from trieste.models.gpflow.builders import NUM_INDUCING_POINTS_PER_DIM
 from trieste.models.keras import (
+    DirectEpistemicUncertaintyPredictor,
     DeepEvidentialRegression,
     MonteCarloDropout,
     DeepEnsemble,
+    build_vanilla_deup,
     build_vanilla_keras_ensemble,
     build_vanilla_keras_mcdropout,
     build_vanilla_keras_deep_evidential, 
 )
-from trieste.models.keras.architectures import DropConnectNetwork
+from trieste.models.keras.architectures import DropConnectNetwork, EpistemicUncertaintyPredictor
 from trieste.objectives import (
     michalewicz_2,
     MICHALEWICZ_2_MINIMUM,
@@ -28,7 +31,15 @@ from trieste.objectives import (
     scaled_branin,
     SCALED_BRANIN_MINIMUM,
     BRANIN_MINIMIZERS,
-    BRANIN_SEARCH_SPACE
+    BRANIN_SEARCH_SPACE,
+    dropwave,
+    DROPWAVE_MINIMUM,
+    DROPWAVE_MINIMIZER,
+    DROPWAVE_SEARCH_SPACE,
+    eggholder,
+    EGGHOLDER_MINIMUM,
+    EGGHOLDER_MINIMIZER,
+    EGGHOLDER_SEARCH_SPACE
 )
 from trieste.objectives.single_objectives import HARTMANN_3_SEARCH_SPACE, HARTMANN_6_MINIMIZER, HARTMANN_6_MINIMUM, hartmann_6
 from trieste.objectives.utils import mk_observer
@@ -59,6 +70,8 @@ global_save_title_prefixes = {
 # OBJECTIVES
 
 michal2 = ("michal2", michalewicz_2, MICHALEWICZ_2_SEARCH_SPACE, MICHALEWICZ_2_MINIMUM, MICHALEWICZ_2_MINIMIZER)
+dropw2 = ("dropw2", dropwave, DROPWAVE_SEARCH_SPACE, DROPWAVE_MINIMUM, DROPWAVE_MINIMIZER)
+eggho2 = ("eggho2", michalewicz_2, EGGHOLDER_SEARCH_SPACE, EGGHOLDER_MINIMUM, EGGHOLDER_MINIMIZER)
 branin = ("scaled_branin", scaled_branin, BRANIN_SEARCH_SPACE, SCALED_BRANIN_MINIMUM, BRANIN_MINIMIZERS)
 hartmann6 = ("hartmann6", hartmann_6, HARTMANN_3_SEARCH_SPACE, HARTMANN_6_MINIMUM, HARTMANN_6_MINIMIZER)
 
@@ -77,6 +90,31 @@ def der_builder(data, num_hidden_layers, units, reg_weight, maxi_rate, lr):
         maxi_rate=maxi_rate
     )
     return model
+
+
+def deup_builder(data, ensemble_size, num_hidden_layers, units, lr, e_num_hidden_layers=4, e_units=128):
+    f_keras_ensemble, e_predictor = build_vanilla_deup(
+        data, 
+        f_model_builder=build_vanilla_keras_ensemble,
+        ensemble_size=ensemble_size,
+        num_hidden_layers=num_hidden_layers,
+        units=units,
+        activation="relu",
+        independent_normal=False,
+        e_num_hidden_layers=e_num_hidden_layers,
+        e_units=e_units,
+        e_activation="relu"
+    )
+
+    f_ensemble = DeepEnsemble(f_keras_ensemble, optimizer=KerasOptimizer(tf.optimizers.Adam(lr)),)
+
+    deup = DirectEpistemicUncertaintyPredictor(
+        model={"f_model": f_ensemble, "e_model": e_predictor},
+        optimizer=KerasOptimizer(tf.optimizers.Adam(lr)), init_buffer=True
+    )
+
+    return deup
+
 
 def mcdropout_builder(data, num_hidden_layers, units, rate, num_passes, lr):
     network = build_vanilla_keras_mcdropout(data, num_hidden_layers, units, rate=rate)
@@ -174,7 +212,6 @@ def simulate_experiment(
     model = model_builder(initial_data, **model_args)
 
     #Bayesian Optimizer
-
     bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
     start = time.time()
     result = bo.optimize(
@@ -188,7 +225,6 @@ def simulate_experiment(
     elapsed = time.time() - start
 
     #Get Results
-
     query_points = dataset.query_points.numpy()
     observations = dataset.observations.numpy()
 
@@ -241,12 +277,10 @@ def simulate_experiment(
             output.write(header)
     
     # append results
-
     with open(log_file, "a") as output:
         output.write(", ".join(results.values()) + "\n")
 
     # Plot
-
     if plot:
 
         #Gen fig and save titles

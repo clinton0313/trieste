@@ -4,12 +4,12 @@ import os
 import tensorflow as tf
 
 from benchmarking_utils import (
-    deepensemble_builder,
+    deup_builder,
     multi_experiment,
-    dropwave,
-    eggholder,
     branin,
     michal2,
+    dropwave,
+    eggholder,
     hartmann6
 )
 from trieste.acquisition.rule import DiscreteThompsonSampling, EfficientGlobalOptimization
@@ -24,11 +24,13 @@ simul_args = {
     "num_initial_points": [1, 20],
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": [20],
-    "model": [("de", deepensemble_builder)],
-    "output_path": ["deep_ensemble_test"],
+    "model": [("deup", deup_builder)],
+    "output_path": ["deup_test"],
     "ensemble_size": [5, 7],
     "num_hidden_layers": [3, 5],
     "units": [25, 50],
+    "e_num_hidden_layers": [3, 5],
+    "e_units": [64, 128, 256],
     "plot": [False],
     "seed": list(range(10))
 }
