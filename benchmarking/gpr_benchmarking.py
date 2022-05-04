@@ -19,23 +19,21 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 simul_args = {
     "objective": [branin],
-    "num_initial_points": [1],
+    "num_initial_points": [2],
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": [25],
     "model": [("gpr", gpr_builder)],
     "output_path": ["gpr_test"],
-    "search_space": [BRANIN_SEARCH_SPACE],
     "seed": list(range(10))
 }
 
 simul_args2 = {
     "objective": [michal2],
-    "num_initial_points": [1],
+    "num_initial_points": [2],
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": [25],
     "model": [("gpr", gpr_builder)],
     "output_path": ["gpr_test"],
-    "search_space": [MICHALEWICZ_2_SEARCH_SPACE],
     "seed": list(range(10))
 }
 

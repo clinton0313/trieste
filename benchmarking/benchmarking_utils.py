@@ -1,13 +1,16 @@
+import gpflow
 import itertools
 import numpy as np
 import os
 import random
 import tensorflow as tf
+import tensorflow_probability as tfp 
 import time
 import trieste
 
 from tqdm import tqdm
 from trieste.models.gpflow import GaussianProcessRegression, build_gpr
+from trieste.models.gpflow.builders import NUM_INDUCING_POINTS_PER_DIM
 from trieste.models.keras import (
     DeepEvidentialRegression,
     MonteCarloDropout,
@@ -73,14 +76,14 @@ def der_builder(data, num_hidden_layers, units, reg_weight, maxi_rate, lr):
     )
     return model
 
-def mcdropout_builder(data, num_hidden_layers, units, rate, lr):
+def mcdropout_builder(data, num_hidden_layers, units, rate, num_passes, lr):
     network = build_vanilla_keras_mcdropout(data, num_hidden_layers, units, rate=rate)
-    model = MonteCarloDropout(network, KerasOptimizer(tf.optimizers.Adam(lr)))
+    model = MonteCarloDropout(network, KerasOptimizer(tf.optimizers.Adam(lr)), num_passes=num_passes)
     return model
 
-def mcdropconnect_builder(data, num_hidden_layers, units, rate, lr):
+def mcdropconnect_builder(data, num_hidden_layers, units, rate, num_passes, lr):
     network = build_vanilla_keras_mcdropout(data, num_hidden_layers, units, rate=rate, dropout_network=DropConnectNetwork)
-    model = MonteCarloDropout(network, KerasOptimizer(tf.optimizers.Adam(lr)))
+    model = MonteCarloDropout(network, KerasOptimizer(tf.optimizers.Adam(lr)), num_passes=num_passes)
     return model
 
 def deepensemble_builder(data, ensemble_size, num_hidden_layers, units):
@@ -88,10 +91,21 @@ def deepensemble_builder(data, ensemble_size, num_hidden_layers, units):
     model = DeepEnsemble(network)
     return model
 
-def gpr_builder(data, search_space):
-    network = build_gpr(data, search_space)
-    model = GaussianProcessRegression(network)
-    return model
+
+def gpr_builder(data):
+    variance = tf.math.reduce_variance(data.observations)
+    kernel = gpflow.kernels.Matern52(variance=variance, lengthscales=[0.2, 0.2])
+    prior_scale = tf.cast(1.0, dtype=tf.float64)
+    kernel.variance.prior = tfp.distributions.LogNormal(
+        tf.cast(-2.0, dtype=tf.float64), prior_scale
+    )
+    kernel.lengthscales.prior = tfp.distributions.LogNormal(
+        tf.math.log(kernel.lengthscales), prior_scale
+    )
+    gpr = gpflow.models.GPR(data.astuple(), kernel, noise_variance=1e-5)
+    gpflow.set_trainable(gpr.likelihood, False)
+
+    return GaussianProcessRegression(gpr, num_kernel_samples=100)
 
 # SIMULATOR
 def parse_rate(rate:float)-> str:
