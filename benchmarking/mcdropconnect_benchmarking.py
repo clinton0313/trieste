@@ -2,15 +2,17 @@
 
 import os
 import tensorflow as tf
-
 from concurrent.futures import ThreadPoolExecutor
+
 from benchmarking_utils import (
     deepensemble_builder,
+    mcdropconnect_builder,
+    mcdropout_builder,
     multi_experiment,
-    dropwave,
-    eggholder,
     branin,
     michal2,
+    dropwave,
+    eggholder,
     hartmann6
 )
 from trieste.acquisition.rule import DiscreteThompsonSampling, EfficientGlobalOptimization
@@ -25,11 +27,13 @@ simul_args = {
     "num_initial_points": [1, 20],
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": [20],
-    "model": [("de", deepensemble_builder)],
-    "output_path": ["deep_ensemble_test"],
-    "ensemble_size": [5, 7],
+    "model": [("mcdc", mcdropconnect_builder)],
+    "output_path": ["mcdropconnect_test"],
     "num_hidden_layers": [3, 5],
-    "units": [25, 50],
+    "units": [25, 50, 100],
+    "rate": [0.1, 0.2, 0.3],
+    "num_passes": [100],
+    "lr": [0.001],
     "plot": [False],
     "seed": list(range(10))
 }
@@ -38,3 +42,4 @@ with ThreadPoolExecutor(max_workers=20) as executor:
     future = executor.submit(multi_experiment, simul_args)
     print(future.result())
 # %%
+

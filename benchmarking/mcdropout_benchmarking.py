@@ -3,6 +3,7 @@
 import os
 import tensorflow as tf
 
+from concurrent.futures import ThreadPoolExecutor
 from benchmarking_utils import (
     deepensemble_builder,
     mcdropconnect_builder,
@@ -37,4 +38,6 @@ simul_args = {
     "seed": list(range(10))
 }
 
-multi_experiment(simul_args)
+with ThreadPoolExecutor(max_workers=20) as executor:
+    future = executor.submit(multi_experiment, simul_args)
+    print(future.result())
