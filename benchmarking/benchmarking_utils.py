@@ -249,7 +249,7 @@ def simulate_experiment(
     os.makedirs(output_path, exist_ok = True)
 
     #Check for header of log_file
-    header = ", ".join(results.keys()) + "\n"
+    header = ",".join(results.keys()) + "\n"
     log_file = os.path.join(output_path, f"{model_name}_results.csv")
 
     try:
@@ -276,7 +276,7 @@ def simulate_experiment(
     
     # append results
     with open(log_file, "a") as output:
-        output.write(", ".join(results.values()) + "\n")
+        output.write(",".join(results.values()) + "\n")
 
     # Plot
     if plot:
