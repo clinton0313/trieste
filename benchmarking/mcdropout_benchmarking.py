@@ -26,13 +26,13 @@ simul_args = {
     "num_initial_points": [1, 20],
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": [20],
-    "model": [("mc", mcdropout_builder), ("mcdc", mcdropconnect_builder)],
+    "model": [("mc", mcdropout_builder)],
     "output_path": ["mcdropout_test"],
-    "num_hidden_layers": [2, 3, 5],
+    "num_hidden_layers": [3, 5],
     "units": [25, 50, 100],
     "rate": [0.1, 0.2, 0.3],
-    "num_passes": [100, 200],
-    "lr": [0.001, 0.01],
+    "num_passes": [100],
+    "lr": [0.001],
     "plot": [False],
     "seed": list(range(10))
 }
