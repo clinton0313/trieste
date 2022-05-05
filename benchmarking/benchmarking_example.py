@@ -23,7 +23,15 @@ from trieste.objectives import (
     scaled_branin,
     SCALED_BRANIN_MINIMUM,
     BRANIN_MINIMIZERS,
-    BRANIN_SEARCH_SPACE
+    BRANIN_SEARCH_SPACE,
+    dropwave,
+    DROPWAVE_MINIMUM,
+    DROPWAVE_MINIMIZER,
+    DROPWAVE_SEARCH_SPACE,
+    eggholder,
+    EGGHOLDER_MINIMUM,
+    EGGHOLDER_MINIMIZER,
+    EGGHOLDER_SEARCH_SPACE
 )
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -65,8 +73,8 @@ simulate_experiment(
     num_initial_points=1,
     acquisition=("ts", DiscreteThompsonSampling(2000, 4)),
     num_steps=25,
-    model=("der", build_der),
-    output_path="der_test",
+    model=("ensembles", deepensemble_builder),
+    output_path="ensembles_test",
     save_title_prefixes=save_title_prefixes,
     plot=True,
     seed=0,

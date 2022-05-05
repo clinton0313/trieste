@@ -282,6 +282,7 @@ class GaussianNetwork(KerasEnsembleNetwork):
         return input_tensor, output_tensor
 
 
+
 class DeepEvidentialNetwork(tf.keras.Model):
     """
     This class builds a fully connected neural network with a deep evidential output using Keras. 
@@ -567,7 +568,7 @@ class DropConnectNetwork(DropoutNetwork):
         return output_layer
 
 
-class EpistemicUncertaintyPredictor(tf.keras.Model):
+class EpistemicUncertaintyNetwork(tf.keras.Model):
     """
     This class builds a fully connected neural network using Keras. The network architecture is a 
     multilayer fully-connected feed-forward network with a single output parameter: the loss function
@@ -608,17 +609,7 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
         self.hidden_layers = self._gen_hidden_layers()
         self.output_layer = self._gen_output_layer()
 
-    def _gen_input_tensor(self) -> tf.keras.Input:
-
-        input_tensor = tf.keras.Input(
-            shape=self.input_tensor_spec.shape,
-            dtype=self.input_tensor_spec.dtype,
-            name=self.input_layer_name,
-        )
-        return input_tensor
-
     def _gen_hidden_layers(self) -> tf.keras.Model:
-
         hidden_layers = tf.keras.Sequential(name="hidden_layers")
         for hidden_layer_args in self._hidden_layer_args:
             hidden_layers.add(tf.keras.layers.Dense(
@@ -629,7 +620,6 @@ class EpistemicUncertaintyPredictor(tf.keras.Model):
         return hidden_layers
 
     def _gen_output_layer(self) -> tf.keras.layers.Layer:
-
         output_layer = tf.keras.layers.Dense(
             units=self.flattened_output_shape,
             dtype=self.input_tensor_spec.dtype,

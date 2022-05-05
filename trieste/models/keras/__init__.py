@@ -25,7 +25,7 @@ from .architectures import (
     DropConnectNetwork,
     DropoutNetwork,
     DeepEvidentialNetwork,
-    EpistemicUncertaintyPredictor,
+    EpistemicUncertaintyNetwork,
     GaussianNetwork,
     KerasEnsemble,
     KerasEnsembleNetwork,
