@@ -10,7 +10,6 @@ import trieste
 
 from tqdm import tqdm
 from trieste.models.gpflow import GaussianProcessRegression, build_gpr
-from trieste.models.gpflow.builders import NUM_INDUCING_POINTS_PER_DIM
 from trieste.models.keras import (
     DeepEvidentialRegression,
     MonteCarloDropout,
@@ -194,7 +193,6 @@ def simulate_experiment(
 
     arg_min_idx = tf.squeeze(tf.argmin(observations, axis=0))
     found_minimum = observations[arg_min_idx, :]
-    found_minimizer = query_points[arg_min_idx, :]
 
     results = {
         "objective": objective_name,
@@ -203,9 +201,7 @@ def simulate_experiment(
         "num_steps": str(num_steps),
         "seed": str(seed),
         "true_min": str(minimum.numpy()[0]),
-        "true_minimizer": str(minimizer.numpy()),
         "found_minimum": str(found_minimum[0]),
-        "found_minimizer": str(found_minimizer),
         "runtime": str(round(elapsed, 2))
     }
     for key, arg in model_args.items():

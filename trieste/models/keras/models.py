@@ -824,7 +824,7 @@ class DeepEvidentialRegression(
         
         epistemic = beta / ((alpha - 1) * v)
         uncertainty = epistemic + beta/(alpha-1) if aleatoric else epistemic
-        
+
         return gamma, uncertainty
 
 
