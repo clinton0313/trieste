@@ -21,7 +21,7 @@ tf.keras.backend.set_floatx("float64")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 simul_args = {
-    "objective": [branin, michal2, dropwave, eggholder, hartmann6],
+    "objective": [branin, michal2], #, dropwave, eggholder, hartmann6],
     "num_initial_points": [2],
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": [25],
