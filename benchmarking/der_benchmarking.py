@@ -23,9 +23,9 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 simul_args = {
     "objective": [michal2, branin],
     "num_initial_points": [1, 20],
-    "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
+    "acquisition": [ ("ei", EfficientGlobalOptimization())],
     "num_steps": [20],
-    "model": [("der_standard", der_builder)],
+    "model": [("der_log", der_builder)],
     "output_path": ["der_test"],
     "num_hidden_layers": [2, 4],
     "units": [50, 100],
@@ -36,6 +36,7 @@ simul_args = {
     "seed": list(range(10))
 }
 
-with ThreadPoolExecutor(max_workers=20) as executor:
-    future = executor.submit(multi_experiment, simul_args)
-    print(future.result())
+multi_experiment(simul_args)
+# with ThreadPoolExecutor(max_workers=2) as executor:
+#     future = executor.submit(multi_experiment, simul_args)
+#     print(future.result())

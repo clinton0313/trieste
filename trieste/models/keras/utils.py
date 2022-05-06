@@ -202,7 +202,7 @@ def normal_inverse_gamma_regularizer(
     :return: The loss values
     '''
     gamma, v, alpha, _ = tf.split(y_pred, 4, axis=-1)
-    return tf.reduce_mean(tf.norm(y_true - gamma, ord=1) * (2*v + alpha), axis=0)
+    return tf.reduce_mean(tf.norm(y_true - gamma, ord=2) * (2*v + alpha), axis=0)
 
 class DeepEvidentialCallback(tf.keras.callbacks.Callback):
     """
