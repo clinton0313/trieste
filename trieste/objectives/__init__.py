@@ -58,6 +58,15 @@ from .single_objectives import (
     TRID_10_MINIMIZER,
     TRID_10_MINIMUM,
     TRID_10_SEARCH_SPACE,
+    DROPWAVE_MINIMIZER,
+    DROPWAVE_MINIMUM,
+    DROPWAVE_SEARCH_SPACE,
+    EGGHOLDER_MINIMIZER,
+    EGGHOLDER_MINIMUM,
+    EGGHOLDER_SEARCH_SPACE,
+    EASOM_MINIMIZER,
+    EASOM_MINIMUM,
+    EASOM_SEARCH_SPACE, 
     ackley_5,
     branin,
     gramacy_lee,
@@ -74,4 +83,7 @@ from .single_objectives import (
     simple_quadratic,
     trid,
     trid_10,
+    dropwave,
+    eggholder,
+    easom
 )

@@ -25,6 +25,7 @@ Bibliography
 
 .. bibliography::
 """
+
 from . import (
     acquisition,
     ask_tell_optimization,
