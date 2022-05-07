@@ -143,7 +143,7 @@ def normal_inverse_gamma_regularizer(
     :return: The loss values
     '''
     gamma, v, alpha, _ = tf.split(y_pred, 4, axis=-1)
-    return tf.reduce_mean(tf.abs(y_true - gamma) * (2*v + alpha), axis=0)
+    return tf.reduce_mean(tf.norm(y_true - gamma, ord=2) * (2*v + alpha), axis=0)
 
 class DeepEvidentialCallback(tf.keras.callbacks.Callback):
     """
@@ -156,8 +156,7 @@ class DeepEvidentialCallback(tf.keras.callbacks.Callback):
         self, 
         reg_weight: tf.Variable,
         maxi_rate: float,
-        epsilon: float, 
-        verbose: int
+        epsilon: float
     ) -> None:
         """
         These arguments will be passed from the constructor of
@@ -168,11 +167,6 @@ class DeepEvidentialCallback(tf.keras.callbacks.Callback):
         self.reg_weight = reg_weight
         self.maxi_rate = maxi_rate
         self.epsilon = epsilon
-        self.verbose = verbose
 
     def on_batch_end(self, _, logs=None):
         self.reg_weight.assign_add(self.maxi_rate * (logs["output_2_loss"] - self.epsilon))
-
-    def on_epoch_end(self, epoch, logs=None):
-        if self.verbose == 1 and epoch % 100 == 0:
-            print(f"Epoch: {epoch};  Loss = {logs['loss']:4f}; NLL_LOSS = {logs['output_1_loss']:4f}; reg_loss = {logs['output_2_loss']:4f}; lambda: {self.reg_weight.numpy():4f}")
