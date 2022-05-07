@@ -21,9 +21,13 @@ to `False`.
 """
 
 from . import config
-from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork
-from .builders import build_vanilla_keras_ensemble
+from .architectures import GaussianNetwork, KerasEnsemble, KerasEnsembleNetwork, DeepEvidentialNetwork
+from .builders import build_vanilla_keras_ensemble, build_vanilla_keras_deep_evidential
 from .interface import KerasPredictor
-from .models import DeepEnsemble
+from .models import DeepEnsemble, DeepEvidentialRegression
 from .sampler import EnsembleTrajectorySampler
-from .utils import get_tensor_spec_from_data, negative_log_likelihood, sample_with_replacement
+from .utils import (
+    get_tensor_spec_from_data, 
+    negative_log_likelihood, 
+    sample_with_replacement
+)

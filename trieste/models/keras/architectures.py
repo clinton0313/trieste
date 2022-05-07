@@ -25,6 +25,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+from trieste.models.keras.utils import normal_inverse_gamma_negative_log_likelihood, normal_inverse_gamma_regularizer
+
 
 class KerasEnsemble:
     """
@@ -233,3 +235,124 @@ class GaussianNetwork(KerasEnsembleNetwork):
         output_tensor = self._gen_output_layer(hidden_tensor)
 
         return input_tensor, output_tensor
+
+
+class DeepEvidentialNetwork(tf.keras.Model):
+    """
+    This class builds a fully connected neural network with a deep evidential output using Keras. 
+    The network architecture is a multilayer fully-connected feed-forward network whose final output layer
+    outputs four distributional parameters meant to be used with a deep evidential loss function. 
+    This network is meant to be used with :class:`~trieste.models.keras.models.DeepEvidentialRegression` 
+    which will define the predict method to make this a probabilistic model. 
+    """
+
+    def __init__(
+        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+            {"units": 200, "activation": "relu"},
+        ),
+        evidence_activation: str = "softplus"
+    ):
+        """
+        :param input_tensor_spec: Tensor specification for the input of the network. 
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
+            available arguments. Default value is four hidden layers, 200 nodes each, with ReLu 
+            activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :param evidence_activation: Activation function to be used to ensure that evidential 
+            outputs alpha, beta and lambda will be well behaved (alpha > 1, beta > 0, lambda > 0).
+            By default the "softplus" is used. Alternatively, "relu" or "exp" can be chosen. 
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
+        super().__init__()
+        self.input_tensor_spec = input_tensor_spec
+        self.output_tensor_spec = output_tensor_spec
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
+        self._hidden_layer_args = hidden_layer_args
+
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
+
+        self.evidence_activation = evidence_activation
+
+
+    @property
+    def evidence_activation(self):
+        return self._evidence_activation
+    
+    @evidence_activation.setter
+    def evidence_activation(self, evidence_activation):
+        if evidence_activation not in ["softplus", "relu", "exp"]:
+            raise ValueError(
+                f"Evidence activation must be either 'softplus', 'relu' or 'exp',"
+                f"instead got {evidence_activation}."
+            )
+        else:
+            self._evidence_activation = evidence_activation
+    
+    def _gen_hidden_layers(self) -> tf.keras.Model:
+
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
+            hidden_layers.add(tf.keras.layers.Dense(
+                dtype=self.input_tensor_spec.dtype,
+                **hidden_layer_args
+            ))
+
+        return hidden_layers
+
+    def _gen_output_layer(self) -> tf.keras.layers.Layer:
+
+        output_layer = tf.keras.layers.Dense(
+            units= 4 * self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype,
+            name="output"
+        )
+
+        return output_layer
+
+    def _get_evidence(self, evidence: tf.Tensor) -> tf.Tensor:
+        '''Applies an activation function to ensure all evidential parameters are positive.'''
+
+        if self.evidence_activation == "softplus":
+            return tf.nn.softplus(evidence) + 1e-15
+        elif self.evidence_activation == "relu":
+            return tf.nn.relu(evidence) + 1e-15
+        elif self.evidence_activation == "exp":
+            return tf.math.exp(evidence)
+
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        The forward method of a Deep Evidential Regression model outputs four evidential
+        parameters: gamma, v, alpha, beta that parametrize the Gaussian and Inverse Gamma
+        evidential distributions. This forward method outputs a tuple of identical [N x 4]
+        outputs to be used with :class:`~trieste.models.keras.DeepEvidentialRegression` 's 
+        double headed loss function. 
+
+        :param inputs: The inputs. [N x d].
+
+        :return: Tuple of identical outputs of evidential parameters: [N x 4], [N x 4]
+        """
+
+        if inputs.shape.rank == 1:
+            inputs = tf.expand_dims(inputs, axis=-1)
+
+        hidden_output = self.hidden_layers(inputs)
+        output = self.output_layer(hidden_output)
+        
+        gamma, v, alpha, beta = tf.split(output, 4, axis=-1)
+        v = self._get_evidence(v)
+        beta = self._get_evidence(beta)
+        # We need alpha > 1 so that the aleatoric and epistemic uncertainties will
+        # be positive. 
+        alpha = self._get_evidence(alpha) + 1
+        output = tf.concat([gamma, v, alpha, beta], axis=-1)
+        return output, output

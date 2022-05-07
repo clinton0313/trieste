@@ -25,6 +25,7 @@ from trieste.models.keras import EnsembleTrajectorySampler
 _ENSEMBLE_SIZE = 3
 
 
+@pytest.mark.deep_ensemble
 @pytest.mark.parametrize("num_evals", [10, 20])
 def test_ensemble_trajectory_sampler_returns_trajectory_function_with_correctly_shaped_output(
     num_evals: int,
@@ -41,6 +42,7 @@ def test_ensemble_trajectory_sampler_returns_trajectory_function_with_correctly_
     assert trajectory(test_data).shape == (num_evals, 1)
 
 
+@pytest.mark.deep_ensemble
 def test_ensemble_trajectory_sampler_returns_deterministic_trajectory() -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([-10.0], [10.0], 100)
@@ -58,6 +60,7 @@ def test_ensemble_trajectory_sampler_returns_deterministic_trajectory() -> None:
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_ensemble_trajectory_sampler_samples_are_distinct_for_new_instances() -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([-10.0], [10.0], 100)
@@ -75,6 +78,7 @@ def test_ensemble_trajectory_sampler_samples_are_distinct_for_new_instances() ->
 
 
 @random_seed
+@pytest.mark.deep_ensemble
 def test_ensemble_trajectory_sampler_resample_provides_new_samples_without_retracing() -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([-10.0], [10.0], 100)

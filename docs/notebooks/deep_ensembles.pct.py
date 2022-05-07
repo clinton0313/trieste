@@ -284,7 +284,7 @@ print(f"True minimum: {MINIMUM}")
 
 
 # %% [markdown]
-# We can visualise how the optimizer performed as a three-dimensional plot. Crosses mark the initial data points while dots mark the points chosen during the Bayesian optimization run. You can see that there are some samples on the flat regions of the space, while most of the points are exploring the ridges, in particular in the vicinity of the minimum point.
+# We can visualise how the optimizer performed as a three-dimensional plot. Crosses mark the initial data points while dots mark the points chosen during the Bayesian optimization run. The points are colored from purple to yellow in order of their query from earliest to latest. You can see that there are some samples on the flat regions of the space, while most of the points are exploring the ridges, in particular in the vicinity of the minimum point.
 
 # %%
 from util.plotting_plotly import add_bo_points_plotly

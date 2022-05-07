@@ -20,6 +20,7 @@ of the Trieste's Keras model wrappers.
 from __future__ import annotations
 
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 from ...types import TensorType
 from ..interfaces import (

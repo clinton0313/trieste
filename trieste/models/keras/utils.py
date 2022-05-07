@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
@@ -98,3 +99,74 @@ def negative_log_likelihood(
     :return: Negative log likelihood values.
     """
     return -y_pred.log_prob(y_true)
+
+def normal_inverse_gamma_negative_log_likelihood(
+    y_true: TensorType, 
+    y_pred: TensorType,
+) -> TensorType:
+    '''
+    Computes the loss of the normal inverse gamma as computed by negative log likelihood estimation.
+
+    :param y_true: The output variable values.
+    :param y_pred: The four output parameters of the deep evidential regression model
+        that characterize the normal inverse gamma distribution given in the order: gamma,
+        lambda, alpha, beta.
+    :return: The loss values
+    '''
+
+    gamma, v, alpha, beta = tf.split(y_pred, 4, axis=-1)
+
+    omega = 2 * beta * (1 + v)
+
+    negative_log_likelihood = (
+        0.5 * tf.math.log(np.math.pi/v)
+        - alpha * tf.math.log(omega)
+        + (alpha + 0.5) * tf.math.log(v * (y_true - gamma) **2 + omega)
+        + tf.math.lgamma(alpha)
+        - tf.math.lgamma(alpha + 0.5)
+    )
+    return tf.reduce_mean(negative_log_likelihood, axis=0)
+
+
+def normal_inverse_gamma_regularizer(
+    y_true: TensorType, 
+    y_pred: TensorType,
+) -> TensorType:
+    '''
+    Computes the regularization loss for the Normal Inverse Gamma distribution for Deep
+    Evidential Regression.
+    
+    :param y_true: The output variable values.
+    :param y_pred: The four output parameters of the deep evidential regression model
+        that characterize the normal inverse gamma distribution given in the order: gamma,
+        lambda, alpha, beta.
+    :return: The loss values
+    '''
+    gamma, v, alpha, _ = tf.split(y_pred, 4, axis=-1)
+    return tf.reduce_mean(tf.norm(y_true - gamma, ord=2) * (2*v + alpha), axis=0)
+
+class DeepEvidentialCallback(tf.keras.callbacks.Callback):
+    """
+    A callback to facilitate the automatic search for a good ``reg_weight`` for
+    :class:`~trieste.models.keras.DeepEvidentialRegression` model. This 
+    callback is not meant to be initialized outside of the model's constructor
+    class. Parameters for this callback are passed from the model's constructor. 
+    """
+    def __init__(
+        self, 
+        reg_weight: tf.Variable,
+        maxi_rate: float,
+        epsilon: float
+    ) -> None:
+        """
+        These arguments will be passed from the constructor of
+        :class:`~trieste.models.keras.DeepEvidentialRegression` model. Refer to its
+        docstring for a description of these parameters.
+        """
+
+        self.reg_weight = reg_weight
+        self.maxi_rate = maxi_rate
+        self.epsilon = epsilon
+
+    def on_batch_end(self, _, logs=None):
+        self.reg_weight.assign_add(self.maxi_rate * (logs["output_2_loss"] - self.epsilon))
