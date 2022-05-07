@@ -374,8 +374,7 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
         self,
         model: DropoutNetwork,
         optimizer: Optional[KerasOptimizer] = None,
-        num_passes: int = 100,
-        learning_rate: float = 0.01
+        num_passes: int = 100
     ) -> None:
         """
         :param model: A Keras neural network model with Monte Carlo dropout layers. The
@@ -411,7 +410,6 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
             self.optimizer.loss = "mse"
 
         self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
-        # self._learning_rate = learning_rate
 
         model.compile(
             self.optimizer.optimizer,
