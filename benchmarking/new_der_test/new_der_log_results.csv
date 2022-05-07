@@ -1,0 +1,3 @@
+objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,acquisition_runtime,optimize_runtime,num_hidden_layers,units,reg_weight,maxi_rate,lr,pickle_file
+scaled_branin,ei,20,9,0,-1.047393,-1.0189817189572319,-2.836,8.474,2,50,0.001,0,0.001,new_der_log_ei_scaled_branin_L2_n50_rw1e3_m0_lr1e3_seed0.pkl
+scaled_branin,ei,20,9,1,-1.047393,-1.034015503072162,-2.807,14.848,2,50,0.001,0,0.001,new_der_log_ei_scaled_branin_L2_n50_rw1e3_m0_lr1e3_seed1.pkl

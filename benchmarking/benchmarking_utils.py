@@ -1,12 +1,15 @@
+from collections import defaultdict
 import gpflow
 import itertools
 import numpy as np
 import os
+import pickle
+import platform
+import psutil
 import random
-from sklearn import ensemble
 import tensorflow as tf
 import tensorflow_probability as tfp 
-import time
+import timeit
 import trieste
 
 from tqdm import tqdm
@@ -40,7 +43,7 @@ from trieste.objectives import (
     EGGHOLDER_MINIMIZER,
     EGGHOLDER_SEARCH_SPACE
 )
-from trieste.objectives.single_objectives import HARTMANN_3_SEARCH_SPACE, HARTMANN_6_MINIMIZER, HARTMANN_6_MINIMUM, hartmann_6
+from trieste.objectives.single_objectives import HARTMANN_6_SEARCH_SPACE, HARTMANN_6_MINIMIZER, HARTMANN_6_MINIMUM, hartmann_6
 from trieste.objectives.utils import mk_observer
 from trieste.models.optimizer import KerasOptimizer
 from trieste.ask_tell_optimization import AskTellOptimizer
@@ -75,7 +78,7 @@ michal2 = ("michal2", michalewicz_2, MICHALEWICZ_2_SEARCH_SPACE, MICHALEWICZ_2_M
 dropw2 = ("dropw2", dropwave, DROPWAVE_SEARCH_SPACE, DROPWAVE_MINIMUM, DROPWAVE_MINIMIZER)
 eggho2 = ("eggho2", michalewicz_2, EGGHOLDER_SEARCH_SPACE, EGGHOLDER_MINIMUM, EGGHOLDER_MINIMIZER)
 branin = ("scaled_branin", scaled_branin, BRANIN_SEARCH_SPACE, SCALED_BRANIN_MINIMUM, BRANIN_MINIMIZERS)
-hartmann6 = ("hartmann6", hartmann_6, HARTMANN_3_SEARCH_SPACE, HARTMANN_6_MINIMUM, HARTMANN_6_MINIMIZER)
+hartmann6 = ("hartmann6", hartmann_6, HARTMANN_6_SEARCH_SPACE, HARTMANN_6_MINIMUM, HARTMANN_6_MINIMIZER)
 
 # MODEL BUILDERS
 
@@ -152,7 +155,7 @@ def gpr_builder(data):
 # SIMULATOR
 def parse_rate(rate:float)-> str:
     '''Helpful function taht parses floats into scientific notation strings'''
-    if rate > 10 or rate < -10:
+    if rate < 10 and rate > -10:
         out = str(rate)
         if out == "0":
             return out
@@ -168,10 +171,51 @@ def parse_rate(rate:float)-> str:
         out = out.replace(".", "_")
         return out
 
+
+def check_csv_header(header, log_file):
+    '''Checks for consistency of CSV header'''
+    try:
+        with open(log_file, "r") as infile:
+            file_header = infile.readlines(1)
+            if file_header[0] != header:
+                tqdm.write(
+                    f"Output log {log_file} already contains a header {file_header[0]}\n"
+                    f"Which is not the same as the header for this simulation: \n"
+                    f"{header} \n Continuing will overwrite the current log file entirely. "
+                    f"Do you want to overwrite: y/n?"
+                )
+                overwrite_csv = input()
+                if overwrite_csv.lower() == "y":
+                    with open(log_file, "w") as outfile:
+                        outfile.write(header)
+                else: 
+                    tqdm.write("Exiting...")
+                    exit()
+                
+    except FileNotFoundError:
+        with open(log_file, "w") as outfile:
+            outfile.write(header)
+
+
+def default_metadata() -> str:
+    return (
+
+        f"""
+        Computer network name: {platform.node()}
+        Machine type: {platform.machine()}
+        Processor type: {platform.processor()}
+        Platform type: {platform.platform()}
+        Number of physical cores: {psutil.cpu_count(logical=False)}
+        Number of logical cores: {psutil.cpu_count(logical=True)}
+        Total RAM installed: {round(psutil.virtual_memory().total/1000000000, 2)} GB
+        Available RAM: {round(psutil.virtual_memory().available/1000000000, 2)} GB\n
+        """
+    )
+
 def save_plotly(
     num_initial_points, 
     output_path, 
-    save_title_prefixes, 
+    save_title,
     seed, 
     model_args, 
     acquisition_name, 
@@ -186,17 +230,6 @@ def save_plotly(
     """Plots and saves the fitted and predicted plotly figures to output path"""
     fig_title_suffix = [f"{key}: {model_args[key]}" for key in model_args.keys()]
     fig_title = f"{model_name} {acquisition_name} ({seed}) " + " ".join(fig_title_suffix)
-
-    save_title_suffix = []
-    for key in save_title_prefixes.keys():
-        if key in model_args.keys():
-            if isinstance(model_args[key], float):
-                arg = parse_rate(model_args[key])
-            else:
-                arg = model_args[key]
-            save_title_suffix.append(f"{save_title_prefixes[key]}{arg}")
-        
-    save_title = f"{model_name}_{acquisition_name}_s{seed}_" + "_".join(save_title_suffix)
 
         #Plot and save fitted plot
     fig = plot_function_plotly(
@@ -218,7 +251,7 @@ def save_plotly(
         )
     fig.update_layout(title = "fit " + fig_title)
     fig.write_html(os.path.join(output_path, f"{save_title}_fit.html"))
-    print(f"{save_title}_fit saved!")
+    tqdm.write(f"{save_title}_fit saved!")
 
         #Plot and save predictions
     fig = plot_model_predictions_plotly(
@@ -240,17 +273,41 @@ def save_plotly(
     fig.update_layout(height=800, width=800)
     fig.update_layout(title="predict " + fig_title)
     fig.write_html(os.path.join(output_path, f"{save_title}_predict.html"))
-    print(f"{save_title}_predict saved!")
+    tqdm.write(f"{save_title}_predict saved!")
+
+def make_predictions(model, search_space, grid_density=20) -> Tuple[list, list, list , list]:
+
+    '''
+    Makes predictions over a grid of the search_space. Ready to be plotted with plot_predictions_plotly. 
+    :returns: Xplot, mean, var
+    '''
+
+    mins = search_space.lower.numpy()
+    maxs = search_space.upper.numpy()
+
+    coord_ranges = [np.linspace(mins[i], maxs[i], grid_density) for i in range(mins.shape[0])]
+
+    mesh_coords = np.meshgrid(*coord_ranges)
+    Xplot = np.vstack([coord.flatten() for coord in mesh_coords]).T
+
+    Fmean, Fvar = model.predict(Xplot)
+
+    return Xplot, Fmean, Fvar
 
 def simulate_experiment(
     objective: Tuple, 
     num_initial_points: int,
     acquisition: Tuple[str, trieste.acquisition.rule.AcquisitionRule],
     num_steps: int,
+    predict_interval: int,
     model: Tuple[str, Callable],
     output_path: str,
+    metadata: str,
+    grid_density: int = 20,
     save_title_prefixes: dict = global_save_title_prefixes,
-    plot: bool = True,
+    plot: bool = False,
+    report_predictions: bool = True,
+    overwrite: bool = False,
     seed: int = 0,
     **model_args
 ):
@@ -259,47 +316,85 @@ def simulate_experiment(
     :param num_initial_points: Number of initial query points.
     :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
     :param num_steps: Number of bayesian optimization steps.
+    :param predict_interval: Interval between number of BO steps to predict the entire surface. 
     :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
         arguments: initial_data, and **model_args and returns a model. 
     :param output_path: Path to save figs and log_file
+    :param metadata: A string to be saved in separate metadata txt file. 
+    :param grid_density: Density of grid for predictions. 
     :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
         example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
         global_save_title_prefixes where we can add prefixes for all models. 
     :param plot: True or False, whether to generate plots or not. 
+    :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
+    :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
     :param seed: Seed.
     """
-
     #Set seed
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
 
-    #Unpack objective tuple:
+    #Unpack model, acquisition and objective tuples:
     acquisition_name, acquisition_rule = acquisition
     model_name, model_builder = model
     objective_name, function, search_space, minimum, minimizer = objective
+    #Make output path
+    os.makedirs(output_path, exist_ok = True)
+
+    #Get save_title
+    save_title_suffix = []
+    for key in save_title_prefixes.keys():
+        if key in model_args.keys():
+            if isinstance(model_args[key], float):
+                arg = parse_rate(model_args[key])
+            else:
+                arg = model_args[key]
+            save_title_suffix.append(f"{save_title_prefixes[key]}{arg}")
+        
+    save_title = f"{model_name}_{acquisition_name}_{objective_name}_" + "_".join(save_title_suffix) + f"_seed{seed}"
+    
+    #Check if this iteration already done and skip if pkl already exists. 
+    if not overwrite:
+        if os.path.isfile(os.path.join(output_path, f"{save_title}.pkl")):
+            tqdm.write(f"Pickle file found for {save_title}.pkl! Skipping this simulation...")
+            return
 
     #Get initial data
-    initial_query_points = search_space.sample(num_initial_points)
+    initial_query_points = search_space.sample_sobol(num_initial_points)
     observer = mk_observer(function)
     initial_data = observer(initial_query_points)
 
     #Build model
-    model = model_builder(initial_data, **model_args)
+    built_model = model_builder(initial_data, **model_args)
 
     #Bayesian Optimizer
-    ask_tell = AskTellOptimizer(search_space, initial_data, model, acquisition_rule=acquisition)
+    ask_tell = AskTellOptimizer(search_space, initial_data, built_model, acquisition_rule=acquisition_rule)
 
-    start = time.time()
+    predictions = defaultdict(dict)
+    optimize_time = 0
+    acquisition_time = 0
     for step in range(num_steps):
+        #Basic loop
+        start_acquisition_time = timeit.default_timer()
         new_point = ask_tell.ask()
+        acquisition_time += start_acquisition_time - timeit.default_timer()
 
         new_data = observer(new_point)
-        ask_tell.tell(new_data)
-    
-    elapsed = time.time() - start
 
-    result = ask_tell.to_result()
+        start_optimize_time = timeit.default_timer()
+        ask_tell.tell(new_data)
+        optimize_time += timeit.default_timer() - start_optimize_time
+
+        #Predictions
+        if report_predictions:
+            if step % predict_interval == 0 or step == num_steps - 1:
+                current_model = ask_tell.to_result(copy=False).try_get_final_model()
+                prediction = make_predictions(current_model, search_space, grid_density=grid_density)
+                predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction
+
+
+    result = ask_tell.to_result(copy=False)
     dataset = result.try_get_final_dataset()
 
     #Get Results
@@ -317,43 +412,36 @@ def simulate_experiment(
         "seed": str(seed),
         "true_min": str(minimum.numpy()[0]),
         "found_minimum": str(found_minimum[0]),
-        "runtime": str(round(elapsed, 2))
+        "acquisition_runtime": str(round(acquisition_time, 3)),
+        "optimize_runtime": str(round(optimize_time, 3)),
     }
     for key, arg in model_args.items():
         results.update({key: str(arg)})
-
+    results.update({"pickle_file": f"{save_title}.pkl"})
+    
     #Write results
-    os.makedirs(output_path, exist_ok = True)
 
     #Check for header of log_file
     header = ",".join(results.keys()) + "\n"
     log_file = os.path.join(output_path, f"{model_name}_results.csv")
-
-    try:
-        with open(log_file, "r") as infile:
-            file_header = infile.readlines(1)
-            if file_header[0] != header:
-                print(
-                    f"Output log {log_file} already contains a header {file_header[0]}\n"
-                    f"Which is not the same as the header for this simulation: \n"
-                    f"{header} \n Continuing will overwrite the current log file entirely. "
-                    f"Do you want to overwrite: y/n?"
-                )
-                overwrite = input()
-                if overwrite.lower() == "y":
-                    with open(log_file, "w") as output:
-                        output.write(header)
-                else: 
-                    print("Exiting...")
-                    exit()
-                
-    except FileNotFoundError:
-        with open(log_file, "w") as output:
-            output.write(header)
+    check_csv_header(header, log_file)
     
     # append results
-    with open(log_file, "a") as output:
-        output.write(",".join(results.values()) + "\n")
+    with open(log_file, "a") as outfile:
+        outfile.write(",".join(results.values()) + "\n")
+    tqdm.write(f"{results.values()} appended to {log_file}!")
+
+    #Save outputdata
+    if report_predictions:
+        output_data = {
+            "query_points": query_points,
+            "observations": observations,
+            "predictions": predictions,
+            "metadata": default_metadata() + metadata
+        }
+        with open(os.path.join(output_path, f"{save_title}.pkl"), "wb") as outfile:
+            pickle.dump(output_data, outfile)
+        tqdm.write(f"Output data saved for {save_title} model. ")
 
     # Plot
     if plot:
@@ -362,7 +450,7 @@ def simulate_experiment(
         save_plotly(
             num_initial_points, 
             output_path, 
-            save_title_prefixes, 
+            save_title, 
             seed, 
             model_args, 
             acquisition_name, 
@@ -376,12 +464,44 @@ def simulate_experiment(
         )
 
 
-def multi_experiment(simul_args: dict):
+def multi_experiment(
+    simul_args: dict,  
+    disable_tqdm: bool=False
+):
     '''
     Run all cross possibilities of experiments.
-    :param simul_args: A dict of all args
+    :param simul_args: A dict of all args for simulate_expriemnt
+    :param disable_tqdm: self-explanatory
+
+    simulate experiment args:
+
+        :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
+        :param num_initial_points: Number of initial query points.
+        :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
+        :param num_steps: Number of bayesian optimization steps.
+        :param predict_interval: Interval between number of BO steps to predict the entire surface. 
+        :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
+            arguments: initial_data, and **model_args and returns a model. 
+        :param output_path: Path to save figs and log_file
+        :param metadata: A string to be saved in separate metadata txt file. 
+        :param grid_density: Density of grid for predictions. 
+        :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
+            example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
+            global_save_title_prefixes where we can add prefixes for all models. 
+        :param plot: True or False, whether to generate plots or not. 
+        :param predictions: True or False, whether to generate predictions or not. Defaults to True. 
+        :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
+        :param seed: Seed.
     '''
-    for args in tqdm(itertools.product(*simul_args.values())):
+    for key, arg in simul_args.items():
+        if not isinstance(arg, list):
+            simul_args.update({key: [arg]})
+
+    for args in tqdm(
+        itertools.product(*simul_args.values()),
+        colour="blue",
+        disable=disable_tqdm
+    ):
         arg_dict = dict(zip(simul_args.keys(), args))
         simulate_experiment(**arg_dict)
 

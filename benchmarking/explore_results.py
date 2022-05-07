@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import pickle
 
 pd.set_option("display.max_rows", 300)
 matplotlib.rcParams.update({
@@ -13,11 +14,12 @@ matplotlib.rcParams.update({
 })
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-# ensembles = pd.read_csv(os.path.join("deep_ensemble_test", "de_results.csv"), skipinitialspace=True)
-# mcdropout = pd.read_csv(os.path.join("mcdropout_test", "mc_results.csv"), skipinitialspace=True)
-# gpr = pd.read_csv(os.path.join("gpr_test", "gpr_results.csv"), skipinitialspace=True)
-# der = pd.read_csv(os.path.join("der_test", "der_standard_results.csv"), skipinitialspace=True)
+ensembles = pd.read_csv(os.path.join("deep_ensemble_test", "de_results.csv"), skipinitialspace=True)
+mcdropout = pd.read_csv(os.path.join("mcdropout_test", "mc_results.csv"), skipinitialspace=True)
+gpr = pd.read_csv(os.path.join("gpr_test", "gpr_results.csv"), skipinitialspace=True)
+der = pd.read_csv(os.path.join("der_test", "der_standard_results.csv"), skipinitialspace=True)
 der_log = pd.read_csv(os.path.join("der_test", "der_log_results.csv"), skipinitialspace=True)
+
 
 #%%
 

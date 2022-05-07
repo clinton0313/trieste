@@ -11,7 +11,8 @@ from benchmarking_utils import (
     mcdropout_builder,
     multi_experiment,
     branin,
-    michal2
+    michal2,
+    hartmann6
 )
 from trieste.acquisition.rule import DiscreteThompsonSampling, EfficientGlobalOptimization
 
@@ -21,19 +22,24 @@ tf.keras.backend.set_floatx("float64")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 simul_args = {
-    "objective": [michal2, branin],
-    "num_initial_points": [1, 20],
+    "objective": [branin],
+    "num_initial_points": [20],
     "acquisition": [ ("ei", EfficientGlobalOptimization())],
-    "num_steps": [20],
-    "model": [("der_log", der_builder)],
-    "output_path": ["der_test"],
+    "num_steps": 9,
+    "predict_interval": 3,
+    "model": [("new_der_log", der_builder)],
+    "output_path": "new_der_test",
     "num_hidden_layers": [2, 4],
     "units": [50, 100],
     "reg_weight": [1e-3, 1e-4],
     "maxi_rate": [0, 1e-2],
-    "lr": [0.001],
-    "plot": [False],
-    "seed": list(range(10))
+    "lr": 0.001,
+    "plot": False,
+    "report_predictions": True,
+    "seed": list(range(3)),
+    "grid_density": 20,
+    "metadata": "",
+    "overwrite": False
 }
 
 multi_experiment(simul_args)
