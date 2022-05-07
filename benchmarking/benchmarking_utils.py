@@ -43,6 +43,7 @@ from trieste.objectives import (
 from trieste.objectives.single_objectives import HARTMANN_3_SEARCH_SPACE, HARTMANN_6_MINIMIZER, HARTMANN_6_MINIMUM, hartmann_6
 from trieste.objectives.utils import mk_observer
 from trieste.models.optimizer import KerasOptimizer
+from trieste.ask_tell_optimization import AskTellOptimizer
 from typing import Callable, Tuple
 from util.plotting_plotly import (
     plot_model_predictions_plotly, 
@@ -167,6 +168,80 @@ def parse_rate(rate:float)-> str:
         out = out.replace(".", "_")
         return out
 
+def save_plotly(
+    num_initial_points, 
+    output_path, 
+    save_title_prefixes, 
+    seed, 
+    model_args, 
+    acquisition_name, 
+    model_name, 
+    function, 
+    search_space, 
+    result, 
+    query_points, 
+    observations, 
+    arg_min_idx
+):
+    """Plots and saves the fitted and predicted plotly figures to output path"""
+    fig_title_suffix = [f"{key}: {model_args[key]}" for key in model_args.keys()]
+    fig_title = f"{model_name} {acquisition_name} ({seed}) " + " ".join(fig_title_suffix)
+
+    save_title_suffix = []
+    for key in save_title_prefixes.keys():
+        if key in model_args.keys():
+            if isinstance(model_args[key], float):
+                arg = parse_rate(model_args[key])
+            else:
+                arg = model_args[key]
+            save_title_suffix.append(f"{save_title_prefixes[key]}{arg}")
+        
+    save_title = f"{model_name}_{acquisition_name}_s{seed}_" + "_".join(save_title_suffix)
+
+        #Plot and save fitted plot
+    fig = plot_function_plotly(
+            function,
+            search_space.lower,
+            search_space.upper,
+            grid_density=100,
+            alpha=0.7,
+        )
+    fig.update_layout(height=800, width=800)
+
+    fig = add_bo_points_plotly(
+            x=query_points[:, 0],
+            y=query_points[:, 1],
+            z=observations[:, 0],
+            num_init=num_initial_points,
+            idx_best=arg_min_idx,
+            fig=fig,
+        )
+    fig.update_layout(title = "fit " + fig_title)
+    fig.write_html(os.path.join(output_path, f"{save_title}_fit.html"))
+    print(f"{save_title}_fit saved!")
+
+        #Plot and save predictions
+    fig = plot_model_predictions_plotly(
+            result.try_get_final_model(),
+            search_space.lower,
+            search_space.upper,
+        )
+
+    fig = add_bo_points_plotly(
+            x=query_points[:, 0],
+            y=query_points[:, 1],
+            z=observations[:, 0],
+            num_init=num_initial_points,
+            idx_best=arg_min_idx,
+            fig=fig,
+            figrow=1,
+            figcol=1,
+        )
+    fig.update_layout(height=800, width=800)
+    fig.update_layout(title="predict " + fig_title)
+    fig.write_html(os.path.join(output_path, f"{save_title}_predict.html"))
+    print(f"{save_title}_predict saved!")
+
 def simulate_experiment(
     objective: Tuple, 
     num_initial_points: int,
@@ -213,17 +288,19 @@ def simulate_experiment(
     model = model_builder(initial_data, **model_args)
 
     #Bayesian Optimizer
-    bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
+    ask_tell = AskTellOptimizer(search_space, initial_data, model, acquisition_rule=acquisition)
+
     start = time.time()
-    result = bo.optimize(
-        num_steps,
-        initial_data,
-        model,
-        acquisition_rule=acquisition_rule,
-        track_state=False,
-    )
-    dataset = result.try_get_final_dataset()
+    for step in range(num_steps):
+        new_point = ask_tell.ask()
+
+        new_data = observer(new_point)
+        ask_tell.tell(new_data)
+    
     elapsed = time.time() - start
+
+    result = ask_tell.to_result()
+    dataset = result.try_get_final_dataset()
 
     #Get Results
     query_points = dataset.query_points.numpy()
@@ -282,63 +359,21 @@ def simulate_experiment(
     if plot:
 
         #Gen fig and save titles
-        fig_title_suffix = [f"{key}: {model_args[key]}" for key in model_args.keys()]
-        fig_title = f"{model_name} {acquisition_name} ({seed}) " + " ".join(fig_title_suffix)
-
-        save_title_suffix = []
-        for key in save_title_prefixes.keys():
-            if key in model_args.keys():
-                if isinstance(model_args[key], float):
-                    arg = parse_rate(model_args[key])
-                else:
-                    arg = model_args[key]
-                save_title_suffix.append(f"{save_title_prefixes[key]}{arg}")
-        
-        save_title = f"{model_name}_{acquisition_name}_s{seed}_" + "_".join(save_title_suffix)
-
-        #Plot and save fitted plot
-        fig = plot_function_plotly(
-            function,
-            search_space.lower,
-            search_space.upper,
-            grid_density=100,
-            alpha=0.7,
+        save_plotly(
+            num_initial_points, 
+            output_path, 
+            save_title_prefixes, 
+            seed, 
+            model_args, 
+            acquisition_name, 
+            model_name, 
+            function, 
+            search_space, 
+            result, 
+            query_points, 
+            observations, 
+            arg_min_idx
         )
-        fig.update_layout(height=800, width=800)
-
-        fig = add_bo_points_plotly(
-            x=query_points[:, 0],
-            y=query_points[:, 1],
-            z=observations[:, 0],
-            num_init=num_initial_points,
-            idx_best=arg_min_idx,
-            fig=fig,
-        )
-        fig.update_layout(title = "fit " + fig_title)
-        fig.write_html(os.path.join(output_path, f"{save_title}_fit.html"))
-        print(f"{save_title}_fit saved!")
-
-        #Plot and save predictions
-        fig = plot_model_predictions_plotly(
-            result.try_get_final_model(),
-            search_space.lower,
-            search_space.upper,
-        )
-
-        fig = add_bo_points_plotly(
-            x=query_points[:, 0],
-            y=query_points[:, 1],
-            z=observations[:, 0],
-            num_init=num_initial_points,
-            idx_best=arg_min_idx,
-            fig=fig,
-            figrow=1,
-            figcol=1,
-        )
-        fig.update_layout(height=800, width=800)
-        fig.update_layout(title="predict " + fig_title)
-        fig.write_html(os.path.join(output_path, f"{save_title}_predict.html"))
-        print(f"{save_title}_predict saved!")
 
 
 def multi_experiment(simul_args: dict):
