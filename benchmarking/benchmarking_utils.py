@@ -12,6 +12,7 @@ import tensorflow_probability as tfp
 import timeit
 import trieste
 
+from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from trieste.models.gpflow import GaussianProcessRegression, build_gpr
 from trieste.models.keras import (
@@ -59,6 +60,14 @@ tf.get_logger().setLevel("ERROR")
 tf.keras.backend.set_floatx("float64")
 
 #%%
+
+common_simul_args = {
+    "plot": False,
+    "report_predictions": True,
+    "overwrite": False,
+    "grid_density": 20,
+    "metadata": ""
+}
 
 global_save_title_prefixes = {
     "num_hidden_layers": "L",
@@ -505,3 +514,9 @@ def multi_experiment(
         arg_dict = dict(zip(simul_args.keys(), args))
         simulate_experiment(**arg_dict)
 
+
+def parallel_experiments(simul_args:dict, max_workers: int=20):
+    '''Run a multi_experiment in parallel with ThreadPoolExecutor'''
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future = executor.submit(multi_experiment, simul_args)
+        print(future.result())
