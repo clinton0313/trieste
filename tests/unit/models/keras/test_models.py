@@ -771,11 +771,19 @@ def test_deep_evidential_reg_weight_updates(
 @random_seed
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize("reg_weight", [1., 1.5])
+@pytest.mark.parametrize(
+    "query_points, observations", 
+    [
+        ([[1.], [5]], [[3.], [2.5]]),
+        ([[10.], [67.8]], [[52.], [12.5]])
+    ],
+)
 def test_deep_evidential_loss(
-    reg_weight: float
+    reg_weight: float,
+    query_points: list,
+    observations: list,
 ) -> None:
-    example_data = _get_example_data([100,1])
-    # example_data = Dataset(tf.constant([[1.]]), tf.constant([[10.]]))
+    example_data = Dataset(tf.constant(query_points), tf.constant(observations))
 
     optimizer = tf.optimizers.Adam()
 
@@ -808,7 +816,6 @@ def test_deep_evidential_predict(
     predict_log_uncertainty: bool,
 ) -> None:
     example_data = _get_example_data([100, 1])
-    # example_data = Dataset(tf.constant([[1.]]), tf.constant([[10.]]))
 
     model = trieste_deep_evidential_model(
         example_data, 
