@@ -1,0 +1,2 @@
+objective, acquisition, num_initial_points, num_steps, seed, true_min, true_minimizer, found_minimum, found_minimizer, runtime, num_hidden_layers, units, rate, num_passes, lr
+michal2, ei, 1, 20, 0, -1.8013034, [[2.202906 1.570796]], -0.046351100176773886, [2.99917189 1.27467736], 44.35, 2, 25, 0.1, 100, 0.001
