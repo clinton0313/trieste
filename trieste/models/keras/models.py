@@ -603,7 +603,8 @@ class DeepEvidentialRegression(
         reg_weight: float = 0.,
         maxi_rate: float = 1e-4,
         epsilon: float = 1e-2,
-        verbose: int = 0 #Temporary parameter to be used with Callback for diagnosing in development.
+        predict_aleatoric: bool = False,
+        predict_log_uncertainty: bool = True,
     ) -> None:
         
         """
@@ -633,6 +634,10 @@ class DeepEvidentialRegression(
             batch by: ``reg_weight`` += ``maxi_rate`` * (regularization loss - ``epsilon``). A default
             of 1e-4 in conjunction with a ``reg_weight`` of 0 and ``epsilon`` of 0.01 seems to work well. 
         :param epsilon: A parameter used in updating ``reg_weight`` throughout training as described above.
+        :param predict_aleatoric: If true, predict method outputs the combination of epistemic and aleatoric 
+            uncertainty rather than just epistemic for uncertainty. Default is false. 
+        :param predict_log_uncertainty: If true, predict method outputs the log(uncertainty + 1) instead. 
+            During testing, the log uncertainty seems to make the model more stable for Bayesian optimisation.
         """
 
         super().__init__(optimizer)
@@ -652,7 +657,8 @@ class DeepEvidentialRegression(
         self.reg_weight = tf.Variable(reg_weight, dtype=model.layers[-1].dtype)
         self.epsilon = epsilon
         self.maxi_rate = maxi_rate
-        self.verbose = verbose
+        self.predict_aleatoric = predict_aleatoric
+        self.predict_log_uncertainty = predict_log_uncertainty
         
         try:
             if not isinstance(self.optimizer.fit_args["callbacks"], list):
@@ -662,13 +668,13 @@ class DeepEvidentialRegression(
                     self.optimizer.fit_args["callbacks"] = [self.optimizer.fit_args["callbacks"]]
             self.optimizer.fit_args["callbacks"].append(
                 DeepEvidentialCallback(
-                    self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
+                    self.reg_weight, self.maxi_rate, self.epsilon
                 )
             )
         except KeyError:
             self.optimizer.fit_args["callbacks"] = [
                     DeepEvidentialCallback(
-                        self.reg_weight, self.maxi_rate, self.epsilon, self.verbose
+                        self.reg_weight, self.maxi_rate, self.epsilon
                     )
                 ]
 
@@ -788,7 +794,7 @@ class DeepEvidentialRegression(
         self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
     
 
-    def predict(self, query_points: TensorType, aleatoric: bool = False) -> tuple[TensorType, TensorType]:
+    def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
         Returns mean and variance at ``query_points`` for the model.
 
@@ -812,9 +818,7 @@ class DeepEvidentialRegression(
         By default the predict method outputs the epistemic uncertainty only. The aleatoric uncertainty 
         can be added using the ``aleatoric`` argument.
 
-        :param query_points: The points at which to make predictions.
-        :param aleatoric: If false outputs only the epistemic uncertainty. If true the aleatoric 
-            uncertainty is added. 
+        :param query_points: The points at which to make predictions. 
         :return: The predicted mean and uncertainty of the observations at the specified
             ``query_points``.
         """
@@ -823,6 +827,7 @@ class DeepEvidentialRegression(
         gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
         
         epistemic = beta / ((alpha - 1) * v)
+<<<<<<< HEAD
         uncertainty = epistemic + beta/(alpha-1) if aleatoric else epistemic
         uncertainty = tf.math.log(uncertainty + 1)
 
@@ -1136,6 +1141,12 @@ class DirectEpistemicUncertaintyPredictor(
 
                 targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
                 points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
+=======
+        uncertainty = epistemic + beta/(alpha-1) if self.predict_aleatoric else epistemic
+
+        if self.predict_log_uncertainty:
+            uncertainty = tf.math.log(uncertainty + 1)
+>>>>>>> clinton/der_model
         
         points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
         return Dataset(points, targets)
