@@ -827,11 +827,10 @@ class DeepEvidentialRegression(
         gamma, v, alpha, beta = tf.split(evidential_output, 4, axis=-1)
         
         epistemic = beta / ((alpha - 1) * v)
-<<<<<<< HEAD
-        uncertainty = epistemic + beta/(alpha-1) if aleatoric else epistemic
-        uncertainty = tf.math.log(uncertainty + 1)
+        uncertainty = epistemic + beta/(alpha-1) if self.predict_aleatoric else epistemic
 
-        return gamma, uncertainty
+        if self.predict_log_uncertainty:
+            uncertainty = tf.math.log(uncertainty + 1)
 
 
 
@@ -1141,12 +1140,6 @@ class DirectEpistemicUncertaintyPredictor(
 
                 targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
                 points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
-=======
-        uncertainty = epistemic + beta/(alpha-1) if self.predict_aleatoric else epistemic
-
-        if self.predict_log_uncertainty:
-            uncertainty = tf.math.log(uncertainty + 1)
->>>>>>> clinton/der_model
         
         points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
         return Dataset(points, targets)
