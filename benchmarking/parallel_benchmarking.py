@@ -78,7 +78,7 @@ deup_simul_args = {
 }
 
 n_jobs = 2
-verbose = 5
+verbose = 10 #From 1 to 50 
 
 #Each dictionary of args is independently crosses all of its arguments
 all_args = [
@@ -90,6 +90,6 @@ all_args = [
 ]
 
 if __name__ == "__main__":
-    os.mkdir(OUTPUT_PATH, exists_ok=True)
+    os.makedirs(OUTPUT_PATH, exist_ok=True)
     combine_args(all_args, common_args)
     parallel_experiments(all_args, n_jobs = n_jobs, verbose = verbose)
