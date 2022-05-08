@@ -29,13 +29,10 @@ from trieste.models.keras import (
     DeepEvidentialRegression,
     GaussianNetwork,
     KerasEnsemble,
-<<<<<<< HEAD
     DropoutNetwork,
     DropConnectNetwork,
     MonteCarloDropout,
-=======
     build_vanilla_keras_deep_evidential,
->>>>>>> clinton/der_model
     get_tensor_spec_from_data,
 )
 from trieste.models.optimizer import KerasOptimizer
@@ -88,7 +85,6 @@ def trieste_deep_ensemble_model(
 
     return model, keras_ensemble, optimizer_wrapper
 
-<<<<<<< HEAD
 def trieste_dropout_network_model(
     example_data: Dataset,
     rate: float = 0.1,
@@ -138,7 +134,6 @@ class MCDropConnect(MonteCarloDropout):
     '''Placeholder class for Bayesian optimization integration tests.'''
     def __init__(self, model:DropConnectNetwork, **model_args):
         super().__init__(model=model, **model_args)
-=======
 
 def trieste_deep_evidential_model(
     example_data: Dataset,
@@ -150,4 +145,3 @@ def trieste_deep_evidential_model(
     model = DeepEvidentialRegression(evidential_network, optimizer, **model_args)
 
     return model
->>>>>>> clinton/der_model
