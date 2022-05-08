@@ -29,4 +29,4 @@ simul_args.update({
     "seed": list(range(10))
 })
 
-parallel_experiments(simul_args, max_workers=1)
+multi_experiment(simul_args)

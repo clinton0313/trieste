@@ -1,18 +1,20 @@
-from collections import defaultdict
 import gpflow
 import itertools
+import multiprocessing as mp
 import numpy as np
 import os
 import pickle
 import platform
 import psutil
 import random
+import ray
 import tensorflow as tf
 import tensorflow_probability as tfp 
 import timeit
 import trieste
 
-from concurrent.futures import ThreadPoolExecutor
+from collections import defaultdict
+from joblib import Parallel, delayed
 from tqdm import tqdm
 from trieste.models.gpflow import GaussianProcessRegression, build_gpr
 from trieste.models.keras import (
@@ -48,7 +50,7 @@ from trieste.objectives.single_objectives import HARTMANN_6_SEARCH_SPACE, HARTMA
 from trieste.objectives.utils import mk_observer
 from trieste.models.optimizer import KerasOptimizer
 from trieste.ask_tell_optimization import AskTellOptimizer
-from typing import Callable, Tuple
+from typing import Callable, Iterator, Tuple, Union
 from util.plotting_plotly import (
     plot_model_predictions_plotly, 
     plot_function_plotly,
@@ -161,7 +163,7 @@ def gpr_builder(data):
 
     return GaussianProcessRegression(gpr, num_kernel_samples=100)
 
-# SIMULATOR
+# SIMULATOR UTILS
 def parse_rate(rate:float)-> str:
     '''Helpful function taht parses floats into scientific notation strings'''
     if rate < 10 and rate > -10:
@@ -180,6 +182,19 @@ def parse_rate(rate:float)-> str:
         out = out.replace(".", "_")
         return out
 
+def count_experiments(list_of_arg_dicts: list) -> int:
+    '''Count the total number of experiments through a list of arg_dicts. '''
+    total_experiments = 0
+    for arg_dict in list_of_arg_dicts:
+        total_experiments += len(
+            list(
+                itertools.product(
+                    *[args if isinstance(args, list) else [args] for args in arg_dict.values()]
+                )
+            )
+        )
+    
+    return total_experiments
 
 def check_csv_header(header, log_file):
     '''Checks for consistency of CSV header'''
@@ -299,9 +314,12 @@ def make_predictions(model, search_space, grid_density=20) -> Tuple[list, list, 
     mesh_coords = np.meshgrid(*coord_ranges)
     Xplot = np.vstack([coord.flatten() for coord in mesh_coords]).T
 
-    Fmean, Fvar = model.predict(Xplot)
+    Fmean, Fvar = model.predict(Xplot) #Potentially map this out to a loop to parallelize
 
     return Xplot, Fmean, Fvar
+
+
+#SIMULATOR
 
 def simulate_experiment(
     objective: Tuple, 
@@ -338,6 +356,7 @@ def simulate_experiment(
     :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
     :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
     :param seed: Seed.
+    :param **model_args: Model args passed to the builidng of the main model. 
     """
     #Set seed
     random.seed(seed)
@@ -471,11 +490,24 @@ def simulate_experiment(
             observations, 
             arg_min_idx
         )
+    
+    return results, output_data
 
+def unpack_arguments(simul_args: dict) -> list:
+
+    for key, arg in simul_args.items():
+        if not isinstance(arg, list):
+            simul_args.update({key: [arg]})
+
+    unpacked_args = [
+        dict(zip(simul_args.keys(), args)) 
+        for args in itertools.product(*simul_args.values())
+    ]
+    return unpacked_args
 
 def multi_experiment(
     simul_args: dict,  
-    disable_tqdm: bool=False
+    disable_tqdm: bool=False,
 ):
     '''
     Run all cross possibilities of experiments.
@@ -502,21 +534,28 @@ def multi_experiment(
         :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
         :param seed: Seed.
     '''
-    for key, arg in simul_args.items():
-        if not isinstance(arg, list):
-            simul_args.update({key: [arg]})
-
-    for args in tqdm(
-        itertools.product(*simul_args.values()),
+    for args in tqdm(unpack_arguments(simul_args),
         colour="blue",
-        disable=disable_tqdm
+        disable=disable_tqdm,
+        position=1
     ):
-        arg_dict = dict(zip(simul_args.keys(), args))
-        simulate_experiment(**arg_dict)
+        simulate_experiment(**args)
 
 
-def parallel_experiments(simul_args:dict, max_workers: int=20):
+def parallel_experiments(simul_args_list:Union[list, dict], n_jobs: int=1, verbose: int = 5):
     '''Run a multi_experiment in parallel with ThreadPoolExecutor'''
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future = executor.submit(multi_experiment, simul_args)
-        print(future.result())
+
+    if not isinstance(simul_args_list, list):
+        simul_args_list = [simul_args_list]
+    
+    all_simul_args = []
+    for simul_args in simul_args_list: #Each simul_args need to be unpacked as a product
+        all_simul_args += unpack_arguments(simul_args)
+
+    tqdm.write(
+        f"Current machine has {mp.cpu_count()} CPU's available. \n"
+        f"Running {len(all_simul_args)} parallel experiments using {n_jobs} CPUs."
+    )
+    
+    p = Parallel(n_jobs=n_jobs, verbose=verbose)
+    p(delayed(simulate_experiment)(**args) for args in all_simul_args)
