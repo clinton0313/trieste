@@ -832,6 +832,8 @@ class DeepEvidentialRegression(
         if self.predict_log_uncertainty:
             uncertainty = tf.math.log(uncertainty + 1)
 
+        return gamma, uncertainty
+
 
 
 class DirectEpistemicUncertaintyPredictor(
