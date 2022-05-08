@@ -18,7 +18,7 @@ def combine_args(simul_args_list: dict, common_args: dict) -> dict:
 OUTPUT_PATH = "parallel_benchmarking"
 
 common_args = {
-    "objective": NOISY_OBJECTIVES,
+    "objective": ALL_OBJECTIVES,
     "num_initial_points": 20,
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": "infer", #infer hardcodes to num_dimensions * 10
