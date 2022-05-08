@@ -1,0 +1,17 @@
+objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,acquisition_runtime,optimize_runtime,num_hidden_layers,units,reg_weight,maxi_rate,lr,pickle_file
+michal2,ei,20,20,0,-1.8013034,-0.9790855115989656,-10.104,46.375,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed0.pkl
+michal2,ei,20,20,1,-1.8013034,-1.2126220272839112,-13.753,47.384,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed1.pkl
+michal2,ei,20,20,2,-1.8013034,-0.9999934005809087,-12.651,43.055,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed2.pkl
+michal2,ei,20,20,3,-1.8013034,-1.6891460627532904,-13.708,57.796,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed3.pkl
+michal2,ei,20,20,4,-1.8013034,-1.7603481903502542,-13.825,45.717,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed4.pkl
+michal2,ei,20,20,5,-1.8013034,-0.9936545443199043,-8.91,40.558,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed5.pkl
+michal2,ei,20,20,6,-1.8013034,-0.9870787662104041,-9.89,34.724,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed6.pkl
+michal2,ei,20,20,7,-1.8013034,-0.9998690209931783,-13.766,42.527,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed7.pkl
+michal2,ei,20,20,8,-1.8013034,-0.9999663841790114,-14.971,44.884,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed8.pkl
+michal2,ei,20,20,9,-1.8013034,-1.0228816557245475,-18.958,65.674,2,50,0.001,0,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m0_lr1e3_seed9.pkl
+michal2,ei,20,20,0,-1.8013034,-0.999854439095866,-18.559,50.611,2,50,0.001,0.01,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m1e2_lr1e3_seed0.pkl
+michal2,ei,20,20,1,-1.8013034,-1.0489002484578733,-14.937,31.312,2,50,0.001,0.01,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m1e2_lr1e3_seed1.pkl
+michal2,ei,20,20,2,-1.8013034,-0.8237685575337478,-14.06,32.732,2,50,0.001,0.01,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m1e2_lr1e3_seed2.pkl
+michal2,ei,20,20,3,-1.8013034,-0.994968684379602,-7.372,24.306,2,50,0.001,0.01,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m1e2_lr1e3_seed3.pkl
+michal2,ei,20,20,4,-1.8013034,-1.8007345517180213,-11.077,33.484,2,50,0.001,0.01,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m1e2_lr1e3_seed4.pkl
+michal2,ei,20,20,5,-1.8013034,-0.9997150691920113,-10.567,27.121,2,50,0.001,0.01,0.001,der_log_ei_ei_michal2_L2_n50_rw1e3_m1e2_lr1e3_seed5.pkl

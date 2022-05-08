@@ -18,7 +18,7 @@ simul_args.update({
     "acquisition": ("ei", EfficientGlobalOptimization()),
     "num_steps": 20,
     "predict_interval": 3,
-    "model": ("der_log", der_builder),
+    "model": ("der_log_ei", der_builder),
     "output_path": "der_test",
     "num_hidden_layers": [2, 4],
     "units": [50, 100],

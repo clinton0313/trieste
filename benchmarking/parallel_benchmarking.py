@@ -21,7 +21,7 @@ common_args = {
     "objective": NOISY_OBJECTIVES,
     "num_initial_points": 20,
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
-    "num_steps": 20,
+    "num_steps": "infer", #infer hardcodes to num_dimensions * 10
     "predict_interval": 4,
     "plot": False,
     "report_predictions": True,

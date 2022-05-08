@@ -218,27 +218,31 @@ def count_experiments(list_of_arg_dicts: list) -> int:
 
 def check_csv_header(header, log_file):
     '''Checks for consistency of CSV header'''
-    try:
-        with open(log_file, "r") as infile:
-            file_header = infile.readlines(1)
-            if file_header[0] != header:
-                tqdm.write(
-                    f"Output log {log_file} already contains a header {file_header[0]}\n"
-                    f"Which is not the same as the header for this simulation: \n"
-                    f"{header} \n Continuing will overwrite the current log file entirely. "
-                    f"Do you want to overwrite: y/n?"
-                )
-                overwrite_csv = input()
-                if overwrite_csv.lower() == "y":
-                    with open(log_file, "w") as outfile:
-                        outfile.write(header)
-                else: 
-                    tqdm.write("Exiting...")
-                    exit()
-                
-    except FileNotFoundError:
+    if not os.path.isfile(log_file):
         with open(log_file, "w") as outfile:
             outfile.write(header)
+
+    # try:
+    #     with open(log_file, "r") as infile:
+    #         file_header = infile.readlines(1)
+    #         if file_header[0] != header:
+    #             tqdm.write(
+    #                 f"Output log {log_file} already contains a header {file_header[0]}\n"
+    #                 f"Which is not the same as the header for this simulation: \n"
+    #                 f"{header} \n Continuing will overwrite the current log file entirely. "
+    #                 f"Do you want to overwrite: y/n?"
+    #             )
+    #             overwrite_csv = input()
+    #             if overwrite_csv.lower() == "y":
+    #                 with open(log_file, "w") as outfile:
+    #                     outfile.write(header)
+    #             else: 
+    #                 tqdm.write("Exiting...")
+    #                 exit()
+                
+    # except FileNotFoundError:
+    #     with open(log_file, "w") as outfile:
+    #         outfile.write(header)
 
 
 def default_metadata() -> str:
@@ -345,7 +349,7 @@ def simulate_experiment(
     objective: Tuple, 
     num_initial_points: int,
     acquisition: Tuple[str, trieste.acquisition.rule.AcquisitionRule],
-    num_steps: int,
+    num_steps: Union[str, int],
     predict_interval: int,
     model: Tuple[str, Callable],
     output_path: str,
@@ -362,7 +366,7 @@ def simulate_experiment(
     :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
     :param num_initial_points: Number of initial query points.
     :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
-    :param num_steps: Number of bayesian optimization steps.
+    :param num_steps: Number of bayesian optimization steps. if 'infer' will be num_dimensions * 10
     :param predict_interval: Interval between number of BO steps to predict the entire surface. 
     :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
         arguments: initial_data, and **model_args and returns a model. 
@@ -387,6 +391,8 @@ def simulate_experiment(
     acquisition_name, acquisition_rule = acquisition
     model_name, model_builder = model
     objective_name, function, search_space, minimum, minimizer = objective
+    if num_steps == "infer":
+        num_steps = int(search_space.dimension * 10)
     #Make output path
     os.makedirs(output_path, exist_ok = True)
 
@@ -511,8 +517,7 @@ def simulate_experiment(
             observations, 
             arg_min_idx
         )
-    
-    return results, output_data
+        
 
 def unpack_arguments(simul_args: dict) -> list:
 
