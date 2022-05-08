@@ -360,6 +360,7 @@ def simulate_experiment(
     report_predictions: bool = True,
     overwrite: bool = False,
     seed: int = 0,
+    verbose_output: bool = True,
     **model_args
 ):
     """
@@ -380,6 +381,7 @@ def simulate_experiment(
     :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
     :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
     :param seed: Seed.
+    :param verbose_output: True or False. 
     :param **model_args: Model args passed to the builidng of the main model. 
     """
     #Set seed
@@ -484,7 +486,8 @@ def simulate_experiment(
     # append results
     with open(log_file, "a") as outfile:
         outfile.write(",".join(results.values()) + "\n")
-    tqdm.write(f"{results.values()} appended to {log_file}!")
+    if verbose_output:
+        tqdm.write(f"{results.values()} appended to {log_file}!")
 
     #Save outputdata
     if report_predictions:
@@ -496,7 +499,8 @@ def simulate_experiment(
         }
         with open(os.path.join(output_path, f"{save_title}.pkl"), "wb") as outfile:
             pickle.dump(output_data, outfile)
-        tqdm.write(f"Output data saved for {save_title} model. ")
+        if verbose_output:
+            tqdm.write(f"Output data saved for {save_title} model. ")
 
     # Plot
     if plot:
@@ -545,7 +549,7 @@ def multi_experiment(
         :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
         :param num_initial_points: Number of initial query points.
         :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
-        :param num_steps: Number of bayesian optimization steps.
+        :param num_steps: Number of bayesian optimization steps. if 'infer' will be num_dimensions * 10
         :param predict_interval: Interval between number of BO steps to predict the entire surface. 
         :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
             arguments: initial_data, and **model_args and returns a model. 
@@ -559,6 +563,8 @@ def multi_experiment(
         :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
         :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
         :param seed: Seed.
+        :param verbose_output: True or False. 
+        :param **model_args: Model args passed to the builidng of the main model. 
     '''
     for args in tqdm(unpack_arguments(simul_args),
         colour="blue",
@@ -579,7 +585,7 @@ def parallel_experiments(simul_args_list:Union[list, dict], n_jobs: int=1, verbo
         :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
         :param num_initial_points: Number of initial query points.
         :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
-        :param num_steps: Number of bayesian optimization steps.
+        :param num_steps: Number of bayesian optimization steps. if 'infer' will be num_dimensions * 10
         :param predict_interval: Interval between number of BO steps to predict the entire surface. 
         :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
             arguments: initial_data, and **model_args and returns a model. 
@@ -593,6 +599,8 @@ def parallel_experiments(simul_args_list:Union[list, dict], n_jobs: int=1, verbo
         :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
         :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
         :param seed: Seed.
+        :param verbose_output: True or False. 
+        :param **model_args: Model args passed to the builidng of the main model. 
     
     '''
 

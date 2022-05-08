@@ -28,15 +28,15 @@ common_args = {
     "overwrite": False,
     "grid_density": 20,
     "metadata": "",
-    "seed": list(range(20))
+    "seed": list(range(20)),
+    "verbose_output": False
 }
 
 #Primary: num_layers: 4, units: 100, reg_weight: 0.001, maxi_rate: 0.01, lr: 0.001 (standard)
 #Secondary: num_layers: 4, units: 100, reg_weight: 0.001, maxi_rate: 0, lr: 0.001 (standard)
 
 #Primary: num_layers: 4, units: 100, reg_weight: 0.001, maxi_rate: 0.01, lr: 0.001 (log)
-#Secondary: num_layers: 4, units: 100, reg_weight: 0.0001, maxi_rate: 0.01, lr: 0.001 (log)
-#NEED EI one?
+#Secondary: num_layers: 4, units: 50, reg_weight: 0.001, maxi_rate: 0, lr: 0.001 (log)
 der_simul_args = {
     "model": ("new_der_log", der_builder),
     "output_path": os.path.join(OUTPUT_PATH, "der"),
@@ -74,16 +74,17 @@ mc_simul_args = {
     "lr": 0.001,
 }
 
-deup_simul_args = {
-    "model": ("deup", deup_builder),
-    "output_path": os.path.join(OUTPUT_PATH, "deup"),
-    "ensemble_size": [5, 7],
-    "num_hidden_layers": [3, 5],
-    "units": [25, 50],
-    "e_num_hidden_layers": [3, 5],
-    "e_units": [64, 128, 256],
-    "lr": 0.001,
-}
+#UNKNOWN ARGS
+# deup_simul_args = {
+#     "model": ("deup", deup_builder),
+#     "output_path": os.path.join(OUTPUT_PATH, "deup"),
+#     "ensemble_size": [5, 7],
+#     "num_hidden_layers": [3, 5],
+#     "units": [25, 50],
+#     "e_num_hidden_layers": [3, 5],
+#     "e_units": [64, 128, 256],
+#     "lr": 0.001,
+# }
 
 n_jobs = 2
 verbose = 10 #From 1 to 50 
@@ -94,7 +95,7 @@ all_args = [
     de_simul_args,
     mc_simul_args,
     gpr_simul_args,
-    deup_simul_args
+    # deup_simul_args
 ]
 
 if __name__ == "__main__":
