@@ -13,19 +13,20 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 simul_args = common_simul_args
 simul_args.update({
-    "objective": branin,
+    "objective": [michal2, branin2],
     "num_initial_points": 20,
-    "acquisition": [ ("ei", EfficientGlobalOptimization())],
-    "num_steps": 9,
+    "acquisition": ("ei", EfficientGlobalOptimization()),
+    "num_steps": 20,
     "predict_interval": 3,
-    "model": ("new_der_log", der_builder),
-    "output_path": "new_der_test",
+    "model": ("der_log", der_builder),
+    "output_path": "der_test",
     "num_hidden_layers": [2, 4],
     "units": [50, 100],
     "reg_weight": [1e-3, 1e-4],
     "maxi_rate": [0, 1e-2],
     "lr": 0.001,
+    "report_predictions": False,
     "seed": list(range(10))
 })
 
-multi_experiment(simul_args)
+parallel_experiments(simul_args, n_jobs=2)

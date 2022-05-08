@@ -7,7 +7,6 @@ import pickle
 import platform
 import psutil
 import random
-import ray
 import tensorflow as tf
 import tensorflow_probability as tfp 
 import timeit
@@ -16,7 +15,7 @@ import trieste
 from collections import defaultdict
 from joblib import Parallel, delayed
 from tqdm import tqdm
-from trieste.models.gpflow import GaussianProcessRegression, build_gpr
+from trieste.models.gpflow import GaussianProcessRegression
 from trieste.models.keras import (
     DirectEpistemicUncertaintyPredictor,
     DeepEvidentialRegression,
@@ -28,29 +27,11 @@ from trieste.models.keras import (
     build_vanilla_keras_deep_evidential, 
 )
 from trieste.models.keras.architectures import DropConnectNetwork, EpistemicUncertaintyNetwork
-from trieste.objectives import (
-    michalewicz_2,
-    MICHALEWICZ_2_MINIMUM,
-    MICHALEWICZ_2_SEARCH_SPACE,
-    MICHALEWICZ_2_MINIMIZER,
-    scaled_branin,
-    SCALED_BRANIN_MINIMUM,
-    BRANIN_MINIMIZERS,
-    BRANIN_SEARCH_SPACE,
-    dropwave,
-    DROPWAVE_MINIMUM,
-    DROPWAVE_MINIMIZER,
-    DROPWAVE_SEARCH_SPACE,
-    eggholder,
-    EGGHOLDER_MINIMUM,
-    EGGHOLDER_MINIMIZER,
-    EGGHOLDER_SEARCH_SPACE
-)
-from trieste.objectives.single_objectives import HARTMANN_6_SEARCH_SPACE, HARTMANN_6_MINIMIZER, HARTMANN_6_MINIMUM, hartmann_6
+from trieste.objectives.single_objectives import *
 from trieste.objectives.utils import mk_observer
 from trieste.models.optimizer import KerasOptimizer
 from trieste.ask_tell_optimization import AskTellOptimizer
-from typing import Callable, Iterator, Tuple, Union
+from typing import Callable, Tuple, Union
 from util.plotting_plotly import (
     plot_model_predictions_plotly, 
     plot_function_plotly,
@@ -86,10 +67,49 @@ global_save_title_prefixes = {
 # OBJECTIVES
 
 michal2 = ("michal2", michalewicz_2, MICHALEWICZ_2_SEARCH_SPACE, MICHALEWICZ_2_MINIMUM, MICHALEWICZ_2_MINIMIZER)
+branin2 = ("scaled_branin", scaled_branin, BRANIN_SEARCH_SPACE, SCALED_BRANIN_MINIMUM, BRANIN_MINIMIZERS)
+hartmann6 = ("hartmann6", hartmann_6, HARTMANN_6_SEARCH_SPACE, HARTMANN_6_MINIMUM, HARTMANN_6_MINIMIZER)
+goldstein2 = ("goldstein2", logarithmic_goldstein_price, LOGARITHMIC_GOLDSTEIN_PRICE_SEARCH_SPACE, LOGARITHMIC_GOLDSTEIN_PRICE_MINIMUM, LOGARITHMIC_GOLDSTEIN_PRICE_MINIMIZER)
+hartmann3 = ("hartmann3", hartmann_3, HARTMANN_3_SEARCH_SPACE, HARTMANN_3_MINIMUM, HARTMANN_3_MINIMIZER)
+shekel4 = ("shekel4", shekel_4, SHEKEL_4_SEARCH_SPACE, SHEKEL_4_MINIMUM, SHEKEL_4_MINIMIZER)
+rosenbrock4 = ("rosenbrock4", rosenbrock_4, ROSENBROCK_4_SEARCH_SPACE, ROSENBROCK_4_MINIMUM, ROSENBROCK_4_MINIMIZER)
+ackley5 = ("ackley5", ackley_5, ACKLEY_5_SEARCH_SPACE, ACKLEY_5_MINIMUM, ACKLEY_5_MINIMIZER)
+michal5 = ("michal5", michalewicz_5, MICHALEWICZ_5_SEARCH_SPACE, MICHALEWICZ_5_MINIMUM, MICHALEWICZ_5_MINIMIZER)
+michal10 = ("michal10", michalewicz_10, MICHALEWICZ_10_SEARCH_SPACE, MICHALEWICZ_10_MINIMUM, MICHALEWICZ_10_MINIMIZER)
 dropw2 = ("dropw2", dropwave, DROPWAVE_SEARCH_SPACE, DROPWAVE_MINIMUM, DROPWAVE_MINIMIZER)
 eggho2 = ("eggho2", michalewicz_2, EGGHOLDER_SEARCH_SPACE, EGGHOLDER_MINIMUM, EGGHOLDER_MINIMIZER)
-branin = ("scaled_branin", scaled_branin, BRANIN_SEARCH_SPACE, SCALED_BRANIN_MINIMUM, BRANIN_MINIMIZERS)
-hartmann6 = ("hartmann6", hartmann_6, HARTMANN_6_SEARCH_SPACE, HARTMANN_6_MINIMUM, HARTMANN_6_MINIMIZER)
+
+def add_noise(noise_per: float, objective: tuple) -> tuple:
+    '''Adds noise as a percent of the range of the search space. Replaces original
+    objective tuple with the noisy version'''
+    new_obj = list(objective)
+    avg_range = np.mean(np.abs(objective[2].upper - objective[2].lower))
+    scale = noise_per * avg_range
+    def noisy_obj(*args, **kwargs):
+        noiseless = objective[1](*args, **kwargs)
+        noise = np.random.normal(0, scale, size=noiseless.shape)
+        return noiseless + noise
+    new_obj[0] = f"noisy_{objective[0]}"
+    new_obj[1] = noisy_obj
+    return tuple(new_obj)
+
+REGULAR_OBJECTIVES = [
+    michal2,
+    branin2,
+    hartmann6,
+    goldstein2,
+    hartmann3,
+    shekel4,
+    rosenbrock4,
+    ackley5,
+    michal5,
+    michal10,
+    dropw2,
+    eggho2,
+]
+
+NOISY_OBJECTIVES = [add_noise(0.05, obj) for obj in REGULAR_OBJECTIVES]
+ALL_OBJECTIVES = REGULAR_OBJECTIVES + NOISY_OBJECTIVES
 
 # MODEL BUILDERS
 
@@ -150,7 +170,7 @@ def deepensemble_builder(data, ensemble_size, num_hidden_layers, units):
 
 def gpr_builder(data):
     variance = tf.math.reduce_variance(data.observations)
-    kernel = gpflow.kernels.Matern52(variance=variance, lengthscales=[0.2, 0.2])
+    kernel = gpflow.kernels.Matern52(variance=variance, lengthscales=0.2)
     prior_scale = tf.cast(1.0, dtype=tf.float64)
     kernel.variance.prior = tfp.distributions.LogNormal(
         tf.cast(-2.0, dtype=tf.float64), prior_scale
@@ -433,6 +453,7 @@ def simulate_experiment(
     found_minimum = observations[arg_min_idx, :]
 
     results = {
+        # "model": model_name,
         "objective": objective_name,
         "acquisition": acquisition_name,
         "num_initial_points": str(num_initial_points),
@@ -530,7 +551,7 @@ def multi_experiment(
             example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
             global_save_title_prefixes where we can add prefixes for all models. 
         :param plot: True or False, whether to generate plots or not. 
-        :param predictions: True or False, whether to generate predictions or not. Defaults to True. 
+        :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
         :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
         :param seed: Seed.
     '''
@@ -543,7 +564,32 @@ def multi_experiment(
 
 
 def parallel_experiments(simul_args_list:Union[list, dict], n_jobs: int=1, verbose: int = 5):
-    '''Run a multi_experiment in parallel with ThreadPoolExecutor'''
+    '''Run a multi_experiment in parallel with ThreadPoolExecutor
+
+    :param simul_args_list: A list of argument dictionaries to be passed to simulate_experiment
+    :param n_jobs: Number of cpus to use. 
+
+        simulate experiment args:
+
+        :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
+        :param num_initial_points: Number of initial query points.
+        :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
+        :param num_steps: Number of bayesian optimization steps.
+        :param predict_interval: Interval between number of BO steps to predict the entire surface. 
+        :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
+            arguments: initial_data, and **model_args and returns a model. 
+        :param output_path: Path to save figs and log_file
+        :param metadata: A string to be saved in separate metadata txt file. 
+        :param grid_density: Density of grid for predictions. 
+        :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
+            example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
+            global_save_title_prefixes where we can add prefixes for all models. 
+        :param plot: True or False, whether to generate plots or not. 
+        :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
+        :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
+        :param seed: Seed.
+    
+    '''
 
     if not isinstance(simul_args_list, list):
         simul_args_list = [simul_args_list]

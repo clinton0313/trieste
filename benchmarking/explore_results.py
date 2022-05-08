@@ -45,8 +45,8 @@ def best_configs(results: pd.DataFrame, dont_groupby: list = DONT_GROUPBY, epsil
     groupby = [col for col in results.columns if col not in dont_groupby]
     return results.groupby(by=groupby).mean().sort_values(by="converged", ascending=False)
 
-def overall_best_config(results: pd.DataFrame, epsilon = 1e-2) -> pd.DataFrame:
-    dont_groupby = DONT_GROUPBY + ["objective", "acquisition", "num_initial_points"]
+def overall_best_config(results: pd.DataFrame, dont_groupby: list = ["objective", "acquisition"], epsilon = 1e-2) -> pd.DataFrame:
+    dont_groupby += DONT_GROUPBY
     res = best_configs(results, dont_groupby = dont_groupby, epsilon=epsilon)
     return res
 

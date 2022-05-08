@@ -15,8 +15,9 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 simul_args = common_simul_args
 
 simul_args.update({
-    "objective": [branin, michal2], #, dropwave, eggholder, hartmann6],
+    "objective": [hartmann6], #, dropwave, eggholder, hartmann6],
     "num_initial_points": 2,
+    "predict_interval": 3,
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": 20,
     "model": ("gpr", gpr_builder),

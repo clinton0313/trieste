@@ -14,7 +14,7 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 simul_args = common_simul_args
 
 simul_args.update({
-    "objective": [michal2, branin],#, dropwave, eggholder, hartmann6],
+    "objective": [michal2, branin2],#, dropwave, eggholder, hartmann6],
     "num_initial_points": [1, 20],
     "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": 20,
@@ -28,6 +28,6 @@ simul_args.update({
     "seed": list(range(10))
 })
 
-parallel_experiments(simul_args, max_workers=1)
+multi_experiment(simul_args)
 # %%
 
