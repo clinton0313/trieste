@@ -1,7 +1,9 @@
 import os
+import multiprocessing
 import tensorflow as tf
 
 from benchmarking_utils import *
+from functools import partial
 from trieste.acquisition.rule import DiscreteThompsonSampling, EfficientGlobalOptimization
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -9,20 +11,17 @@ tf.get_logger().setLevel("ERROR")
 tf.keras.backend.set_floatx("float64")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-def combine_args(simul_args_list: dict, common_args: dict) -> dict:
-    '''Small helper function to combine simulation arguments'''
-    for simul_args in simul_args_list:
-        simul_args.update(common_args)
-    return simul_args_list
-
 OUTPUT_PATH = "parallel_benchmarking"
 
 common_args = {
-    "objective": ALL_OBJECTIVES,
+    "objective": REGULAR_OBJECTIVES[:5] + NOISY_OBJECTIVES[:5],
     "num_initial_points": 20,
-    "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
+    "acquisition": [
+        ("ei", EfficientGlobalOptimization, {}), 
+        ("ts", DiscreteThompsonSampling,{"num_search_space_samples": "infer", "num_query_points": 4})
+        ],
     "num_steps": "infer", #infer hardcodes to num_dimensions * 10
-    "predict_interval": 4,
+    "predict_interval": 10,
     "plot": False,
     "report_predictions": True,
     "overwrite": False,
@@ -49,6 +48,7 @@ der_simul_args = {
 
 gpr_simul_args = {
     "model": ("gpr", gpr_builder),
+    "acquisition": ("ei", EfficientGlobalOptimization, {}),
     "output_path": os.path.join(OUTPUT_PATH, "gpr"),
 }
 
@@ -86,8 +86,8 @@ mc_simul_args = {
 #     "lr": 0.001,
 # }
 
-n_jobs = 2
-verbose = 10 #From 1 to 50 
+n_jobs = multiprocessing.cpu_count()
+verbose = 1 #From 1 to 50 
 
 #Each dictionary of args is independently crosses all of its arguments
 all_args = [
@@ -100,5 +100,5 @@ all_args = [
 
 if __name__ == "__main__":
     os.makedirs(OUTPUT_PATH, exist_ok=True)
-    combine_args(all_args, common_args)
+    all_args = list(map(partial(combine_args, common_args=common_args), all_args))
     parallel_experiments(all_args, n_jobs = n_jobs, verbose = verbose)

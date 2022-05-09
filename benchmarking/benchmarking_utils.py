@@ -96,10 +96,10 @@ def add_noise(noise_per: float, objective: tuple) -> tuple:
 REGULAR_OBJECTIVES = [
     michal2,
     branin2,
-    hartmann6,
     goldstein2,
     hartmann3,
     shekel4,
+    hartmann6,
     rosenbrock4,
     ackley5,
     michal5,
@@ -184,6 +184,14 @@ def gpr_builder(data):
     return GaussianProcessRegression(gpr, num_kernel_samples=100)
 
 # SIMULATOR UTILS
+
+def combine_args(simul_args: dict, common_args: dict) -> dict:
+    '''Small helper function to combine simulation arguments'''
+    new_args = common_args.copy()
+    new_args.update(simul_args)
+    return new_args
+
+
 def parse_rate(rate:float)-> str:
     '''Helpful function taht parses floats into scientific notation strings'''
     if rate < 10 and rate > -10:
@@ -366,7 +374,7 @@ def simulate_experiment(
     """
     :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
     :param num_initial_points: Number of initial query points.
-    :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
+    :param acquisition: Tuple of (acquisition_name, acquisition function, dict of acquisition_args)
     :param num_steps: Number of bayesian optimization steps. if 'infer' will be num_dimensions * 10
     :param predict_interval: Interval between number of BO steps to predict the entire surface. 
     :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
@@ -390,9 +398,16 @@ def simulate_experiment(
     tf.random.set_seed(seed)
 
     #Unpack model, acquisition and objective tuples:
-    acquisition_name, acquisition_rule = acquisition
-    model_name, model_builder = model
     objective_name, function, search_space, minimum, minimizer = objective
+    acquisition_name, acquisition_fn, acquisition_args = acquisition
+    try:
+        if acquisition_args["num_search_space_samples"] == "infer":
+            acquisition_args["num_search_space_samples"] = int(1000 * search_space.dimension)
+    except KeyError:
+        pass
+    acquisition_rule = acquisition_fn(**acquisition_args)
+    model_name, model_builder = model
+
     if num_steps == "infer":
         num_steps = int(search_space.dimension * 10)
     #Make output path
@@ -434,7 +449,7 @@ def simulate_experiment(
         #Basic loop
         start_acquisition_time = timeit.default_timer()
         new_point = ask_tell.ask()
-        acquisition_time += start_acquisition_time - timeit.default_timer()
+        acquisition_time += timeit.default_timer() - start_acquisition_time
 
         new_data = observer(new_point)
 
@@ -444,7 +459,7 @@ def simulate_experiment(
 
         #Predictions
         if report_predictions:
-            if step % predict_interval == 0 or step == num_steps - 1:
+            if step != 0 and (step % predict_interval == 0 or step == num_steps - 1):
                 current_model = ask_tell.to_result(copy=False).try_get_final_model()
                 prediction = make_predictions(current_model, search_space, grid_density=grid_density)
                 predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction

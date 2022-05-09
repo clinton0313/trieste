@@ -18,10 +18,10 @@ simul_args.update({
     "objective": [hartmann6], #, dropwave, eggholder, hartmann6],
     "num_initial_points": 2,
     "predict_interval": 3,
-    "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
+    "acquisition": ("ei", EfficientGlobalOptimization, {}),
     "num_steps": 20,
     "model": ("gpr", gpr_builder),
-    "output_path": ["gpr_test"],
+    "output_path": "gpr_test",
     "seed": list(range(10))
 })
 

@@ -1,0 +1,2 @@
+objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,acquisition_runtime,optimize_runtime,pickle_file
+scaled_branin,ei,20,20,0,-1.047393,-1.0465880002124963,-6.46,26.3,gpr_ei_scaled_branin__seed0.pkl

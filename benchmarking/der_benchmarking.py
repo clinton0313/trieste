@@ -15,7 +15,10 @@ simul_args = common_simul_args
 simul_args.update({
     "objective": [michal2, branin2],
     "num_initial_points": 20,
-    "acquisition": ("ei", EfficientGlobalOptimization()),
+    "acquisition":  [
+        ("ei", EfficientGlobalOptimization, {}), 
+        ("ts", DiscreteThompsonSampling,{"num_search_space_samples": "infer", "num_query_points": 4})
+    ],
     "num_steps": 20,
     "predict_interval": 3,
     "model": ("der_log_ei", der_builder),

@@ -1,0 +1,5 @@
+objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,acquisition_runtime,optimize_runtime,ensemble_size,num_hidden_layers,units,pickle_file
+scaled_branin,ei,20,20,0,-1.047393,-1.034788622885056,-42.43,58.595,7,5,50,de_ei_scaled_branin_L5_n50_es7_seed0.pkl
+scaled_branin,ts,20,20,0,-1.047393,-1.04717108292472,-8.045,89.558,7,5,50,de_ts_scaled_branin_L5_n50_es7_seed0.pkl
+shekel4,ei,20,40,0,-10.5363,-9.760696089333868,-59.377,78.01,7,5,50,de_ei_shekel4_L5_n50_es7_seed0.pkl
+shekel4,ts,20,40,0,-10.5363,-4.295773936492077,-9.458,189.157,7,5,50,de_ts_shekel4_L5_n50_es7_seed0.pkl

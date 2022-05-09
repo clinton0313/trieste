@@ -1,0 +1,5 @@
+objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,acquisition_runtime,optimize_runtime,num_hidden_layers,units,reg_weight,maxi_rate,lr,pickle_file
+scaled_branin,ei,20,20,0,-1.047393,-1.041617145600994,-10.105,30.525,4,100,0.001,0.01,0.001,new_der_log_ei_scaled_branin_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+scaled_branin,ts,20,20,0,-1.047393,-1.0464949992828614,-0.765,53.302,4,100,0.001,0.01,0.001,new_der_log_ts_scaled_branin_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+shekel4,ei,20,40,0,-10.5363,-9.538879313498594,-45.764,67.127,4,100,0.001,0.01,0.001,new_der_log_ei_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+shekel4,ts,20,40,0,-10.5363,-6.110449866869161,-1.041,153.102,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl

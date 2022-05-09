@@ -16,7 +16,10 @@ simul_args = common_simul_args
 simul_args.update({
     "objective": [michal2, branin2],#, dropwave, eggholder, hartmann6],
     "num_initial_points": [1, 20],
-    "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
+    "acquisition":  [
+        ("ei", EfficientGlobalOptimization, {}), 
+        ("ts", DiscreteThompsonSampling,{"num_search_space_samples": "infer", "num_query_points": 4})
+    ],
     "num_steps": 20,
     "model": ("deup", deup_builder),
     "output_path": "deup_test",
