@@ -460,7 +460,7 @@ def simulate_experiment(
         optimize_time += timeit.default_timer() - start_optimize_time
 
         #Predictions
-        if report_predictions:
+        if report_predictions: #Make predictions at certain inteval and last prediction but not first prediction.
             if step != 0 and (step % predict_interval == 0 or step == num_steps - 1):
                 current_model = ask_tell.to_result(copy=False).try_get_final_model()
                 prediction = make_predictions(current_model, search_space, grid_density=grid_density)
@@ -472,7 +472,12 @@ def simulate_experiment(
             if (
                 tf.abs(new_obs - minimum.numpy()[0]) / minimum.numpy()[0] <= tolerance
                 and tf.reduce_any(tf.reduce_all(minimizer_err < 0.05, axis=-1), axis=0)
-            ):
+            ):  
+                if report_predictions: #Make final prediction
+                    current_model = ask_tell.to_result(copy=False).try_get_final_model()
+                    prediction = make_predictions(current_model, search_space, grid_density=grid_density)
+                    predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction
+
                 if verbose_output:
                     tqdm.write(
                         f"Minimum found to be {new_obs} relative to the true minimum "
@@ -526,17 +531,17 @@ def simulate_experiment(
         tqdm.write(f"{results.values()} appended to {log_file}!")
 
     #Save outputdata
-    if report_predictions:
-        output_data = {
-            "query_points": query_points,
-            "observations": observations,
-            "predictions": predictions,
-            "metadata": default_metadata() + metadata
-        }
-        with open(os.path.join(output_path, f"{save_title}.pkl"), "wb") as outfile:
-            pickle.dump(output_data, outfile)
-        if verbose_output:
-            tqdm.write(f"Output data saved for {save_title} model. ")
+
+    output_data = {
+        "query_points": query_points,
+        "observations": observations,
+        "predictions": predictions,
+        "metadata": default_metadata() + metadata
+    }
+    with open(os.path.join(output_path, f"{save_title}.pkl"), "wb") as outfile:
+        pickle.dump(output_data, outfile)
+    if verbose_output:
+        tqdm.write(f"Output data saved for {save_title} model. ")
 
     # Plot
     if plot:
