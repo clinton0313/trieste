@@ -1,8 +1,6 @@
 #%%
 import os
-import multiprocessing
 import tensorflow as tf
-import timeit
 
 from benchmarking_utils import *
 from functools import partial
@@ -92,15 +90,15 @@ mc_simul_args = {
 # }
 
 
-n_jobs = 1 #multiprocessing.cpu_count()
+n_jobs = 1 #joblib.cpu_count()
 verbose = 50 #From 1 to 50 
 
 #Each dictionary of args is independently crosses all of its arguments
 all_args = [
     der_simul_args,
-    de_simul_args,
-    mc_simul_args,
-    gpr_simul_args,
+    # de_simul_args,
+    # mc_simul_args,
+    # gpr_simul_args,
     # deup_simul_args
 ]
 #%%

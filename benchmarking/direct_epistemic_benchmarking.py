@@ -11,15 +11,6 @@ tf.get_logger().setLevel("ERROR")
 tf.keras.backend.set_floatx("float64")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-<<<<<<< HEAD
-simul_args = {
-    "objective": [michal2, branin],#, dropwave, eggholder, hartmann6],
-    "num_initial_points": [20],
-    "acquisition": [("ts", DiscreteThompsonSampling(2000, 4))],
-    "num_steps": [20],
-    "model": [("deup", deup_builder)],
-    "output_path": ["deup_test"],
-=======
 simul_args = common_simul_args
 
 simul_args.update({
@@ -32,7 +23,6 @@ simul_args.update({
     "num_steps": 20,
     "model": ("deup", deup_builder),
     "output_path": "deup_test",
->>>>>>> deb513aa23e71e2fd7323cb913f40ee05d925777
     "ensemble_size": [5, 7],
     "num_hidden_layers": [3, 5],
     "units": [25, 50],

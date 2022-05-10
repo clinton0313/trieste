@@ -396,6 +396,7 @@ def simulate_experiment(
     random.seed(seed)
     np.random.seed(seed)
     tf.random.set_seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
     #Unpack model, acquisition and objective tuples:
     objective_name, function, search_space, minimum, minimizer = objective
