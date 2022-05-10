@@ -1,4 +1,5 @@
 #%%
+import joblib
 import os
 import tensorflow as tf
 
@@ -11,7 +12,7 @@ tf.get_logger().setLevel("ERROR")
 tf.keras.backend.set_floatx("float64")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-OUTPUT_PATH = "minitest_parallel_benchmarking"
+OUTPUT_PATH = "/homes/users/dampudia/scratch/minitest_parallel_benchmarking"
 
 common_args = {
     "objective": [
@@ -103,8 +104,6 @@ all_args = [
 ]
 #%%
 if __name__ == "__main__":
-    start = timeit.default_timer()
     os.makedirs(OUTPUT_PATH, exist_ok=True)
     all_args = list(map(partial(combine_args, common_args=common_args), all_args))
     parallel_experiments(all_args, n_jobs = n_jobs, verbose = verbose)
-    print(f"{timeit.default_timer() - start:2f} seconds for computations.")

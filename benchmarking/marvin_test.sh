@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# set the partition where the job will run
-
 #SBATCH --partition=haswell
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=16
@@ -15,7 +13,7 @@
 # run the application
 module load CUDA
 module load Python
-DIR="/home/dampudia"
+DIR="/homes/users/dampudia"
 
-source {$DIR}/trieste/.trieste/bin/activate
-python {$DIR}/trieste/benchmarking/minitest_parallel_benchmarking.py
+source $DIR/trieste/.trieste/bin/activate
+python $DIR/trieste/benchmarking/minitest_parallel_benchmarking.py
