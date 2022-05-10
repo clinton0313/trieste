@@ -507,7 +507,10 @@ def simulate_experiment(
     }
     for key, arg in model_args.items():
         results.update({key: str(arg)})
-    results.update({"pickle_file": f"{save_title}.pkl"})
+    if report_predictions:
+        results.update({"pickle_file": f"{save_title}.pkl"})
+    else:
+        results.update({"pickle_file": "nan"})
     
     #Write results
 
