@@ -44,11 +44,8 @@ def test_ensemble_trajectory_sampler_returns_trajectory_function_with_correctly_
 
     assert trajectory(test_data).shape == (num_evals, 1)
 
-<<<<<<< HEAD
-=======
 
 @pytest.mark.deep_ensemble
->>>>>>> clinton/der_model
 def test_ensemble_trajectory_sampler_returns_deterministic_trajectory() -> None:
     example_data = empty_dataset([1], [1])
     test_data = tf.linspace([-10.0], [10.0], 100)

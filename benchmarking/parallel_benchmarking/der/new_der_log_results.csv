@@ -1,0 +1,8 @@
+objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,acquisition_runtime,optimize_runtime,num_hidden_layers,units,reg_weight,maxi_rate,lr,pickle_file
+scaled_branin,ei,20,20,0,-1.047393,-1.041617145600994,-9.894,28.441,4,100,0.001,0.01,0.001,new_der_log_ei_scaled_branin_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+scaled_branin,ts,20,20,0,-1.047393,-1.0464949992828614,-1.161,53.189,4,100,0.001,0.01,0.001,new_der_log_ts_scaled_branin_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+shekel4,ei,20,40,0,-10.5363,-9.538879313498594,-44.714,65.329,4,100,0.001,0.01,0.001,new_der_log_ei_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+shekel4,ts,20,40,0,-10.5363,-6.110449866869161,-1.008,148.824,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+shekel4,ei,20,40,0,-10.5363,-9.538879313498594,-46.94,71.971,4,100,0.001,0.01,0.001,new_der_log_ei_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+shekel4,ts,20,40,0,-10.5363,-3.0877663316734587,-2.088,169.965,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl
+shekel4,ts,20,40,0,-10.5363,-3.0877663316734587,-2.007,161.456,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed0.pkl

@@ -1094,11 +1094,19 @@ def test_deep_evidential_reg_weight_updates(
 @random_seed
 @pytest.mark.deep_evidential
 @pytest.mark.parametrize("reg_weight", [1., 1.5])
+@pytest.mark.parametrize(
+    "query_points, observations", 
+    [
+        ([[1.], [5]], [[3.], [2.5]]),
+        ([[10.], [67.8]], [[52.], [12.5]])
+    ],
+)
 def test_deep_evidential_loss(
-    reg_weight: float
+    reg_weight: float,
+    query_points: list,
+    observations: list,
 ) -> None:
-    example_data = _get_example_data([100, 1])
-    example_data = Dataset(tf.constant([[1.]]), tf.constant([[10.]]))
+    example_data = Dataset(tf.constant(query_points), tf.constant(observations))
 
     optimizer = tf.optimizers.Adam()
 
@@ -1121,6 +1129,41 @@ def test_deep_evidential_loss(
     model_loss = model.model.history.history["loss"][-1]
 
     npt.assert_allclose(model_loss, reference_loss, rtol=1e-6)
+
+@random_seed
+@pytest.mark.deep_evidential
+@pytest.mark.parametrize("predict_log_uncertainty", [True, False])
+@pytest.mark.parametrize("predict_aleatoric", [True, False])
+def test_deep_evidential_predict(
+    predict_aleatoric: bool,
+    predict_log_uncertainty: bool,
+) -> None:
+    example_data = _get_example_data([100, 1])
+
+    model = trieste_deep_evidential_model(
+        example_data, 
+        predict_aleatoric = predict_aleatoric,
+        predict_log_uncertainty = predict_log_uncertainty
+        )
+    
+    evidential_ouput = model.model(example_data.query_points)[0]
+    gamma, v, alpha, beta = tf.split(evidential_ouput, 4, axis=-1)
+
+    reference_mean = gamma
+
+    reference_uncertainty = beta / ((alpha - 1) * v)
+
+    if predict_aleatoric:
+        reference_uncertainty += beta/(alpha - 1)
+    
+    if predict_log_uncertainty:
+        reference_uncertainty = tf.math.log(reference_uncertainty + 1)
+
+    model_mean, model_uncertainty = model.predict(example_data.query_points)
+
+    npt.assert_allclose(model_uncertainty, reference_uncertainty, rtol=1e-6)
+    npt.assert_allclose(model_mean, reference_mean, rtol=1e-6)
+
 
 @random_seed
 @pytest.mark.deep_evidential
