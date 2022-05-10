@@ -28,6 +28,7 @@ common_args = {
     "plot": False,
     "report_predictions": True,
     "overwrite": True,
+    "tolerance": 0.05,
     "grid_density": 20,
     "metadata": "",
     "seed": 0,

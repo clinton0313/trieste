@@ -1,3 +1,4 @@
+#%%
 import gpflow
 import itertools
 import multiprocessing as mp
@@ -77,17 +78,15 @@ ackley5 = ("ackley5", ackley_5, ACKLEY_5_SEARCH_SPACE, ACKLEY_5_MINIMUM, ACKLEY_
 michal5 = ("michal5", michalewicz_5, MICHALEWICZ_5_SEARCH_SPACE, MICHALEWICZ_5_MINIMUM, MICHALEWICZ_5_MINIMIZER)
 michal10 = ("michal10", michalewicz_10, MICHALEWICZ_10_SEARCH_SPACE, MICHALEWICZ_10_MINIMUM, MICHALEWICZ_10_MINIMIZER)
 dropw2 = ("dropw2", dropwave, DROPWAVE_SEARCH_SPACE, DROPWAVE_MINIMUM, DROPWAVE_MINIMIZER)
-eggho2 = ("eggho2", michalewicz_2, EGGHOLDER_SEARCH_SPACE, EGGHOLDER_MINIMUM, EGGHOLDER_MINIMIZER)
+eggho2 = ("eggho2", eggholder, EGGHOLDER_SEARCH_SPACE, EGGHOLDER_MINIMUM, EGGHOLDER_MINIMIZER)
 
-def add_noise(noise_per: float, objective: tuple) -> tuple:
+def add_noise(objective: tuple, noise: float = 0.1) -> tuple:
     '''Adds noise as a percent of the range of the search space. Replaces original
     objective tuple with the noisy version'''
     new_obj = list(objective)
-    avg_range = np.mean(np.abs(objective[2].upper - objective[2].lower))
-    scale = noise_per * avg_range
     def noisy_obj(*args, **kwargs):
         noiseless = objective[1](*args, **kwargs)
-        noise = np.random.normal(0, scale, size=noiseless.shape)
+        noise = np.random.normal(0, noise, size=noiseless.shape)
         return noiseless + noise
     new_obj[0] = f"noisy_{objective[0]}"
     new_obj[1] = noisy_obj
@@ -108,9 +107,9 @@ REGULAR_OBJECTIVES = [
     eggho2,
 ]
 
-NOISY_OBJECTIVES = [add_noise(0.05, obj) for obj in REGULAR_OBJECTIVES]
+NOISY_OBJECTIVES = [add_noise(obj) for obj in REGULAR_OBJECTIVES]
 ALL_OBJECTIVES = REGULAR_OBJECTIVES + NOISY_OBJECTIVES
-
+#%%
 # MODEL BUILDERS
 
 def der_builder(data, num_hidden_layers, units, reg_weight, maxi_rate, lr):
@@ -367,6 +366,7 @@ def simulate_experiment(
     plot: bool = False,
     report_predictions: bool = True,
     overwrite: bool = False,
+    tolerance: float = 0.05,
     seed: int = 0,
     verbose_output: bool = True,
     **model_args
@@ -388,6 +388,7 @@ def simulate_experiment(
     :param plot: True or False, whether to generate plots or not. 
     :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
     :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
+    :param tolerance: Breaks optimization loop when an optimimum is break_loop percent away from true minimum. 
     :param seed: Seed.
     :param verbose_output: True or False. 
     :param **model_args: Model args passed to the builidng of the main model. 
@@ -464,6 +465,22 @@ def simulate_experiment(
                 current_model = ask_tell.to_result(copy=False).try_get_final_model()
                 prediction = make_predictions(current_model, search_space, grid_density=grid_density)
                 predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction
+        
+        if tolerance >= 0:
+            new_obs = new_data.observations.numpy()[-1]
+            minimizer_err = tf.abs((new_data.query_points.numpy()[-1,:] - minimizer) / minimizer)
+            if (
+                tf.abs(new_obs - minimum.numpy()[0]) / minimum.numpy()[0] <= tolerance
+                and tf.reduce_any(tf.reduce_all(minimizer_err < 0.05, axis=-1), axis=0)
+            ):
+                if verbose_output:
+                    tqdm.write(
+                        f"Minimum found to be {new_obs} relative to the true minimum "
+                        f"{minimum.numpy()} in {step} steps. Breaking out of optimization..."
+                    )
+                break
+            
+
 
 
     result = ask_tell.to_result(copy=False)
@@ -477,7 +494,7 @@ def simulate_experiment(
     found_minimum = observations[arg_min_idx, :]
 
     results = {
-        # "model": model_name,
+        "model": model_name,
         "objective": objective_name,
         "acquisition": acquisition_name,
         "num_initial_points": str(num_initial_points),
