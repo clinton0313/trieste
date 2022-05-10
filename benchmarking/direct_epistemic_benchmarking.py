@@ -22,8 +22,8 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 simul_args = {
     "objective": [michal2, branin],#, dropwave, eggholder, hartmann6],
-    "num_initial_points": [1, 20],
-    "acquisition": [("ei", EfficientGlobalOptimization()), ("ts", DiscreteThompsonSampling(2000, 4))],
+    "num_initial_points": [20],
+    "acquisition": [("ts", DiscreteThompsonSampling(2000, 4))],
     "num_steps": [20],
     "model": [("deup", deup_builder)],
     "output_path": ["deup_test"],

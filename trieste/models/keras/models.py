@@ -824,7 +824,7 @@ class DeepEvidentialRegression(
         
         epistemic = beta / ((alpha - 1) * v)
         uncertainty = epistemic + beta/(alpha-1) if aleatoric else epistemic
-        uncertainty = tf.math.log(uncertainty)
+        uncertainty = tf.math.log(uncertainty + 1)
 
         return gamma, uncertainty
 

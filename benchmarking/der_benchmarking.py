@@ -22,7 +22,7 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 simul_args = {
     "objective": [michal2, branin],
-    "num_initial_points": [1, 20],
+    "num_initial_points": [20],
     "acquisition": [ ("ei", EfficientGlobalOptimization())],
     "num_steps": [20],
     "model": [("der_log", der_builder)],
