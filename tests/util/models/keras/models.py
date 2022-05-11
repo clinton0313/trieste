@@ -18,7 +18,7 @@ Utilities for creating (Keras) neural network models to be used in the tests.
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Tuple, Callable
 
 import tensorflow as tf
 
@@ -27,8 +27,11 @@ from trieste.models.keras import (
     DeepEnsemble,
     GaussianNetwork,
     KerasEnsemble,
+    EpistemicUncertaintyNetwork,
+    DirectEpistemicUncertaintyPredictor,
     get_tensor_spec_from_data,
 )
+from trieste.models.keras.architectures import EpistemicUncertaintyNetwork
 from trieste.models.optimizer import KerasOptimizer
 
 
@@ -78,3 +81,68 @@ def trieste_deep_ensemble_model(
     model = DeepEnsemble(keras_ensemble, optimizer_wrapper, bootstrap_data)
 
     return model, keras_ensemble, optimizer_wrapper
+
+
+def trieste_keras_epistemic_networks(
+    data: Dataset,
+    e_num_hidden_layers: int = 4,
+    e_units: int = 128,
+    e_activation: str = "relu",
+    f_model_builder: Callable = trieste_keras_ensemble_model,
+    **f_model_args
+) -> tuple[DeepEnsemble, EpistemicUncertaintyNetwork]:
+
+    f_model = f_model_builder(data, **f_model_args)
+
+    e_input_tensor_spec, e_output_tensor_spec = get_tensor_spec_from_data(data)
+
+    hidden_layer_args = []
+    for _ in range(e_num_hidden_layers):
+        hidden_layer_args.append(
+            {
+                "units": e_units, 
+                "activation": e_activation
+            }
+        )
+
+    e_model = EpistemicUncertaintyNetwork(
+        e_input_tensor_spec,
+        e_output_tensor_spec,
+        hidden_layer_args
+    )
+
+    return f_model, e_model
+
+def trieste_direct_epistemic_uncertainty_prediction(
+    data: Dataset, 
+    _init_buffer_iters: bool = 0
+) -> DirectEpistemicUncertaintyPredictor:
+
+    ensemble_params = {
+        "ensemble_size": 5,
+        "independent_normal": False
+    }
+    f_keras_ensemble, e_predictor = trieste_keras_epistemic_networks(
+        data, 
+        f_model_builder=trieste_keras_ensemble_model,
+        **ensemble_params        
+    )
+
+    fit_args = {
+        "batch_size": 16,
+        "epochs": 1000,
+        "callbacks": [
+            tf.keras.callbacks.EarlyStopping(monitor="loss", patience=100)
+        ],
+        "verbose": 0,
+    }
+    optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.001), fit_args)
+
+    f_ensemble = DeepEnsemble(f_keras_ensemble, optimizer)
+
+    model = DirectEpistemicUncertaintyPredictor(
+        model={"f_model": f_ensemble, "e_model": e_predictor},
+        optimizer=optimizer, _init_buffer_iters=_init_buffer_iters
+    )
+
+    return model

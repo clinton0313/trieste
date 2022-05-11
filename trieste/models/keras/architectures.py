@@ -276,3 +276,74 @@ class GaussianNetwork(KerasEnsembleNetwork):
         output_tensor = self._gen_output_layer(hidden_tensor)
 
         return input_tensor, output_tensor
+
+
+class EpistemicUncertaintyNetwork(tf.keras.Model):
+    """
+    This class builds a fully connected neural network using Keras. The network architecture is a 
+    multilayer fully-connected feed-forward network with a single output parameter: the loss function
+    of the main predictor. This network is meant to be used with 
+    :class:`~trieste.models.keras.models.DirectEpistemicUncertaintyPredictor`.
+    """
+
+    def __init__(
+        self,
+        input_tensor_spec: tf.TensorSpec,
+        output_tensor_spec: tf.TensorSpec,
+        hidden_layer_args: Sequence[dict[str, Any]] = (
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+        )
+    ):
+        """
+        :param input_tensor_spec: Tensor specification for the input to the network.
+        :param output_tensor_spec: Tensor specification for the output of the network.
+        :param hidden_layer_args: Specification for building dense hidden layers. Each element in
+            the sequence should be a dictionary containing arguments (keys) and their values for a
+            :class:`~tf.keras.layers.Dense` hidden layer. Please check Keras Dense layer API for
+            available arguments. Objects in the sequence will sequentially be used to add
+            :class:`~tf.keras.layers.Dense` layers. Length of this sequence determines the number of
+            hidden layers in the network. Default value is four hidden layers, 128 nodes each, with
+            ReLu activation functions. Empty sequence needs to be passed to have no hidden layers.
+        :raise ValueError: If objects in ``hidden_layer_args`` are not dictionaries.
+        """
+
+        super().__init__()
+        self.input_tensor_spec = input_tensor_spec
+        self.output_tensor_spec = output_tensor_spec
+        self.flattened_output_shape = int(np.prod(self.output_tensor_spec.shape))
+        self._hidden_layer_args = hidden_layer_args
+
+        self.hidden_layers = self._gen_hidden_layers()
+        self.output_layer = self._gen_output_layer()
+
+    def _gen_hidden_layers(self) -> tf.keras.Model:
+        hidden_layers = tf.keras.Sequential(name="hidden_layers")
+        for hidden_layer_args in self._hidden_layer_args:
+            hidden_layers.add(tf.keras.layers.Dense(
+                dtype=self.input_tensor_spec.dtype,
+                **hidden_layer_args
+            ))
+
+        return hidden_layers
+
+    def _gen_output_layer(self) -> tf.keras.layers.Layer:
+        output_layer = tf.keras.layers.Dense(
+            units=self.flattened_output_shape,
+            dtype=self.input_tensor_spec.dtype,
+            name="output"
+        )
+
+        return output_layer
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+
+        if inputs.shape.rank == 1:
+            inputs = tf.expand_dims(inputs, axis=-1)
+
+        hidden_output = self.hidden_layers(inputs)
+        output = self.output_layer(hidden_output)
+
+        return output

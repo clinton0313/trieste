@@ -20,12 +20,13 @@ universally good solutions.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, Callable
 
 import tensorflow as tf
+from trieste.models.keras.models import DeepEnsemble
 
 from ...data import Dataset
-from .architectures import GaussianNetwork, KerasEnsemble
+from .architectures import GaussianNetwork, KerasEnsemble, EpistemicUncertaintyNetwork
 from .utils import get_tensor_spec_from_data
 
 
@@ -80,3 +81,52 @@ def build_vanilla_keras_ensemble(
     keras_ensemble = KerasEnsemble(networks)
 
     return keras_ensemble
+
+
+def build_vanilla_deup(
+    data: Dataset,
+    e_num_hidden_layers: int = 4,
+    e_units: int = 128,
+    e_activation: Union[str, tf.keras.layers.Activation] = "relu",
+    f_model_builder: Callable = build_vanilla_keras_ensemble,
+    **f_model_args
+) -> tuple[DeepEnsemble, EpistemicUncertaintyNetwork]:
+    """
+    Builds a simple direct epistemic uncertainty prediction model by combining an 
+    ensemble of neural networks in Keras as a main predictor with a multilayer
+    fully connected perceptron model that estimates the uncertainty embedded in the model.
+    
+    Number of hidden layers and units per layer in the ensembles or the MLP should be modified according
+    to the dataset size and complexity of the function - the default values seem to work well
+    for small datasets common in Bayesian optimization. 
+
+    :param dataset: Data for training, used for extracting input and output tensor specifications.
+    :param f_model_args: Parameters for each of the networks in the ensemble. This includes
+        the `ensemble_size`, `number_hidden_layers`, `units`, `activation` and the use of
+        `independent_normal` for model outputs.
+    :param e_model_args: Parameters for the error predictor, it defaults to four hidden layers,
+        128 units per layer and ReLU activations.
+    :return: A main model to predict point estimates of the target variable and an auxiliary model
+        trained to predict uncertainty around predictions.
+    """
+
+    f_model = f_model_builder(data, **f_model_args)
+
+    e_input_tensor_spec, e_output_tensor_spec = get_tensor_spec_from_data(data)
+
+    hidden_layer_args = []
+    for _ in range(e_num_hidden_layers):
+        hidden_layer_args.append(
+            {
+                "units": e_units, 
+                "activation": e_activation
+            }
+        )
+
+    e_model = EpistemicUncertaintyNetwork(
+        e_input_tensor_spec,
+        e_output_tensor_spec,
+        hidden_layer_args
+    )
+
+    return f_model, e_model

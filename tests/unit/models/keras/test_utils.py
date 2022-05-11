@@ -13,12 +13,17 @@
 # limitations under the License.
 
 import numpy as np
+import numpy.testing as npt
 import pytest
 import tensorflow as tf
 
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
 from trieste.data import Dataset
-from trieste.models.keras.utils import get_tensor_spec_from_data, sample_with_replacement
+from trieste.models.keras.utils import (
+    get_tensor_spec_from_data, 
+    sample_with_replacement, 
+    KernelDensityEstimator
+)
 
 
 def test_get_tensor_spec_from_data_raises_for_incorrect_dataset() -> None:
@@ -102,3 +107,21 @@ def test_sample_with_replacement_seems_correct(rank: int) -> None:
     x = tf.cast(x[:, 0], dtype=tf.float32)
     assert (tf.reduce_mean(mean) - tf.reduce_mean(x)) < 1
     assert tf.math.abs(tf.math.reduce_std(mean) - tf.math.reduce_std(x) / 10.0) < 0.1
+
+
+@random_seed
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize(
+    "query_points, true_density",
+    [
+        (tf.constant([[1.], [0.2], [1.5], [0.3]], dtype=tf.float64), 0.408),
+        (tf.constant([[2.3], [0.5], [1.], [0.7]], dtype=tf.float64), 0.357)
+    ]
+)
+def test_kernel_density_estimator_is_accurate(query_points: tf.Tensor, true_density: float) -> None:
+    kde = KernelDensityEstimator(kernel="gaussian")
+    kde.fit(query_points)
+    density_estimate = kde.score_samples(tf.constant([[1.]], dtype=tf.float64))
+
+    npt.assert_approx_equal(density_estimate, true_density, significant = 3)
+

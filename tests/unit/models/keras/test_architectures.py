@@ -22,12 +22,14 @@ import tensorflow_probability as tfp
 
 from tests.util.misc import empty_dataset
 from tests.util.models.gpflow.models import gpr_model
-from tests.util.models.keras.models import trieste_keras_ensemble_model
+from tests.util.models.keras.models import trieste_keras_ensemble_model, trieste_direct_epistemic_uncertainty_prediction
 from tests.util.models.models import fnc_3x_plus_10
 from trieste.models.keras import (
     GaussianNetwork,
     KerasEnsemble,
     KerasEnsembleNetwork,
+    EpistemicUncertaintyNetwork,
+    DirectEpistemicUncertaintyPredictor,
     get_tensor_spec_from_data,
     negative_log_likelihood,
 )
@@ -273,3 +275,107 @@ def test_multivariatenormaltril_layer_fails_to_serialilze() -> None:
         tf.keras.utils.deserialize_keras_object(
             serialized, custom_objects={"MultivariateNormalTriL": tfp.layers.MultivariateNormalTriL}
         )
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_predictor_is_model() -> None:
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    deep_evidential = EpistemicUncertaintyNetwork(inputs, outputs)
+
+    assert isinstance(deep_evidential, tf.keras.Model)
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_network_can_be_compiled() -> None:
+    example_data = empty_dataset([1], [1])
+    inputs, outputs = get_tensor_spec_from_data(example_data)
+    deep_evidential = EpistemicUncertaintyNetwork(inputs, outputs)
+
+    deep_evidential.compile(tf.optimizers.Adam(), negative_log_likelihood)
+
+    assert deep_evidential.compiled_loss is not None
+    assert deep_evidential.compiled_metrics is not None
+    assert deep_evidential.optimizer is not None
+
+
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize("n_dims", list(range(5)))
+def test_direct_epistemic_network_flattened_output_shape(n_dims: int) -> None:
+
+    shape = np.random.randint(1, 10, (n_dims,))
+    tensor = np.random.randint(0, 1, shape)
+    tensor_spec = tf.TensorSpec(shape)
+
+    deep_evidential = EpistemicUncertaintyNetwork(tensor_spec, tensor_spec)
+    flattened_shape = deep_evidential.flattened_output_shape
+
+    assert flattened_shape == np.size(tensor)
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_network_check_default_hidden_layer_args() -> None:
+    example_data = empty_dataset([1], [1])
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
+
+    epistemic_predictor = EpistemicUncertaintyNetwork(
+        input_tensor_spec,
+        output_tensor_spec,
+    )
+    default_args = (            
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"},
+            {"units": 128, "activation": "relu"}
+    )
+
+    assert epistemic_predictor._hidden_layer_args == default_args
+
+
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize(
+    "query_point_shape, observation_shape",
+    [
+        ([1], [1]),
+        ([5], [1]),
+        ([5], [2]),
+    ],
+)
+@pytest.mark.parametrize("num_hidden_layers", [1, 3, 5])
+@pytest.mark.parametrize("units", [10, 50])
+def test_direct_epistemic_network_build_seems_correct(
+    query_point_shape: List[int],
+    observation_shape: List[int],
+    num_hidden_layers: int,
+    units: int,
+) -> None:
+    example_data = empty_dataset(query_point_shape, observation_shape)
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
+    hidden_layer_args = [
+        {"units": units} for _ in range(num_hidden_layers)
+    ]
+
+    epistemic_predictor = EpistemicUncertaintyNetwork(
+        input_tensor_spec, output_tensor_spec, hidden_layer_args
+    )
+
+    assert len(epistemic_predictor.layers[0].layers) == num_hidden_layers
+    for layer in epistemic_predictor.layers[0].layers:
+        assert isinstance(layer, tf.keras.layers.Dense)
+        assert layer.units == units
+
+    assert epistemic_predictor.layers[-1].units == int(np.prod(output_tensor_spec.shape))
+    assert epistemic_predictor.layers[-1].activation == tf.keras.activations.linear
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_network_accepts_scalars() -> None:
+    '''Tests that network can handle scalar inputs with ndim = 1 instead of 2'''
+    example_data = empty_dataset([1, 1], [1, 1])
+    input_tensor_spec, output_tensor_spec = get_tensor_spec_from_data(example_data)
+    epistemic_predictor = EpistemicUncertaintyNetwork(input_tensor_spec, output_tensor_spec)
+
+    test_points = tf.linspace(-1, 1, 100)
+    output = epistemic_predictor(test_points)
+
+    assert output.shape == (100, 1)
