@@ -232,33 +232,22 @@ def count_experiments(list_of_arg_dicts: list) -> int:
     
     return total_experiments
 
-def check_csv_header(header, log_file):
+def check_csv_header(header, log_file, overwrite):
     '''Checks for consistency of CSV header'''
-    if not os.path.isfile(log_file):
+    try:
+        with open(log_file, "r") as infile:
+            file_header = infile.readlines(1)
+            if file_header[0] != header:
+                if overwrite:
+                    with open(log_file, "w") as outfile:
+                        outfile.write(header)
+                else: 
+                    with open(log_file, "a") as outfile:
+                        outfile.write(header)
+                
+    except FileNotFoundError:
         with open(log_file, "w") as outfile:
             outfile.write(header)
-
-    # try:
-    #     with open(log_file, "r") as infile:
-    #         file_header = infile.readlines(1)
-    #         if file_header[0] != header:
-    #             tqdm.write(
-    #                 f"Output log {log_file} already contains a header {file_header[0]}\n"
-    #                 f"Which is not the same as the header for this simulation: \n"
-    #                 f"{header} \n Continuing will overwrite the current log file entirely. "
-    #                 f"Do you want to overwrite: y/n?"
-    #             )
-    #             overwrite_csv = input()
-    #             if overwrite_csv.lower() == "y":
-    #                 with open(log_file, "w") as outfile:
-    #                     outfile.write(header)
-    #             else: 
-    #                 tqdm.write("Exiting...")
-    #                 exit()
-                
-    # except FileNotFoundError:
-    #     with open(log_file, "w") as outfile:
-    #         outfile.write(header)
 
 
 def default_metadata() -> str:
@@ -342,6 +331,7 @@ def save_plotly(
 def make_predictions(
     model, 
     search_space, 
+    minimizers,
     current_seed: int, 
     sample_seed: int = 42, 
     grid_density=1e5
@@ -355,9 +345,9 @@ def make_predictions(
     query_points = search_space.sample_sobol(grid_density)
     set_seed(current_seed)
     Fmean, Fvar = model.predict(query_points)
+    Mmean, Mvar = model.predict(minimizers)
 
-
-    return query_points, Fmean, Fvar
+    return query_points, Fmean, Fvar, minimizers, Mmean, Mvar
 
 def set_seed(seed: int) -> None:
     random.seed(seed)
@@ -381,7 +371,7 @@ def simulate_experiment(
     plot: bool = False,
     report_predictions: bool = True,
     overwrite: bool = False,
-    tolerance: float = 0.05,
+    tolerance: float = 1e-3,
     seed: int = 0,
     sample_seed: int = 42,
     verbose_output: bool = True,
@@ -389,9 +379,9 @@ def simulate_experiment(
 ):
     """
     :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
-    :param num_initial_points: Number of initial query points.
+    :param num_initial_points: Number of points * search space dimension to start with. 
     :param acquisition: Tuple of (acquisition_name, acquisition function, dict of acquisition_args)
-    :param num_steps: Number of bayesian optimization steps. if 'infer' will be num_dimensions * 10
+    :param num_steps: Number of bayesian optimization steps. 
     :param predict_interval: Interval between number of BO steps to predict the entire surface. 
     :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
         arguments: initial_data, and **model_args and returns a model. 
@@ -403,7 +393,8 @@ def simulate_experiment(
         global_save_title_prefixes where we can add prefixes for all models. 
     :param plot: True or False, whether to generate plots or not. 
     :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
-    :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
+    :param overwrite: If True overwrites prediction pickles that match. and will overwrite CSV if headers
+        don't matchDefaults to False.
     :param tolerance: Breaks optimization loop when an optimimum is break_loop percent away from true minimum. 
     :param seed: Seed.
     :param seed: Sample seed used to make sobol sampling consistent for all predictions. 
@@ -422,8 +413,7 @@ def simulate_experiment(
     acquisition_rule = acquisition_fn(**acquisition_args)
     model_name, model_builder = model
 
-    
-    num_steps = int(search_space.dimension * num_steps)
+    num_initial_points = int(search_space.dimension * num_initial_points)
     #Make output path
     os.makedirs(output_path, exist_ok = True)
 
@@ -474,16 +464,17 @@ def simulate_experiment(
 
         #Predictions
         if report_predictions: #Make predictions at certain inteval and last prediction but not first prediction.
-            if step != 0 and (step % predict_interval == 0 or step == num_steps - 1):
-                current_model = ask_tell.to_result(copy=False).try_get_final_model()
-                prediction = make_predictions(
-                    current_model, 
-                    search_space,
-                    current_seed = seed,
-                    sample_seed = sample_seed, 
-                    grid_density = grid_density
-                )
-                predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction
+            if step == 0 or step == num_steps - 1:
+                save_predictions(
+                    grid_density, 
+                    seed, 
+                    sample_seed, 
+                    search_space, 
+                    minimizer, 
+                    ask_tell, 
+                    predictions, 
+                    step
+                )                              
         
         if tolerance >= 0:
             new_obs = new_data.observations.numpy()[-1]
@@ -493,15 +484,16 @@ def simulate_experiment(
                 and tf.reduce_any(tf.reduce_all(minimizer_err < 0.05, axis=-1), axis=0)
             ):  
                 if report_predictions: #Make final prediction
-                    current_model = ask_tell.to_result(copy=False).try_get_final_model()
-                    prediction = make_predictions(
-                        current_model, 
-                        search_space,
-                        current_seed = seed,
-                        sample_seed = sample_seed, 
-                        grid_density = grid_density
+                    save_predictions(
+                        grid_density, 
+                        seed, 
+                        sample_seed, 
+                        search_space, 
+                        minimizer, 
+                        ask_tell, 
+                        predictions, 
+                        step
                     )
-                    predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction
 
                 total_steps = step
 
@@ -550,7 +542,7 @@ def simulate_experiment(
     #Check for header of log_file
     header = ",".join(results.keys()) + "\n"
     log_file = os.path.join(output_path, f"{model_name}_results.csv")
-    check_csv_header(header, log_file)
+    check_csv_header(header, log_file, overwrite)
     
     # append results
     with open(log_file, "a") as outfile:
@@ -590,6 +582,25 @@ def simulate_experiment(
             observations, 
             arg_min_idx
         )
+
+def save_predictions(grid_density, seed, sample_seed, search_space, minimizer, ask_tell, predictions, step):
+    current_model = ask_tell.to_result(copy=False).try_get_final_model()
+    prediction = make_predictions(
+                        current_model, 
+                        search_space,
+                        minimizer,
+                        current_seed = seed,
+                        sample_seed = sample_seed, 
+                        grid_density = grid_density
+                    )
+    (   
+                    predictions[step]["coords"], 
+                    predictions[step]["mean"], 
+                    predictions[step]["var"], 
+                    predictions[step]["minimizer"],
+                    predictions[step]["minimizer_mean"],
+                    predictions[step]["minimizer_var"]
+                ) = prediction
         
 
 def unpack_arguments(simul_args: dict) -> list:
@@ -616,9 +627,9 @@ def multi_experiment(
     simulate experiment args:
 
         :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
-        :param num_initial_points: Number of initial query points.
-        :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
-        :param num_steps: Number of bayesian optimization steps. if 'infer' will be num_dimensions * 10
+        :param num_initial_points: Number of points * search space dimension to start with. 
+        :param acquisition: Tuple of (acquisition_name, acquisition function, dict of acquisition_args)
+        :param num_steps: Number of bayesian optimization steps. 
         :param predict_interval: Interval between number of BO steps to predict the entire surface. 
         :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
             arguments: initial_data, and **model_args and returns a model. 
@@ -630,8 +641,11 @@ def multi_experiment(
             global_save_title_prefixes where we can add prefixes for all models. 
         :param plot: True or False, whether to generate plots or not. 
         :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
-        :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
+        :param overwrite: If True overwrites prediction pickles that match. and will overwrite CSV if headers
+            don't matchDefaults to False.
+        :param tolerance: Breaks optimization loop when an optimimum is break_loop percent away from true minimum. 
         :param seed: Seed.
+        :param seed: Sample seed used to make sobol sampling consistent for all predictions. 
         :param verbose_output: True or False. 
         :param **model_args: Model args passed to the builidng of the main model. 
     '''
@@ -651,25 +665,28 @@ def parallel_experiments(simul_args_list:Union[list, dict], n_jobs: int=1, verbo
 
         simulate experiment args:
 
-        :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
-        :param num_initial_points: Number of initial query points.
-        :param acquisition: Tuple of (acquisition_name, instantiated Acquisition rule)
-        :param num_steps: Number of bayesian optimization steps. if 'infer' will be num_dimensions * 10
-        :param predict_interval: Interval between number of BO steps to predict the entire surface. 
-        :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
-            arguments: initial_data, and **model_args and returns a model. 
-        :param output_path: Path to save figs and log_file
-        :param metadata: A string to be saved in separate metadata txt file. 
-        :param grid_density: Density of grid for predictions. 
-        :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
-            example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
-            global_save_title_prefixes where we can add prefixes for all models. 
-        :param plot: True or False, whether to generate plots or not. 
-        :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
-        :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
-        :param seed: Seed.
-        :param verbose_output: True or False. 
-        :param **model_args: Model args passed to the builidng of the main model. 
+            :param objective: Tuple of (objective_name, function, search_space, minimum, minimizer)
+            :param num_initial_points: Number of points * search space dimension to start with. 
+            :param acquisition: Tuple of (acquisition_name, acquisition function, dict of acquisition_args)
+            :param num_steps: Number of bayesian optimization steps. 
+            :param predict_interval: Interval between number of BO steps to predict the entire surface. 
+            :param model: Tuple of (model_name, model_builder). Model_builder is a function that accepts
+                arguments: initial_data, and **model_args and returns a model. 
+            :param output_path: Path to save figs and log_file
+            :param metadata: A string to be saved in separate metadata txt file. 
+            :param grid_density: Density of grid for predictions. 
+            :param save_title_prefixes: Dictionary of {model_arg: prefix} used for prefixing the save_title. For
+                example: {'num_hidden_layers': 'hl'}. Will filter out unused prefixes hence defaults to 
+                global_save_title_prefixes where we can add prefixes for all models. 
+            :param plot: True or False, whether to generate plots or not. 
+            :param report_predictions: True or False, whether to generate predictions or not. Defaults to True. 
+            :param overwrite: If True overwrites prediction pickles that match. and will overwrite CSV if headers
+                don't matchDefaults to False.
+            :param tolerance: Breaks optimization loop when an optimimum is break_loop percent away from true minimum. 
+            :param seed: Seed.
+            :param seed: Sample seed used to make sobol sampling consistent for all predictions. 
+            :param verbose_output: True or False. 
+            :param **model_args: Model args passed to the builidng of the main model. 
     
     '''
 

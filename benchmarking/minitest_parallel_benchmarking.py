@@ -18,18 +18,18 @@ common_args = {
         branin2, 
         shekel4
         ],
-    "num_initial_points": 20,
+    "num_initial_points": 10,
     "acquisition":  [
         ("ei", EfficientGlobalOptimization, {}), 
         ("ts", DiscreteThompsonSampling,{"num_search_space_samples": 1000, "num_query_points": 4})
         #num_search_space_samples for discrete thompson sampling is multiplied by number of search space dimensions
         ],
-    "num_steps": 10, #10 * number of search space dimensions
+    "num_steps": 100, #10 * number of search space dimensions
     "predict_interval": 4,
     "plot": False,
     "report_predictions": True,
     "overwrite": True,
-    "tolerance": 0.05,
+    "tolerance": 1e-3,
     "grid_density": 20,
     "metadata": "",
     "seed": 0,
