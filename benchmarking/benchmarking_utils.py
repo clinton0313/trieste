@@ -410,8 +410,8 @@ def simulate_experiment(
     acquisition_rule = acquisition_fn(**acquisition_args)
     model_name, model_builder = model
 
-    if num_steps == "infer":
-        num_steps = int(search_space.dimension * 10)
+    
+    num_steps = int(search_space.dimension * num_steps)
     #Make output path
     os.makedirs(output_path, exist_ok = True)
 

@@ -23,7 +23,7 @@ common_args = {
         ("ei", EfficientGlobalOptimization, {}), 
         ("ts", DiscreteThompsonSampling,{"num_search_space_samples": "infer", "num_query_points": 4})
         ],
-    "num_steps": "infer", #infer hardcodes to num_dimensions * 10
+    "num_steps": 10, #10 * number of search space dimensions
     "predict_interval": 4,
     "plot": False,
     "report_predictions": True,
