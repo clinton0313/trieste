@@ -20,13 +20,20 @@ import pytest
 import tensorflow as tf
 
 from tests.util.misc import ShapeLike, empty_dataset, random_seed
-from tests.util.models.keras.models import trieste_deep_ensemble_model, trieste_keras_ensemble_model
+from tests.util.models.keras.models import (
+    trieste_deep_ensemble_model, 
+    trieste_keras_ensemble_model,
+    trieste_keras_epistemic_networks,
+    trieste_direct_epistemic_uncertainty_prediction
+)
 from tests.util.models.models import fnc_2sin_x_over_3
 from trieste.data import Dataset
 from trieste.models import create_model
 from trieste.models.keras import (
     DeepEnsemble,
     KerasEnsemble,
+    EpistemicUncertaintyNetwork,
+    DirectEpistemicUncertaintyPredictor,
     negative_log_likelihood,
     sample_with_replacement,
 )
@@ -47,6 +54,11 @@ def _independent_normal_fixture(request: Any) -> bool:
 
 @pytest.fixture(name="bootstrap_data", params=[False, True])
 def _bootstrap_data_fixture(request: Any) -> bool:
+    return request.param
+
+
+@pytest.fixture(name="init_buffer", params=[False, True])
+def _init_buffer_fixture(request: Any) -> bool:
     return request.param
 
 
@@ -205,7 +217,7 @@ def test_deep_ensemble_sample_index_samples_are_diverse(ensemble_size: int) -> N
     model, _, _ = trieste_deep_ensemble_model(example_data, ensemble_size, False, False)
 
     network_indices = model.sample_index(1000)
-    # breakpoint()
+
     assert tf.math.reduce_variance(tf.cast(network_indices, tf.float32)) > 0
     assert tf.reduce_min(network_indices) == 0
     assert tf.reduce_max(network_indices) == (ensemble_size - 1)
@@ -437,3 +449,239 @@ def test_deep_ensemble_prepare_data_call(
     assert len(inputs.keys()) == ensemble_size
     for member_data in inputs:
         assert tf.reduce_all(inputs[member_data] == x)
+
+
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
+def test_direct_epistemic_repr(
+    optimizer: tf.optimizers.Optimizer,
+    init_buffer: bool
+) -> None:
+    example_data = empty_dataset([1], [1])
+
+    f_network, e_network = trieste_keras_epistemic_networks(
+        example_data, ensemble_size=_ENSEMBLE_SIZE)
+
+    f_network.model.compile(optimizer, loss=negative_log_likelihood)
+    e_network.compile(optimizer, loss="mse")
+    optimizer_wrapper = KerasOptimizer(optimizer, loss="mse")
+    f_model = DeepEnsemble(f_network, optimizer_wrapper)
+
+    model = DirectEpistemicUncertaintyPredictor(
+        model={"f_model": f_model, "e_model": e_network}, 
+        optimizer=optimizer_wrapper,
+        init_buffer=init_buffer
+    )
+    
+    expected_repr = (
+        f"DirectEpistemicUncertaintyPredictor{f_model, e_network!r}, {optimizer_wrapper!r}"
+    )
+
+    assert type(model).__name__ in repr(model)
+    assert repr(model) == expected_repr
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_model_classes() -> None:
+    example_data = empty_dataset([1], [1])
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data
+    )
+    assert issubclass(type(model.model[0]), DeepEnsemble)
+    assert issubclass(type(model.model[1]), tf.keras.Model)
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_model_is_compiled() -> None:
+    example_data = empty_dataset([1], [1])
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data
+    )
+    assert model.model[0].model.compiled_loss is not None
+    assert model.model[0].model.compiled_metrics is not None
+    assert model.model[0].model.optimizer is not None
+    assert model.model[1].compiled_loss is not None
+    assert model.model[1].compiled_metrics is not None
+    assert model.model[1].optimizer is not None
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_default_optimizer_is_correct() -> None:
+    example_data = empty_dataset([1], [1])
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data
+    )
+    default_fit_args = {
+        "verbose": 0,
+        "epochs": 1000,
+        "batch_size": 16,
+    }
+    del model.optimizer.fit_args["callbacks"]
+
+    assert isinstance(model.optimizer, KerasOptimizer)
+    assert isinstance(model.optimizer.optimizer, tf.optimizers.Optimizer)
+    assert model.optimizer.fit_args == default_fit_args
+    assert model.optimizer.loss == negative_log_likelihood
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_model_optimizer_changed_correctly() -> None:
+    example_data = empty_dataset([1], [1])
+
+    f_network, e_network = trieste_keras_epistemic_networks(
+        example_data, ensemble_size=_ENSEMBLE_SIZE)
+
+    custom_optimizer = tf.optimizers.RMSprop()
+    custom_loss = negative_log_likelihood
+    custom_fit_args = {
+        "verbose": 1,
+        "epochs": 10,
+        "batch_size": 10,
+    }
+    
+    optimizer_wrapper = KerasOptimizer(custom_optimizer, custom_fit_args, custom_loss)
+
+    f_model = DeepEnsemble(f_network, optimizer_wrapper)
+    model = DirectEpistemicUncertaintyPredictor(
+        model={"f_model": f_model, "e_model": e_network}, 
+        optimizer=optimizer_wrapper,
+        init_buffer=False
+    )
+    
+    assert model.optimizer == optimizer_wrapper
+    assert model.optimizer.optimizer == custom_optimizer
+    assert model.optimizer.fit_args == custom_fit_args
+
+
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize("num_samples", [6, 12])
+@pytest.mark.parametrize("dataset_size", [4, 8])
+def test_direct_epistemic_sample_call_shape(dataset_size: int, num_samples: int) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data,
+        init_buffer=True
+    )
+
+    model.optimize(example_data)
+    samples = model.sample(example_data.query_points, num_samples)
+    
+    assert tf.is_tensor(samples)
+    assert samples.shape == [num_samples, dataset_size, 1]
+
+
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize("dataset_size", [10, 100])
+def test_direct_epistemic_call_shape(dataset_size, init_buffer: bool) -> None:
+    example_data = _get_example_data([dataset_size, 1])
+
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data,
+        init_buffer
+    )
+
+    model.optimize(example_data)
+    predicted_means, predicted_vars = model.predict(example_data.query_points)
+
+    assert tf.is_tensor(predicted_vars)
+    assert predicted_vars.shape == example_data.observations.shape
+    assert tf.is_tensor(predicted_means)
+    assert predicted_means.shape == example_data.observations.shape
+
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_optimize_with_defaults(init_buffer: bool) -> None:
+    example_data = _get_example_data([50, 1])
+
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data,
+        init_buffer
+    )
+
+    model.optimize(example_data)
+    f_loss = model.model[0].model.history.history["loss"]
+    e_loss = model.model[1].history.history["loss"]
+
+    assert f_loss[-1] < f_loss[0]
+    assert e_loss[-1] < e_loss[0]
+
+
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize("lr", [1., 0.1])
+def test_direct_epistemic_check_learning_rate_resets(lr: float) -> None:
+    example_data = _get_example_data([1, 1])
+
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data
+    )
+
+    model.optimize(example_data)
+    original_lr = model._learning_rate
+    model.optimizer.optimizer.learning_rate = lr
+    model.optimize(example_data)
+
+    assert original_lr == model.optimizer.optimizer.learning_rate.numpy()
+
+
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize("buffer_iter", [1, 2])
+def test_direct_epistemic_check_buffer_size_is_correct(buffer_iter: int) -> None:
+    example_data = _get_example_data([20, 1])
+
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data
+    )
+
+    model._buffer_iter = buffer_iter
+    model.optimize(example_data)
+    
+    assert model._data_u.query_points.shape[0] == 20 * 2 * buffer_iter
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_check_buffer_changed_correctly(init_buffer: bool) -> None:
+    example_data = _get_example_data([1, 1])
+
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data,
+        init_buffer
+    )
+
+    model.optimize(example_data)
+
+    assert model._init_buffer == False
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_check_prior_size(init_buffer: bool) -> None:
+    example_data = _get_example_data([20, 1])
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data,
+        init_buffer
+    )
+    model.optimize(example_data)
+
+    assert model._prior_size == 20
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_check_density(init_buffer: bool) -> None:
+    example_data = _get_example_data([20, 1])
+    new_point = Dataset(tf.constant([[1.]], dtype=tf.float64), tf.constant([[0.5]], dtype=tf.float64))
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data,
+        init_buffer
+    )
+
+    model.optimize(example_data)
+    original_kernels = model.density_estimator.kernels
+    original_density = model.density_estimator.score_samples(new_point.query_points)
+    model.optimize(example_data + new_point)
+    new_kernels = model.density_estimator.kernels
+    new_density = model.density_estimator.score_samples(new_point.query_points)
+
+    assert len(original_kernels) == 20
+    assert len(new_kernels) == 21
+    assert new_density > original_density

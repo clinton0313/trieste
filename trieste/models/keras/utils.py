@@ -125,14 +125,17 @@ class KernelDensityEstimator:
         if bandwidth is not None:
             self.bandwidth = bandwidth
         else:
-            bandwidth_search_space = np.logspace(-3,1,50)
-            grid = GridSearchCV(
-                estimator=KernelDensity(kernel=self.kernel), 
-                param_grid={"bandwidth": bandwidth_search_space}, 
-                cv=query_points.shape[0]
-            )
-            grid.fit(query_points.numpy())
-            self.bandwidth = grid.best_estimator_.bandwidth
+            if query_points.shape[0] > 1:
+                bandwidth_search_space = np.logspace(-3,1,50)
+                grid = GridSearchCV(
+                    estimator=KernelDensity(kernel=self.kernel), 
+                    param_grid={"bandwidth": bandwidth_search_space}, 
+                    cv=query_points.shape[0]
+                )
+                grid.fit(query_points.numpy())
+                self.bandwidth = grid.best_estimator_.bandwidth
+            else:
+                self.bandwidth = 0.2
         self.kernels = [
             tfp.distributions.MultivariateNormalDiag(loc=x, scale_identity_multiplier=self.bandwidth) 
             for x in query_points
@@ -154,7 +157,7 @@ class KernelDensityEstimator:
             query_points = tf.expand_dims(query_points, axis=-1)
         return (
             tf.expand_dims(
-                tf.reduce_sum([kernel._prob(query_points) for kernel in self.kernels], axis=0), 
+                tf.reduce_mean([kernel._prob(query_points) for kernel in self.kernels], axis=0), 
                 axis=-1
             )
         )

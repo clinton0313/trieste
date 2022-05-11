@@ -162,14 +162,6 @@ initial_data = observer(initial_query_points)
 # %%
 def build_model(data: Dataset) -> DirectEpistemicUncertaintyPredictor:
 
-    ensemble_params = {
-        "ensemble_size": 5,
-        "num_hidden_layers": 4,
-        "units": 25,
-        "activation": "relu",
-        "independent_normal": False
-    }
-
     f_keras_ensemble, e_predictor = build_vanilla_deup(
         data, 
         f_model_builder=build_vanilla_keras_ensemble,
@@ -212,13 +204,13 @@ grid_size = 2000
 num_samples = 4
 
 # note that `DiscreteThompsonSampling` by default uses `ExactThompsonSampler`
-acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
+# acquisition_rule = DiscreteThompsonSampling(grid_size, num_samples)
 
-# acquisition_rule = EfficientGlobalOptimization(num_query_points=1)
+acquisition_rule = EfficientGlobalOptimization(num_query_points=1)
 # %%
 bo = trieste.bayesian_optimizer.BayesianOptimizer(observer, search_space)
 
-num_steps = 3
+num_steps = 40
 
 # The Keras interface does not currently support using `track_state=True` which saves the model
 # in each iteration. This will be addressed in a future update.

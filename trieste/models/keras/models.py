@@ -453,32 +453,38 @@ class DirectEpistemicUncertaintyPredictor(
                 ],
             }
 
-        self.optimizer.loss = "mse"
+        if self.optimizer.loss is None:
+            self.optimizer.loss = negative_log_likelihood
 
         self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
         
         model["e_model"].compile(
             self.optimizer.optimizer,
-            loss=[self.optimizer.loss],
+            loss="mse",
             metrics=[self.optimizer.metrics],
         )
 
         self._model = model
         self._init_buffer = init_buffer
-        self._data_u = None     # [DAV] uncertainty dataset
-        self._prior_size = None # [DAV] track new observations
+        self._buffer_iter = 1
+        self._data_u = None     
+        self._prior_size = None 
 
     def __repr__(self) -> str:
         """"""
-        return f"DirectEpistemicUncertaintyPredictor({self.model!r}, {self.optimizer!r})"
+        return f"DirectEpistemicUncertaintyPredictor{self.model!r}, {self.optimizer!r}"
 
     @property
     def model(self) -> tuple[DeepEnsemble, tf.keras.Model]:
         """
         Returns two compiled models: A Keras ensemble model and an epistemic uncertainty predictor.
         """
-        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), "[DAV]"
-        assert issubclass(type(self._model["e_model"]), tf.keras.Model), "[DAV]"
+        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), (
+            "The main predictor is meant to use a :class:`TrainableProbabilisticModel`."
+        )
+        assert issubclass(type(self._model["e_model"]), tf.keras.Model), (
+            "The epistemic predictor is meant to use :class:`~tf.keras.Model`."
+        )
         return self._model["f_model"], self._model["e_model"]
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
@@ -529,22 +535,21 @@ class DirectEpistemicUncertaintyPredictor(
         :param dataset: The data with which to optimize the model.
         """     
         # optional init buffer
-        if self._data_u is None: 
+        if self._data_u is None:
             self.density_estimator = KernelDensityEstimator(kernel="gaussian")
             if self._init_buffer:
-                print("Access uncertainty buffer", datetime.datetime.now())
-                self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
-                self._prior_size = dataset.query_points.shape[0]
-            else:
+                if dataset.query_points.shape[0] > 1:
+                    self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=self._buffer_iter)
+                    self._prior_size = dataset.query_points.shape[0]
+                else:
+                    self._init_buffer = False
+            if self._data_u is None:
                 self._data_u = Dataset(
                     tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=tf.float64), 
                     tf.zeros([0, 1], dtype=tf.float64)
                 )
                 self.density_estimator.fit(dataset.query_points)
                 self._prior_size = 0
-
-        
-        print("optim loop", datetime.datetime.now(), self._prior_size)
 
         x, y = dataset.astuple()
 
@@ -565,7 +570,6 @@ class DirectEpistemicUncertaintyPredictor(
         # increase "seen" observations (only after first set of candidates)
         self._prior_size = dataset.query_points.shape[0]
         self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
-
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
@@ -605,6 +609,8 @@ class DirectEpistemicUncertaintyPredictor(
             query_points = tf.expand_dims(query_points, axis=-1)
 
         f_pred, f_var = self.model[0].predict(query_points)
+        f_pred, f_var = tf.cast(f_pred, dtype=tf.float64), tf.cast(f_var, dtype=tf.float64)
+
         density_scores = self.density_estimator.score_samples(query_points)
         data_u = tf.concat((query_points, f_var, density_scores), axis=1)
         e_pred = self.model[1](data_u)
@@ -634,7 +640,8 @@ class DirectEpistemicUncertaintyPredictor(
 
         # stationarizing feature: variance
         f_pred, f_var = self.model[0].predict(new_points)
-        
+        f_pred, f_var = tf.cast(f_pred, dtype=tf.float64), tf.cast(f_var, dtype=tf.float64)
+
         # stationarizing feature: density
         density_scores = self.density_estimator.score_samples(new_points)
 
@@ -672,6 +679,7 @@ class DirectEpistemicUncertaintyPredictor(
                 f_ = self.__copy__().model[0]
                 f_.optimize(data_)
                 f_pred, f_var = f_.predict(dataset.query_points)
+                f_pred, f_var = tf.cast(f_pred, dtype=tf.float64), tf.cast(f_var, dtype=tf.float64)
 
                 # stationarizing feature: density
                 self.density_estimator.fit(dataset.query_points)

@@ -18,7 +18,7 @@ Utilities for creating (Keras) neural network models to be used in the tests.
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Tuple, Callable
 
 import tensorflow as tf
 
@@ -83,31 +83,25 @@ def trieste_deep_ensemble_model(
     return model, keras_ensemble, optimizer_wrapper
 
 
-def build_vanilla_deup(
+def trieste_keras_epistemic_networks(
     data: Dataset,
-    f_model_args: dict = {
-        "ensemble_size": 3,
-        "independent_normal": False
-    },
-    e_model_args: dict = {
-        "num_hidden_layers": 4,
-        "units": 128,
-        "activation": "relu"
-    }
+    e_num_hidden_layers: int = 4,
+    e_units: int = 128,
+    e_activation: str = "relu",
+    f_model_builder: Callable = trieste_keras_ensemble_model,
+    **f_model_args
 ) -> tuple[DeepEnsemble, EpistemicUncertaintyNetwork]:
 
-
-    f_model, _, _ = trieste_deep_ensemble_model(
-        data, **f_model_args)
+    f_model = f_model_builder(data, **f_model_args)
 
     e_input_tensor_spec, e_output_tensor_spec = get_tensor_spec_from_data(data)
 
     hidden_layer_args = []
-    for _ in range(e_model_args["num_hidden_layers"]):
+    for _ in range(e_num_hidden_layers):
         hidden_layer_args.append(
             {
-                "units": e_model_args["units"], 
-                "activation": e_model_args["activation"]
+                "units": e_units, 
+                "activation": e_activation
             }
         )
 
@@ -119,24 +113,23 @@ def build_vanilla_deup(
 
     return f_model, e_model
 
-def trieste_direct_epistemic_uncertainty_prediction(data: Dataset) -> DirectEpistemicUncertaintyPredictor:
+def trieste_direct_epistemic_uncertainty_prediction(
+    data: Dataset, 
+    init_buffer: bool = True
+) -> DirectEpistemicUncertaintyPredictor:
 
     ensemble_params = {
         "ensemble_size": 5,
         "independent_normal": False
     }
-
-    f_keras_ensemble, e_predictor = build_vanilla_deup(
+    f_keras_ensemble, e_predictor = trieste_keras_epistemic_networks(
         data, 
         f_model_builder=trieste_keras_ensemble_model,
-        f_model_args=ensemble_params, 
-        e_num_hidden_layers=4,
-        e_units=128,
-        e_activation="relu"
+        **ensemble_params        
     )
 
     fit_args = {
-        "batch_size": 10,
+        "batch_size": 16,
         "epochs": 1000,
         "callbacks": [
             tf.keras.callbacks.EarlyStopping(monitor="loss", patience=100)
@@ -147,9 +140,9 @@ def trieste_direct_epistemic_uncertainty_prediction(data: Dataset) -> DirectEpis
 
     f_ensemble = DeepEnsemble(f_keras_ensemble, optimizer)
 
-    deup = DirectEpistemicUncertaintyPredictor(
+    model = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_ensemble, "e_model": e_predictor},
         optimizer=optimizer, init_buffer=True
     )
 
-    return deup, optimizer
+    return model
