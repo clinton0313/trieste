@@ -21,7 +21,8 @@ common_args = {
     "num_initial_points": 20,
     "acquisition":  [
         ("ei", EfficientGlobalOptimization, {}), 
-        ("ts", DiscreteThompsonSampling,{"num_search_space_samples": "infer", "num_query_points": 4})
+        ("ts", DiscreteThompsonSampling,{"num_search_space_samples": 1000, "num_query_points": 4})
+        #num_search_space_samples for discrete thompson sampling is multiplied by number of search space dimensions
         ],
     "num_steps": 10, #10 * number of search space dimensions
     "predict_interval": 4,
@@ -32,6 +33,7 @@ common_args = {
     "grid_density": 20,
     "metadata": "",
     "seed": 0,
+    "sample_seed": 42,
     "verbose_output": False
 }
 

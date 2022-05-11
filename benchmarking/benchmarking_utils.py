@@ -80,17 +80,26 @@ michal10 = ("michal10", michalewicz_10, MICHALEWICZ_10_SEARCH_SPACE, MICHALEWICZ
 dropw2 = ("dropw2", dropwave, DROPWAVE_SEARCH_SPACE, DROPWAVE_MINIMUM, DROPWAVE_MINIMIZER)
 eggho2 = ("eggho2", eggholder, EGGHOLDER_SEARCH_SPACE, EGGHOLDER_MINIMUM, EGGHOLDER_MINIMIZER)
 
-def add_noise(objective: tuple, noise: float = 0.1) -> tuple:
+def output_range(objective: tuple, density: int = 1e5) -> float:
+    query_points = objective[2].sample_sobol(int(density))
+    observations = objective[1](query_points)
+    output_range = np.abs(np.max(observations) - np.min(observations))
+    return output_range
+
+def add_noise(objective: tuple, noise_level: float = 0.002) -> tuple:
     '''Adds noise as a percent of the range of the search space. Replaces original
     objective tuple with the noisy version'''
     new_obj = list(objective)
+    noise = noise_level * output_range(objective)
     def noisy_obj(*args, **kwargs):
         noiseless = objective[1](*args, **kwargs)
-        noise = np.random.normal(0, noise, size=noiseless.shape)
-        return noiseless + noise
+        error = np.random.normal(0, noise, size=noiseless.shape)
+        return noiseless + error
     new_obj[0] = f"noisy_{objective[0]}"
     new_obj[1] = noisy_obj
     return tuple(new_obj)
+
+#%%
 
 REGULAR_OBJECTIVES = [
     michal2,
@@ -330,25 +339,31 @@ def save_plotly(
     fig.write_html(os.path.join(output_path, f"{save_title}_predict.html"))
     tqdm.write(f"{save_title}_predict saved!")
 
-def make_predictions(model, search_space, grid_density=20) -> Tuple[list, list, list , list]:
+def make_predictions(
+    model, 
+    search_space, 
+    current_seed: int, 
+    sample_seed: int = 42, 
+    grid_density=1e5
+) -> Tuple[list, list , list]:
 
     '''
     Makes predictions over a grid of the search_space. Ready to be plotted with plot_predictions_plotly. 
     :returns: Xplot, mean, var
     '''
+    set_seed(sample_seed)
+    query_points = search_space.sample_sobol(grid_density)
+    set_seed(current_seed)
+    Fmean, Fvar = model.predict(query_points)
 
-    mins = search_space.lower.numpy()
-    maxs = search_space.upper.numpy()
 
-    coord_ranges = [np.linspace(mins[i], maxs[i], grid_density) for i in range(mins.shape[0])]
+    return query_points, Fmean, Fvar
 
-    mesh_coords = np.meshgrid(*coord_ranges)
-    Xplot = np.vstack([coord.flatten() for coord in mesh_coords]).T
-
-    Fmean, Fvar = model.predict(Xplot) #Potentially map this out to a loop to parallelize
-
-    return Xplot, Fmean, Fvar
-
+def set_seed(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
 #SIMULATOR
 
@@ -368,6 +383,7 @@ def simulate_experiment(
     overwrite: bool = False,
     tolerance: float = 0.05,
     seed: int = 0,
+    sample_seed: int = 42,
     verbose_output: bool = True,
     **model_args
 ):
@@ -390,21 +406,17 @@ def simulate_experiment(
     :param overwrite: If True overwrites prediction pickles that match. Defaults to False.
     :param tolerance: Breaks optimization loop when an optimimum is break_loop percent away from true minimum. 
     :param seed: Seed.
+    :param seed: Sample seed used to make sobol sampling consistent for all predictions. 
     :param verbose_output: True or False. 
     :param **model_args: Model args passed to the builidng of the main model. 
     """
     #Set seed
-    random.seed(seed)
-    np.random.seed(seed)
-    tf.random.set_seed(seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-
+    set_seed(seed)
     #Unpack model, acquisition and objective tuples:
     objective_name, function, search_space, minimum, minimizer = objective
     acquisition_name, acquisition_fn, acquisition_args = acquisition
     try:
-        if acquisition_args["num_search_space_samples"] == "infer":
-            acquisition_args["num_search_space_samples"] = int(1000 * search_space.dimension)
+        acquisition_args["num_search_space_samples"] = int(acquisition_args["num_search_space_samples"] * search_space.dimension)
     except KeyError:
         pass
     acquisition_rule = acquisition_fn(**acquisition_args)
@@ -447,6 +459,7 @@ def simulate_experiment(
     predictions = defaultdict(dict)
     optimize_time = 0
     acquisition_time = 0
+    total_steps = num_steps
     for step in range(num_steps):
         #Basic loop
         start_acquisition_time = timeit.default_timer()
@@ -463,7 +476,13 @@ def simulate_experiment(
         if report_predictions: #Make predictions at certain inteval and last prediction but not first prediction.
             if step != 0 and (step % predict_interval == 0 or step == num_steps - 1):
                 current_model = ask_tell.to_result(copy=False).try_get_final_model()
-                prediction = make_predictions(current_model, search_space, grid_density=grid_density)
+                prediction = make_predictions(
+                    current_model, 
+                    search_space,
+                    current_seed = seed,
+                    sample_seed = sample_seed, 
+                    grid_density = grid_density
+                )
                 predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction
         
         if tolerance >= 0:
@@ -475,8 +494,16 @@ def simulate_experiment(
             ):  
                 if report_predictions: #Make final prediction
                     current_model = ask_tell.to_result(copy=False).try_get_final_model()
-                    prediction = make_predictions(current_model, search_space, grid_density=grid_density)
+                    prediction = make_predictions(
+                        current_model, 
+                        search_space,
+                        current_seed = seed,
+                        sample_seed = sample_seed, 
+                        grid_density = grid_density
+                    )
                     predictions[step]["coords"], predictions[step]["mean"], predictions[step]["var"] = prediction
+
+                total_steps = step
 
                 if verbose_output:
                     tqdm.write(
@@ -507,6 +534,7 @@ def simulate_experiment(
         "seed": str(seed),
         "true_min": str(minimum.numpy()[0]),
         "found_minimum": str(found_minimum[0]),
+        "steps_taken": str(total_steps),
         "acquisition_runtime": str(round(acquisition_time, 3)),
         "optimize_runtime": str(round(optimize_time, 3)),
     }
