@@ -1,5 +1,5 @@
 import os
-import multiprocessing
+import joblib
 import tensorflow as tf
 
 from benchmarking_utils import *
@@ -16,18 +16,21 @@ OUTPUT_PATH = "parallel_benchmarking"
 common_args = {
     "objective": REGULAR_OBJECTIVES[:5] + NOISY_OBJECTIVES[:5],
     "num_initial_points": 20,
-    "acquisition": [
+    "acquisition":  [
         ("ei", EfficientGlobalOptimization, {}), 
-        ("ts", DiscreteThompsonSampling,{"num_search_space_samples": "infer", "num_query_points": 4})
+        ("ts", DiscreteThompsonSampling,{"num_search_space_samples": 1000, "num_query_points": 4})
+        #num_search_space_samples for discrete thompson sampling is multiplied by number of search space dimensions
         ],
-    "num_steps": "infer", #infer hardcodes to num_dimensions * 10
-    "predict_interval": 10,
+    "num_steps": 10, #10 * number of search space dimensions
+    "predict_interval": 5,
     "plot": False,
     "report_predictions": True,
-    "overwrite": False,
+    "overwrite": True,
+    "tolerance": 0.05,
     "grid_density": 20,
     "metadata": "",
-    "seed": list(range(20)),
+    "seed": 0,
+    "sample_seed": 42,
     "verbose_output": False
 }
 
@@ -86,7 +89,7 @@ mc_simul_args = {
 #     "lr": 0.001,
 # }
 
-n_jobs = multiprocessing.cpu_count()
+n_jobs = joblib.cpu_count()
 verbose = 1 #From 1 to 50 
 
 #Each dictionary of args is independently crosses all of its arguments
