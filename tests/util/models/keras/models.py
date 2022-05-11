@@ -115,7 +115,7 @@ def trieste_keras_epistemic_networks(
 
 def trieste_direct_epistemic_uncertainty_prediction(
     data: Dataset, 
-    init_buffer: bool = True
+    _init_buffer_iters: bool = 0
 ) -> DirectEpistemicUncertaintyPredictor:
 
     ensemble_params = {
@@ -142,7 +142,7 @@ def trieste_direct_epistemic_uncertainty_prediction(
 
     model = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_ensemble, "e_model": e_predictor},
-        optimizer=optimizer, init_buffer=True
+        optimizer=optimizer, _init_buffer_iters=_init_buffer_iters
     )
 
     return model

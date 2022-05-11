@@ -57,7 +57,7 @@ def _bootstrap_data_fixture(request: Any) -> bool:
     return request.param
 
 
-@pytest.fixture(name="init_buffer", params=[False, True])
+@pytest.fixture(name="_init_buffer_iters", params=[0, 1])
 def _init_buffer_fixture(request: Any) -> bool:
     return request.param
 
@@ -370,6 +370,7 @@ def test_deep_ensemble_predict_ensemble(independent_normal: bool) -> None:
     tranformed_x, tranformed_y = _ensemblise_data(
         reference_model, example_data, _ENSEMBLE_SIZE, False
     )
+
     ensemble_distributions = reference_model.model(tranformed_x)
     reference_means = tf.convert_to_tensor([dist.mean() for dist in ensemble_distributions])
     reference_vars = tf.convert_to_tensor([dist.variance() for dist in ensemble_distributions])
@@ -455,7 +456,7 @@ def test_deep_ensemble_prepare_data_call(
 @pytest.mark.parametrize("optimizer", [tf.optimizers.Adam(), tf.optimizers.RMSprop()])
 def test_direct_epistemic_repr(
     optimizer: tf.optimizers.Optimizer,
-    init_buffer: bool
+    _init_buffer_iters: int
 ) -> None:
     example_data = empty_dataset([1], [1])
 
@@ -470,7 +471,7 @@ def test_direct_epistemic_repr(
     model = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_model, "e_model": e_network}, 
         optimizer=optimizer_wrapper,
-        init_buffer=init_buffer
+        _init_buffer_iters=_init_buffer_iters
     )
     
     expected_repr = (
@@ -545,7 +546,7 @@ def test_direct_epistemic_model_optimizer_changed_correctly() -> None:
     model = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_model, "e_model": e_network}, 
         optimizer=optimizer_wrapper,
-        init_buffer=False
+        _init_buffer_iters=0
     )
     
     assert model.optimizer == optimizer_wrapper
@@ -561,7 +562,7 @@ def test_direct_epistemic_sample_call_shape(dataset_size: int, num_samples: int)
 
     model = trieste_direct_epistemic_uncertainty_prediction(
         example_data,
-        init_buffer=True
+        _init_buffer_iters=1
     )
 
     model.optimize(example_data)
@@ -573,12 +574,12 @@ def test_direct_epistemic_sample_call_shape(dataset_size: int, num_samples: int)
 
 @pytest.mark.direct_epistemic
 @pytest.mark.parametrize("dataset_size", [10, 100])
-def test_direct_epistemic_call_shape(dataset_size, init_buffer: bool) -> None:
+def test_direct_epistemic_call_shape(dataset_size, _init_buffer_iters: int) -> None:
     example_data = _get_example_data([dataset_size, 1])
 
     model = trieste_direct_epistemic_uncertainty_prediction(
         example_data,
-        init_buffer
+        _init_buffer_iters
     )
 
     model.optimize(example_data)
@@ -592,12 +593,12 @@ def test_direct_epistemic_call_shape(dataset_size, init_buffer: bool) -> None:
 
 
 @pytest.mark.direct_epistemic
-def test_direct_epistemic_optimize_with_defaults(init_buffer: bool) -> None:
+def test_direct_epistemic_optimize_with_defaults() -> None:
     example_data = _get_example_data([50, 1])
 
     model = trieste_direct_epistemic_uncertainty_prediction(
         example_data,
-        init_buffer
+        0
     )
 
     model.optimize(example_data)
@@ -626,40 +627,40 @@ def test_direct_epistemic_check_learning_rate_resets(lr: float) -> None:
 
 
 @pytest.mark.direct_epistemic
-@pytest.mark.parametrize("buffer_iter", [1, 2])
-def test_direct_epistemic_check_buffer_size_is_correct(buffer_iter: int) -> None:
+@pytest.mark.parametrize("_init_buffer_iters", [1, 2])
+def test_direct_epistemic_check_buffer_size_is_correct(_init_buffer_iters: int) -> None:
     example_data = _get_example_data([20, 1])
 
     model = trieste_direct_epistemic_uncertainty_prediction(
         example_data
     )
 
-    model._buffer_iter = buffer_iter
+    model._init_buffer_iters = _init_buffer_iters
     model.optimize(example_data)
     
-    assert model._data_u.query_points.shape[0] == 20 * 2 * buffer_iter
+    assert model._data_u.query_points.shape[0] == 20 * 2 * _init_buffer_iters
 
 
 @pytest.mark.direct_epistemic
-def test_direct_epistemic_check_buffer_changed_correctly(init_buffer: bool) -> None:
+def test_direct_epistemic_check_buffer_changed_correctly(_init_buffer_iters: int) -> None:
     example_data = _get_example_data([1, 1])
 
     model = trieste_direct_epistemic_uncertainty_prediction(
         example_data,
-        init_buffer
+        _init_buffer_iters
     )
 
     model.optimize(example_data)
 
-    assert model._init_buffer == False
+    assert model._init_buffer_iters == 0
 
 
 @pytest.mark.direct_epistemic
-def test_direct_epistemic_check_prior_size(init_buffer: bool) -> None:
+def test_direct_epistemic_check_prior_size(_init_buffer_iters: int) -> None:
     example_data = _get_example_data([20, 1])
     model = trieste_direct_epistemic_uncertainty_prediction(
         example_data,
-        init_buffer
+        _init_buffer_iters
     )
     model.optimize(example_data)
 
@@ -667,12 +668,37 @@ def test_direct_epistemic_check_prior_size(init_buffer: bool) -> None:
 
 
 @pytest.mark.direct_epistemic
-def test_direct_epistemic_check_density(init_buffer: bool) -> None:
+@pytest.mark.parametrize(
+    "example_data, dtype",
+    [
+        (Dataset(
+        tf.constant([[2.], [3.], [0.5]], dtype=tf.float32),
+        tf.constant([[0.5], [0.6], [1.5]], dtype=tf.float32)
+        ), tf.float32),
+        (Dataset(
+        tf.constant([[2.], [3.], [0.5]], dtype=tf.float64),
+        tf.constant([[0.5], [0.6], [1.5]], dtype=tf.float64)
+        ), tf.float64)
+    ]
+)
+def test_direct_epistemic_check_dtype_is_correct(_init_buffer_iters: int, example_data, dtype) -> None:
+    model = trieste_direct_epistemic_uncertainty_prediction(
+        example_data,
+        _init_buffer_iters
+    )
+
+    model.optimize(example_data)
+
+    assert model._data_u.query_points.dtype == dtype
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_check_density(_init_buffer_iters: int) -> None:
     example_data = _get_example_data([20, 1])
     new_point = Dataset(tf.constant([[1.]], dtype=tf.float64), tf.constant([[0.5]], dtype=tf.float64))
     model = trieste_direct_epistemic_uncertainty_prediction(
         example_data,
-        init_buffer
+        _init_buffer_iters
     )
 
     model.optimize(example_data)

@@ -89,7 +89,7 @@ def build_cubic_model(data: Dataset) -> DirectEpistemicUncertaintyPredictor:
 
     deup = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_ensemble, "e_model": e_predictor},
-        optimizer=optimizer, init_buffer=True
+        optimizer=optimizer, _init_buffer_iters=0
     )
 
     return deup
@@ -189,7 +189,7 @@ def build_model(data: Dataset) -> DirectEpistemicUncertaintyPredictor:
 
     deup = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_ensemble, "e_model": e_predictor},
-        optimizer=optimizer, init_buffer=False
+        optimizer=optimizer, _init_buffer_iters=0
     )
 
     return deup

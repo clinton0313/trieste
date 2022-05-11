@@ -87,7 +87,7 @@ def build_vanilla_deup(
     data: Dataset,
     e_num_hidden_layers: int = 4,
     e_units: int = 128,
-    e_activation: str = "relu",
+    e_activation: Union[str, tf.keras.layers.Activation] = "relu",
     f_model_builder: Callable = build_vanilla_keras_ensemble,
     **f_model_args
 ) -> tuple[DeepEnsemble, EpistemicUncertaintyNetwork]:

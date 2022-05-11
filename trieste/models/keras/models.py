@@ -407,7 +407,7 @@ class DirectEpistemicUncertaintyPredictor(
     predictor trained on different subsets of the training data. This approach, inspired by standard cross
     validation, builds a larger set of targets for the error predictor and avoids discarding valuable observations
     in the early training of the error predictor. The warm start is enabled by default, and can be disabled by
-    setting the ``init_buffer`` argument to False.
+    setting the ``_init_buffer_iters`` argument to 0.
 
     Note that currently we do not support setting up the model with dictionary configs and saving
     the model during Bayesian optimization loop (``track_state`` argument in
@@ -417,7 +417,7 @@ class DirectEpistemicUncertaintyPredictor(
         self,
         model: Sequence[dict[str, Any]],
         optimizer: Optional[KerasOptimizer] = None,
-        init_buffer: bool = False
+        _init_buffer_iters: int = 0
     ) -> None:
 
         """
@@ -433,10 +433,10 @@ class DirectEpistemicUncertaintyPredictor(
             callback with patience of 50, and verbose 0. 
             See https://keras.io/api/models/model_training_apis/#fit-method for a list 
             of possible arguments.
-        :param init_buffer: A boolean that enables the pre-training of the error predictor by training several
+        :param init_buffer_iters: An integer `I` that enables the pre-training of the error predictor by training several
             main models using cross-validated slices of the dataset and fitting the resulting models on
-            the entire dataset. This constructs a dataset of [N*K, D] observations nad squared losses, which
-            are used to train the auxiliary predictor.
+            the entire dataset. This constructs a dataset of [I*N*K, D] observations nad squared losses, which
+            are used to train the auxiliary predictor. 
         """
 
         super().__init__(optimizer)
@@ -465,8 +465,7 @@ class DirectEpistemicUncertaintyPredictor(
         )
 
         self._model = model
-        self._init_buffer = init_buffer
-        self._buffer_iter = 1
+        self._init_buffer_iters = _init_buffer_iters
         self._data_u = None     
         self._prior_size = None 
 
@@ -534,19 +533,20 @@ class DirectEpistemicUncertaintyPredictor(
 
         :param dataset: The data with which to optimize the model.
         """     
+        self._data_dtype = dataset.query_points.dtype
         # optional init buffer
         if self._data_u is None:
             self.density_estimator = KernelDensityEstimator(kernel="gaussian")
-            if self._init_buffer:
+            if self._init_buffer_iters > 0:
                 if dataset.query_points.shape[0] > 1:
-                    self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=self._buffer_iter)
+                    self._data_u = self.uncertainty_buffer(dataset=dataset)
                     self._prior_size = dataset.query_points.shape[0]
                 else:
-                    self._init_buffer = False
+                    self._init_buffer_iters = 0
             if self._data_u is None:
                 self._data_u = Dataset(
-                    tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=tf.float64), 
-                    tf.zeros([0, 1], dtype=tf.float64)
+                    tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=self._data_dtype), 
+                    tf.zeros([0, 1], dtype=self._data_dtype)
                 )
                 self.density_estimator.fit(dataset.query_points)
                 self._prior_size = 0
@@ -608,7 +608,7 @@ class DirectEpistemicUncertaintyPredictor(
             query_points = tf.expand_dims(query_points, axis=-1)
 
         f_pred, f_var = self.model[0].predict(query_points)
-        f_pred, f_var = tf.cast(f_pred, dtype=tf.float64), tf.cast(f_var, dtype=tf.float64)
+        f_pred, f_var = tf.cast(f_pred, dtype=self._data_dtype), tf.cast(f_var, dtype=self._data_dtype)
 
         density_scores = self.density_estimator.score_samples(query_points)
         data_u = tf.concat((query_points, f_var, density_scores), axis=1)
@@ -639,7 +639,7 @@ class DirectEpistemicUncertaintyPredictor(
 
         # stationarizing feature: variance
         f_pred, f_var = self.model[0].predict(new_points)
-        f_pred, f_var = tf.cast(f_pred, dtype=tf.float64), tf.cast(f_var, dtype=tf.float64)
+        f_pred, f_var = tf.cast(f_pred, dtype=self._data_dtype), tf.cast(f_var, dtype=self._data_dtype)
 
         # stationarizing feature: density
         density_scores = self.density_estimator.score_samples(new_points)
@@ -648,13 +648,10 @@ class DirectEpistemicUncertaintyPredictor(
             tf.concat((new_points, f_var, density_scores), axis=1),   # [N, D+2]
             tf.pow(tf.subtract(f_pred, new_observations), 2)
         )
-        return Dataset(
-            (self._data_u + new_data_u).query_points,
-            (self._data_u + new_data_u).observations,            
 
-        )
+        return self._data_u + new_data_u
 
-    def uncertainty_buffer(self, dataset: Dataset, iterations: int) -> Dataset:
+    def uncertainty_buffer(self, dataset: Dataset) -> Dataset:
         """
         Builds an initial dataset of observations to kickstart the error predictor. The 
         scheme employs cross-validation to train multiple main models using partial datasets
@@ -670,15 +667,18 @@ class DirectEpistemicUncertaintyPredictor(
         points, targets = [], []
 
         data = tf.concat((dataset.query_points, dataset.observations), axis=1)
-        for _ in tf.range(iterations):
-            for set in tf.random.shuffle(tf.split(data, 2, axis=0)):
+        q, mod = divmod(dataset.query_points.shape[0], 2)
+
+        for _ in tf.range(self._init_buffer_iters):
+            for set in tf.split(data, [q, q+mod], axis=0):
+                set = tf.random.shuffle(set)
                 data_ = Dataset(set[:,:-1], tf.expand_dims(set[:,-1], axis=1))
 
                 # stationarizing feature: variance
                 f_ = self.__copy__().model[0]
                 f_.optimize(data_)
                 f_pred, f_var = f_.predict(dataset.query_points)
-                f_pred, f_var = tf.cast(f_pred, dtype=tf.float64), tf.cast(f_var, dtype=tf.float64)
+                f_pred, f_var = tf.cast(f_pred, dtype=self._data_dtype), tf.cast(f_var, dtype=self._data_dtype)
 
                 # stationarizing feature: density
                 self.density_estimator.fit(dataset.query_points)
