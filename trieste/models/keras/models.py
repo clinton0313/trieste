@@ -567,7 +567,6 @@ class DirectEpistemicUncertaintyPredictor(
         if xu.shape[0] > 0:
             self.model[1].fit(xu, yu, **self.optimizer.fit_args)
 
-        # increase "seen" observations (only after first set of candidates)
         self._prior_size = dataset.query_points.shape[0]
         self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
 
@@ -686,7 +685,7 @@ class DirectEpistemicUncertaintyPredictor(
                 density_scores = self.density_estimator.score_samples(dataset.query_points)
 
                 targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
-                points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
+                points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1))
         
         points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
         return Dataset(points, targets)

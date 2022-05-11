@@ -13,12 +13,18 @@
 # limitations under the License.
 
 from __future__ import annotations
+from numpy import True_
 
 import pytest
 import tensorflow as tf
 
 from tests.util.misc import branin_dataset, random_seed
-from trieste.models.keras import DeepEnsemble, build_vanilla_keras_ensemble
+from trieste.models.keras import (
+    DeepEnsemble,
+    DirectEpistemicUncertaintyPredictor,
+    build_vanilla_keras_ensemble, 
+    build_vanilla_deup
+)
 from trieste.models.optimizer import KerasOptimizer
 
 
@@ -49,4 +55,51 @@ def test_neural_network_ensemble_predictions_close_to_actuals(keras_float: None)
     mean_abs_deviation = tf.reduce_mean(tf.abs(predicted_means - example_data.observations))
 
     # somewhat arbitrary accuracy level, seems good for the range of branin values
+    assert mean_abs_deviation < 2
+
+
+@pytest.mark.direct_epistemic
+def test_direct_epistemic_model_optimizer_changed_correctly() -> None:
+    dataset_size = 1000
+    ensemble_size = 5
+    num_hidden_layers = 5
+    e_num_hidden_layers = 5
+    e_units = 256
+    e_activation = "relu"
+
+
+    example_data = branin_dataset(dataset_size)
+
+    f_network, e_network = build_vanilla_deup(
+        example_data,
+        ensemble_size=ensemble_size,
+        num_hidden_layers=num_hidden_layers,
+        e_num_hidden_layers=e_num_hidden_layers,
+        e_units=e_units,
+        e_activation=e_activation,
+        f_model_builder=build_vanilla_keras_ensemble
+    )
+
+    optimizer = tf.keras.optimizers.Adam()
+    fit_args = {
+        "batch_size": 32,
+        "epochs": 1000,
+        "callbacks": [tf.keras.callbacks.EarlyStopping(monitor="loss", patience=20)],
+        "verbose": 0,
+    }
+    
+    optimizer_wrapper = KerasOptimizer(optimizer, fit_args)
+
+    f_model = DeepEnsemble(f_network, optimizer_wrapper)
+    model = DirectEpistemicUncertaintyPredictor(
+        model={"f_model": f_model, "e_model": e_network}, 
+        optimizer=optimizer_wrapper,
+        init_buffer=True
+    )
+
+    model.optimize(example_data)
+
+    predicted_means, _ = model.predict(example_data.query_points)
+    mean_abs_deviation = tf.reduce_mean(tf.abs(predicted_means - example_data.observations))
+
     assert mean_abs_deviation < 2

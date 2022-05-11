@@ -65,7 +65,12 @@ from trieste.models.gpflow import (
     build_svgp,
 )
 from trieste.models.gpflux import DeepGaussianProcess, build_vanilla_deep_gp
-from trieste.models.keras import DeepEnsemble, build_vanilla_keras_ensemble
+from trieste.models.keras import (
+    DeepEnsemble, 
+    DirectEpistemicUncertaintyPredictor,
+    build_vanilla_keras_ensemble,
+    build_vanilla_deup
+)
 from trieste.models.optimizer import KerasOptimizer, Optimizer
 from trieste.objectives import (
     BRANIN_MINIMIZERS,
@@ -380,6 +385,49 @@ def test_bayesian_optimizer_with_deep_ensemble_finds_minima_of_simple_quadratic(
     _test_optimizer_finds_minimum(DeepEnsemble, num_steps, acquisition_rule)
 
 
+@random_seed
+@pytest.mark.slow
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(90, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(90, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling"),
+    ],
+)
+def test_bayesian_optimizer_with_direct_epistemic_finds_minima_of_scaled_branin(
+    num_steps: int,
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DirectEpistemicUncertaintyPredictor],
+) -> None:
+    _test_optimizer_finds_minimum(
+        DirectEpistemicUncertaintyPredictor,
+        num_steps,
+        acquisition_rule,
+        optimize_branin=True
+    )
+
+
+@random_seed
+@pytest.mark.direct_epistemic
+@pytest.mark.parametrize(
+    "num_steps, acquisition_rule",
+    [
+        pytest.param(15, EfficientGlobalOptimization(), id="EfficientGlobalOptimization"),
+        pytest.param(5, DiscreteThompsonSampling(500, 3), id="DiscreteThompsonSampling"),
+    ],
+)
+def test_bayesian_optimizer_with_direct_epistemic_finds_minima_of_simple_quadratic(
+    num_steps: int,
+    acquisition_rule: AcquisitionRule[TensorType, SearchSpace, DirectEpistemicUncertaintyPredictor],
+) -> None:
+    _test_optimizer_finds_minimum(
+        DirectEpistemicUncertaintyPredictor,
+        num_steps,
+        acquisition_rule,
+        optimize_branin=False
+    )
+
+
 def _test_optimizer_finds_minimum(
     model_type: Type[TrainableProbabilisticModelType],
     num_steps: Optional[int],
@@ -408,7 +456,7 @@ def _test_optimizer_finds_minimum(
         rtol_level = 0.05
         num_initial_query_points = 10
 
-    if model_type in [SparseVariational, DeepEnsemble]:
+    if model_type in [SparseVariational, DeepEnsemble, DirectEpistemicUncertaintyPredictor]:
         num_initial_query_points = 20
     elif model_type in [DeepGaussianProcess]:
         num_initial_query_points = 25
@@ -470,6 +518,34 @@ def _test_optimizer_finds_minimum(
         }
         de_optimizer = KerasOptimizer(tf.keras.optimizers.Adam(0.001), fit_args)
         model = DeepEnsemble(keras_ensemble, de_optimizer, **model_args)
+
+    elif model_type is DirectEpistemicUncertaintyPredictor:
+        track_state = False
+        f_network, e_network = build_vanilla_deup(
+            initial_data,
+            ensemble_size=5,
+            num_hidden_layers=5,
+            e_num_hidden_layers=5,
+            e_units=256,
+            e_activation="relu",
+            f_model_builder=build_vanilla_keras_ensemble
+        )
+
+        fit_args = {
+            "batch_size": 32,
+            "epochs": 1000,
+            "callbacks": [tf.keras.callbacks.EarlyStopping(monitor="loss", patience=20)],
+            "verbose": 0,
+        }
+        
+        deup_optimizer = KerasOptimizer(tf.keras.optimizers.Adam(), fit_args)
+
+        f_model = DeepEnsemble(f_network, deup_optimizer)
+        model = DirectEpistemicUncertaintyPredictor(
+            model={"f_model": f_model, "e_model": e_network}, 
+            optimizer=deup_optimizer,
+            init_buffer=True
+        )
 
     else:
         raise ValueError(f"Unsupported model_type '{model_type}'")
