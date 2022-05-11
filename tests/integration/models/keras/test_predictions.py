@@ -94,7 +94,7 @@ def test_direct_epistemic_model_optimizer_changed_correctly() -> None:
     model = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_model, "e_model": e_network}, 
         optimizer=optimizer_wrapper,
-        init_buffer=True
+        _init_buffer_iters=1
     )
 
     model.optimize(example_data)

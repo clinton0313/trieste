@@ -544,7 +544,7 @@ def _test_optimizer_finds_minimum(
         model = DirectEpistemicUncertaintyPredictor(
             model={"f_model": f_model, "e_model": e_network}, 
             optimizer=deup_optimizer,
-            init_buffer=True
+            _init_buffer_iters=1
         )
 
     else:
