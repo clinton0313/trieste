@@ -843,7 +843,6 @@ class DirectEpistemicUncertaintyPredictor(
     """
     A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a direct epistemic uncertainty
     prediction (DEUP) model built using Keras.
-
     The method employs an auxiliary deep neural network to predict the uncertainty that stems
     from the generalization error of the main predictor, which in principle is reducible with more
     data and higher effective capacity. Unlike other available Keras models, which solely exploit 
@@ -856,7 +855,6 @@ class DirectEpistemicUncertaintyPredictor(
     to predict the squared loss of the main predictor, which in the regression setup can be shown to 
     approximate the total uncertainty stemming both from the model variance and the potential misspecification 
     caused by, for example, early stopping.
-
     A particular advantage of training the auxiliary model is that the error predictor can be explicitly
     trained to account for examples that may come from a distribution different from the distribution of
     most of the training examples. These non-stationary settings, likely in the context of Bayesian 
@@ -866,13 +864,11 @@ class DirectEpistemicUncertaintyPredictor(
     of the function parameters and the model variance estimates. The former is computed using kernel density
     estimation and assuming a Gaussian kernel, while the latter is computed from the variance estimates of the 
     main deep ensemble model.  
-
     In practice, we provide a warm start to the error predictor by creating multiple versions of the main
     predictor trained on different subsets of the training data. This approach, inspired by standard cross
     validation, builds a larger set of targets for the error predictor and avoids discarding valuable observations
     in the early training of the error predictor. The warm start is enabled by default, and can be disabled by
-    setting the ``init_buffer`` argument to False.
-
+    setting the ``_init_buffer_iters`` argument to 0.
     Note that currently we do not support setting up the model with dictionary configs and saving
     the model during Bayesian optimization loop (``track_state`` argument in
     :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
@@ -881,7 +877,7 @@ class DirectEpistemicUncertaintyPredictor(
         self,
         model: Sequence[dict[str, Any]],
         optimizer: Optional[KerasOptimizer] = None,
-        init_buffer: bool = False
+        _init_buffer_iters: int = 0
     ) -> None:
 
         """
@@ -897,10 +893,10 @@ class DirectEpistemicUncertaintyPredictor(
             callback with patience of 50, and verbose 0. 
             See https://keras.io/api/models/model_training_apis/#fit-method for a list 
             of possible arguments.
-        :param init_buffer: A boolean that enables the pre-training of the error predictor by training several
+        :param init_buffer_iters: An integer `I` that enables the pre-training of the error predictor by training several
             main models using cross-validated slices of the dataset and fitting the resulting models on
-            the entire dataset. This constructs a dataset of [N*K, D] observations nad squared losses, which
-            are used to train the auxiliary predictor.
+            the entire dataset. This constructs a dataset of [I*N*K, D] observations nad squared losses, which
+            are used to train the auxiliary predictor. 
         """
 
         super().__init__(optimizer)
@@ -917,32 +913,37 @@ class DirectEpistemicUncertaintyPredictor(
                 ],
             }
 
-        self.optimizer.loss = "mse"
+        if self.optimizer.loss is None:
+            self.optimizer.loss = negative_log_likelihood
 
         self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
         
         model["e_model"].compile(
             self.optimizer.optimizer,
-            loss=[self.optimizer.loss],
+            loss="mse",
             metrics=[self.optimizer.metrics],
         )
 
         self._model = model
-        self._init_buffer = init_buffer
-        self._data_u = None     # [DAV] uncertainty dataset
-        self._prior_size = None # [DAV] track new observations
+        self._init_buffer_iters = _init_buffer_iters
+        self._data_u = None     
+        self._prior_size = None 
 
     def __repr__(self) -> str:
         """"""
-        return f"DirectEpistemicUncertaintyPredictor({self.model!r}, {self.optimizer!r})"
+        return f"DirectEpistemicUncertaintyPredictor{self.model!r}, {self.optimizer!r}"
 
     @property
     def model(self) -> tuple[DeepEnsemble, tf.keras.Model]:
         """
         Returns two compiled models: A Keras ensemble model and an epistemic uncertainty predictor.
         """
-        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), "[DAV]"
-        assert issubclass(type(self._model["e_model"]), tf.keras.Model), "[DAV]"
+        assert issubclass(type(self._model["f_model"]), TrainableProbabilisticModel), (
+            "The main predictor is meant to use a :class:`TrainableProbabilisticModel`."
+        )
+        assert issubclass(type(self._model["e_model"]), tf.keras.Model), (
+            "The epistemic predictor is meant to use :class:`~tf.keras.Model`."
+        )
         return self._model["f_model"], self._model["e_model"]
 
     def sample(self, query_points: TensorType, num_samples: int) -> TensorType:
@@ -950,7 +951,6 @@ class DirectEpistemicUncertaintyPredictor(
         Return ``num_samples`` samples at ``query_points``. We use the mixture approximation in
         :meth:`predict` for ``query_points`` and sample ``num_samples`` times from a Gaussian
         distribution given by the predicted mean and variance.
-
         :param query_points: The points at which to sample, with shape [..., N, D].
         :param num_samples: The number of samples at each point.
         :return: The samples. For a predictive distribution with event shape E, this has shape
@@ -975,40 +975,37 @@ class DirectEpistemicUncertaintyPredictor(
         """
         Optimize the underlying Direct Epistemic Uncertainty Prediction model with the 
         specified ``dataset``.
-
         Optimization is performed by using the Keras `fit` method, rather than applying the
         optimizer and using the batches supplied with the optimizer wrapper. User can pass
         arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
         These default to using 100 epochs, batch size 32, and verbose 0. See
         https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
         arguments.
-
         Note that optimization does not return the result, instead optimization results are
         stored in a history attribute of the model object. The algorithm iterates
         over two copies of the dataset's observations to account for the
         stationarizing features and the two targets: the target outcome for the main
         predictor and the squared loss for the auxiliary predictor. The procedure follows
         the main proposed algorithm in <cite data-cite="jain2022"/>.
-
         :param dataset: The data with which to optimize the model.
         """     
+        self._data_dtype = dataset.query_points.dtype
         # optional init buffer
-        if self._data_u is None: 
+        if self._data_u is None:
             self.density_estimator = KernelDensityEstimator(kernel="gaussian")
-            if self._init_buffer:
-                print("Access uncertainty buffer", datetime.datetime.now())
-                self._data_u = self.uncertainty_buffer(dataset=dataset, iterations=1)
-                self._prior_size = dataset.query_points.shape[0]
-            else:
+            if self._init_buffer_iters > 0:
+                if dataset.query_points.shape[0] > 1:
+                    self._data_u = self.uncertainty_buffer(dataset=dataset)
+                    self._prior_size = dataset.query_points.shape[0]
+                else:
+                    self._init_buffer_iters = 0
+            if self._data_u is None:
                 self._data_u = Dataset(
-                    tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=tf.float64), 
-                    tf.zeros([0, 1], dtype=tf.float64)
+                    tf.zeros([0, dataset.query_points.shape[-1] + 2], dtype=self._data_dtype), 
+                    tf.zeros([0, 1], dtype=self._data_dtype)
                 )
                 self.density_estimator.fit(dataset.query_points)
                 self._prior_size = 0
-
-        
-        print("optim loop", datetime.datetime.now(), self._prior_size)
 
         x, y = dataset.astuple()
 
@@ -1026,25 +1023,20 @@ class DirectEpistemicUncertaintyPredictor(
         if xu.shape[0] > 0:
             self.model[1].fit(xu, yu, **self.optimizer.fit_args)
 
-        # increase "seen" observations (only after first set of candidates)
         self._prior_size = dataset.query_points.shape[0]
         self.optimizer.optimizer.learning_rate.assign(self._learning_rate)
-
 
     def predict(self, query_points: TensorType) -> tuple[TensorType, TensorType]:
         r"""
         Returns mean and variance at ``query_points`` for the Direct Epistemic
         Uncertainty Prediction model.
-
         Following <cite data-cite="jain2022"/>, we consider the case for a model with
         a Gaussian ground truth, i.e.
                 .. math:: p(y \mid x)=\mathcal{N}\left(y ; f^{*}(x), \sigma^{2}(x)\right).
-
         In this scenario, it can be shown that the epistemic uncertainty can be estimated
         as the squared difference between main-model predictions and the Bayes optimal
         prediction at a given point, that is:
                 .. math:: \mathcal{E}(\hat{f}, x)=\left(\hat{f}(x)-f^{*}(x)\right)^{2}
-
         As the Bayes optimal is unattainable, we instead approximate the epistemic uncertainty
         by computing the total uncertainty of the model, which is captured by the expected
         squared loss of the main-model predictions. This can be deconstructed as follows
@@ -1058,7 +1050,6 @@ class DirectEpistemicUncertaintyPredictor(
         model and the Gaussian density of our queried points. These are used to enhance the dataset of
         features the auxiliary model predicts on, so that a D-dimensional queried point will be passed
         as a [D+2,1] observation to the error predictor.
-
         :param query_points: The points at which to make predictions.
         :return: The predicted mean and variance of the observations at the specified
             ``query_points``.
@@ -1069,6 +1060,8 @@ class DirectEpistemicUncertaintyPredictor(
             query_points = tf.expand_dims(query_points, axis=-1)
 
         f_pred, f_var = self.model[0].predict(query_points)
+        f_pred, f_var = tf.cast(f_pred, dtype=self._data_dtype), tf.cast(f_var, dtype=self._data_dtype)
+
         density_scores = self.density_estimator.score_samples(query_points)
         data_u = tf.concat((query_points, f_var, density_scores), axis=1)
         e_pred = self.model[1](data_u)
@@ -1086,19 +1079,18 @@ class DirectEpistemicUncertaintyPredictor(
         Enhances the new queried observations with estimates of their Gaussian density
         and main model variance, and appends them as new observations to optimize the
         auxiliary model.
-
         :param query_points: The points at which to make predictions.
         :param observations: The target observations.
         :return: A new dataset for the uncertainty prediction, which includes the previous
             observations and the new batch of points.
-
         """
         new_points = query_points[self._prior_size:,:]
         new_observations = observations[self._prior_size:,:]
 
         # stationarizing feature: variance
         f_pred, f_var = self.model[0].predict(new_points)
-        
+        f_pred, f_var = tf.cast(f_pred, dtype=self._data_dtype), tf.cast(f_var, dtype=self._data_dtype)
+
         # stationarizing feature: density
         density_scores = self.density_estimator.score_samples(new_points)
 
@@ -1106,20 +1098,16 @@ class DirectEpistemicUncertaintyPredictor(
             tf.concat((new_points, f_var, density_scores), axis=1),   # [N, D+2]
             tf.pow(tf.subtract(f_pred, new_observations), 2)
         )
-        return Dataset(
-            (self._data_u + new_data_u).query_points,
-            (self._data_u + new_data_u).observations,            
 
-        )
+        return self._data_u + new_data_u
 
-    def uncertainty_buffer(self, dataset: Dataset, iterations: int) -> Dataset:
+    def uncertainty_buffer(self, dataset: Dataset) -> Dataset:
         """
         Builds an initial dataset of observations to kickstart the error predictor. The 
         scheme employs cross-validation to train multiple main models using partial datasets
         of the initial data points, and predicts both in sample and out of sample outcomes.
         The squared loss of these predictions are used to construct the target dataset for
         the error predictor.
-
         :param dataset: The data with which to optimize the model.
         :param iterations: The number of full cross-validation passes. 
         :return: A dataset of queried points and stabilizing variables as features, and squared losses
@@ -1128,21 +1116,25 @@ class DirectEpistemicUncertaintyPredictor(
         points, targets = [], []
 
         data = tf.concat((dataset.query_points, dataset.observations), axis=1)
-        for _ in tf.range(iterations):
-            for set in tf.random.shuffle(tf.split(data, 2, axis=0)):
+        q, mod = divmod(dataset.query_points.shape[0], 2)
+
+        for _ in tf.range(self._init_buffer_iters):
+            for set in tf.split(data, [q, q+mod], axis=0):
+                set = tf.random.shuffle(set)
                 data_ = Dataset(set[:,:-1], tf.expand_dims(set[:,-1], axis=1))
 
                 # stationarizing feature: variance
                 f_ = self.__copy__().model[0]
                 f_.optimize(data_)
                 f_pred, f_var = f_.predict(dataset.query_points)
+                f_pred, f_var = tf.cast(f_pred, dtype=self._data_dtype), tf.cast(f_var, dtype=self._data_dtype)
 
                 # stationarizing feature: density
                 self.density_estimator.fit(dataset.query_points)
                 density_scores = self.density_estimator.score_samples(dataset.query_points)
 
                 targets.append(tf.pow(tf.subtract(f_pred, dataset.observations), 2))
-                points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1)) # [DAV] manually add f_var here, need to fix
+                points.append(tf.concat((dataset.query_points, f_var, density_scores), axis=1))
         
         points, targets = tf.concat(points, axis=0), tf.concat(targets, axis=0)
         return Dataset(points, targets)

@@ -93,7 +93,7 @@ def build_vanilla_deup(
     data: Dataset,
     e_num_hidden_layers: int = 4,
     e_units: int = 128,
-    e_activation: str = "relu",
+    e_activation: Union[str, tf.keras.layers.Activation] = "relu",
     f_model_builder: Callable = build_vanilla_keras_ensemble,
     **f_model_args
 ) -> tuple[DeepEnsemble, EpistemicUncertaintyNetwork]:
@@ -105,7 +105,7 @@ def build_vanilla_deup(
     Number of hidden layers and units per layer in the ensembles or the MLP should be modified according
     to the dataset size and complexity of the function - the default values seem to work well
     for small datasets common in Bayesian optimization. 
-
+    
     :param dataset: Data for training, used for extracting input and output tensor specifications.
     :param f_model_args: Parameters for each of the networks in the ensemble. This includes
         the `ensemble_size`, `number_hidden_layers`, `units`, `activation` and the use of
