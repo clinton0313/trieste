@@ -877,7 +877,7 @@ class DirectEpistemicUncertaintyPredictor(
         self,
         model: Sequence[dict[str, Any]],
         optimizer: Optional[KerasOptimizer] = None,
-        _init_buffer_iters: int = 0
+        init_buffer_iters: int = 0
     ) -> None:
 
         """
@@ -925,7 +925,7 @@ class DirectEpistemicUncertaintyPredictor(
         )
 
         self._model = model
-        self._init_buffer_iters = _init_buffer_iters
+        self._init_buffer_iters = init_buffer_iters
         self._data_u = None     
         self._prior_size = None 
 

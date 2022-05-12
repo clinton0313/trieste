@@ -136,7 +136,7 @@ def der_builder(data, num_hidden_layers, units, reg_weight, maxi_rate, lr):
     return model
 
 
-def deup_builder(data, ensemble_size, num_hidden_layers, units, lr, e_num_hidden_layers=4, e_units=128):
+def deup_builder(data, ensemble_size, num_hidden_layers, units, lr, e_num_hidden_layers=4, e_units=128, init_buffer_iters=1):
     f_keras_ensemble, e_predictor = build_vanilla_deup(
         data, 
         f_model_builder=build_vanilla_keras_ensemble,
@@ -154,7 +154,7 @@ def deup_builder(data, ensemble_size, num_hidden_layers, units, lr, e_num_hidden
 
     deup = DirectEpistemicUncertaintyPredictor(
         model={"f_model": f_ensemble, "e_model": e_predictor},
-        optimizer=KerasOptimizer(tf.optimizers.Adam(lr)), init_buffer=True
+        optimizer=KerasOptimizer(tf.optimizers.Adam(lr)), init_buffer_iters=init_buffer_iters
     )
 
     return deup
