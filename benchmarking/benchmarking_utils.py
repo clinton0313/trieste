@@ -480,7 +480,7 @@ def simulate_experiment(
             new_obs = new_data.observations.numpy()[-1]
             minimizer_err = tf.abs((new_data.query_points.numpy()[-1,:] - minimizer) / minimizer)
             if (
-                tf.abs(new_obs - minimum.numpy()[0]) / minimum.numpy()[0] <= tolerance
+                tf.abs(new_obs - minimum.numpy()[0]) / tf.abs(minimum.numpy()[0]) <= tolerance
                 and tf.reduce_any(tf.reduce_all(minimizer_err < 0.05, axis=-1), axis=0)
             ):  
                 if report_predictions: #Make final prediction

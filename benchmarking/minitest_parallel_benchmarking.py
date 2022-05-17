@@ -16,24 +16,32 @@ OUTPUT_PATH = "/homes/users/dampudia/scratch/minitest_parallel_benchmarking"
 
 common_args = {
     "objective": [
-        branin2, 
-        shekel4
-        ],
+#         branin2,
+#         michal2,
+#         goldstein2,
+#         hartmann3,
+#         shekel4
+        dropw2,
+        eggho2,
+        rosenbrock4,
+        hartmann6,
+        ackley5,
+    ],
     "num_initial_points": 10,
     "acquisition":  [
         ("ei", EfficientGlobalOptimization, {}), 
         ("ts", DiscreteThompsonSampling,{"num_search_space_samples": 1000, "num_query_points": 4})
         #num_search_space_samples for discrete thompson sampling is multiplied by number of search space dimensions
-        ],
-    "num_steps": 100, #10 * number of search space dimensions
+    ],
+    "num_steps": 500, #10 * number of search space dimensions
     "predict_interval": 4,
     "plot": False,
     "report_predictions": True,
-    "overwrite": True,
+    "overwrite": False,
     "tolerance": 1e-3,
-    "grid_density": 20,
+    "grid_density": 10000,
     "metadata": "",
-    "seed": 0,
+    "seed": [x for x in range(20)],
     "sample_seed": 42,
     "verbose_output": False
 }
@@ -82,28 +90,29 @@ mc_simul_args = {
 }
 
 #UNKNOWN ARGS
-# deup_simul_args = {
-#     "model": ("deup", deup_builder),
-#     "output_path": os.path.join(OUTPUT_PATH, "deup"),
-#     "ensemble_size": [5, 7],
-#     "num_hidden_layers": [3, 5],
-#     "units": [25, 50],
-#     "e_num_hidden_layers": [3, 5],
-#     "e_units": [64, 128, 256],
-#     "lr": 0.001,
-# }
+deup_simul_args = {
+    "model": ("deup", deup_builder),
+    "output_path": os.path.join(OUTPUT_PATH, "deup"),
+#     "ensemble_size": 7,
+#     "num_hidden_layers": 5,
+    "units": 50,
+    "e_num_hidden_layers": 5,
+    "e_units": 128,
+    "init_buffer_iters": 2,
+    "lr": 0.001,
+}
 
 
-n_jobs = 1 #joblib.cpu_count()
+n_jobs = joblib.cpu_count()
 verbose = 50 #From 1 to 50 
 
 #Each dictionary of args is independently crosses all of its arguments
 all_args = [
-    der_simul_args,
-    # de_simul_args,
-    # mc_simul_args,
-    # gpr_simul_args,
-    # deup_simul_args
+#     der_simul_args,
+#     de_simul_args,
+#     mc_simul_args,
+    gpr_simul_args,
+#     deup_simul_args
 ]
 #%%
 if __name__ == "__main__":
