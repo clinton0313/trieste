@@ -16,7 +16,9 @@ import trieste
 from collections import defaultdict
 from joblib import Parallel, delayed
 from tqdm import tqdm
+from trieste.acquisition.rule import RandomSampling
 from trieste.models.gpflow import GaussianProcessRegression
+from trieste.models.interfaces import TrainableProbabilisticModel
 from trieste.models.keras import (
     DirectEpistemicUncertaintyPredictor,
     DeepEvidentialRegression,
@@ -190,6 +192,19 @@ def gpr_builder(data):
     gpflow.set_trainable(gpr.likelihood, False)
 
     return GaussianProcessRegression(gpr, num_kernel_samples=100)
+
+class DummyModel(TrainableProbabilisticModel):
+    def predict(self, query_points):
+        pass
+    def sample(self, query_points, num_samples):
+        pass
+    def update(self, dataset):
+        pass
+    def optimize(self, dataset):
+        pass
+
+def dummy_builder(data):
+    return DummyModel()
 
 # SIMULATOR UTILS
 
@@ -412,8 +427,11 @@ def simulate_experiment(
         pass
     acquisition_rule = acquisition_fn(**acquisition_args)
     model_name, model_builder = model
-
     num_initial_points = int(search_space.dimension * num_initial_points)
+
+    if isinstance(acquisition_rule, RandomSampling):
+        report_predictions = False
+
     #Make output path
     os.makedirs(output_path, exist_ok = True)
 
@@ -532,10 +550,7 @@ def simulate_experiment(
     }
     for key, arg in model_args.items():
         results.update({key: str(arg)})
-    if report_predictions:
-        results.update({"pickle_file": f"{save_title}.pkl"})
-    else:
-        results.update({"pickle_file": "nan"})
+    results.update({"pickle_file": f"{save_title}.pkl"})
     
     #Write results
 
@@ -704,3 +719,5 @@ def parallel_experiments(simul_args_list:Union[list, dict], n_jobs: int=1, verbo
     
     p = Parallel(n_jobs=n_jobs, verbose=verbose)
     p(delayed(simulate_experiment)(**args) for args in all_simul_args)
+
+
