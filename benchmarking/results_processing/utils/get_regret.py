@@ -18,12 +18,59 @@ matplotlib.rcParams.update({
 matplotlib.style.use("seaborn-bright")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-model_name = "random"
-DATADIR = os.path.join("test_parallel_benchmarking", model_name)
+RESULTS_DIR = os.path.realpath(os.path.join("..", "..", "results"))
 
-results = pd.read_csv(os.path.join(DATADIR, f"{model_name}_results.csv"), skipinitialspace=True)
-# %%
-def simple_regret(record: pd.Series, datadir: str = DATADIR) -> Tuple[np.ndarray, np.ndarray]:
+#Dict of keys: directory name; name: model prefix used in results; label: label for plotting.
+
+OBJECTIVE_DICT = {
+    "michal2": "Michalwicz-2",
+    "scaled_branin": "Scaled Branin-2",
+    "hartmann6": "Hartmann-6",
+    "goldstein2": "Log Goldstein-Price-2",
+    "shekel4": "Shekel-4",
+    "rosenbrock4": "Rosenbrock-4",
+    "ackley5": "Ackley-5",
+    "michal5": "Michalwicz-5",
+    "michal10": "Michalwicz-10",
+    "dropw2": "Dropwave-2",
+    "eggho2": "Eggholder-2"
+}
+
+ACQUISITION_DICT = {
+    "ei": "Expected Improvement",
+    "ts": "Thompson Sampling"
+}
+
+MODELS_DICT = {
+    "der": {
+        "name": "new_der_log",
+        "label": "Deep Evidential",
+    },
+    "deup": {
+        "name": "deup",
+        "label": "Direct Epistemic",
+    },
+    "de": {
+        "name": "de",
+        "label": "Deep Ensembles",
+    },
+    "gpr": {
+        "name": "gpr",
+        "label": "GPR",
+    },
+    "mc": {
+        "name": "mc",
+        "label": "MC Dropout",
+    },
+    "random": {
+        "name": "random",
+        "label": "Random Sampling",
+    },
+}
+
+COLOR_DICT = dict(zip(MODELS_DICT.keys(), matplotlib.colors.TABLEAU_COLORS.keys()))
+
+def simple_regret(record: pd.Series, datadir: str) -> Tuple[np.ndarray, np.ndarray]:
     """Gets the simple regret for a row of the results csv by opening
     the pickle file and parsing. 
 
@@ -40,7 +87,7 @@ def simple_regret(record: pd.Series, datadir: str = DATADIR) -> Tuple[np.ndarray
 
     return steps, regret.squeeze()
 
-def minimum_regret(record: pd.Series, datadir: str = DATADIR) -> Tuple[np.ndarray, np.ndarray]:
+def minimum_regret(record: pd.Series, datadir: str) -> Tuple[np.ndarray, np.ndarray]:
     """Gets the cumulative regret for a row of the results csv by opening
     the pickle file and parsing. 
 
@@ -57,21 +104,21 @@ def minimum_regret(record: pd.Series, datadir: str = DATADIR) -> Tuple[np.ndarra
 def expand_regret(
     record: pd.Series, 
     regret_function: Callable, 
-    max_steps: int, 
-    datadir:str = DATADIR
+    max_steps: int,
+    datadir: str,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Pad regret with nan's to match the length of max_steps.
 
     :param record: pd.Series of a row of a results csv
     :param regret_function: Regret function that returns steps and regret
     :param max_steps: Max number of BO steps to match sequence to
-    :param datadir: Directory where the pickle files are stored, defaults to DATADIR
+    :param datadir: Directory where the pickle files are stored
     :return: Tuple of padded steps and regret
     """
     steps, regret = regret_function(record, datadir)
     try:
         expansion = np.zeros(max_steps - len(steps))
-        expansion[:] = np.nan
+        expansion[:] = np.min(regret)
         return (
             np.concatenate((steps, expansion)),
             np.concatenate((regret, expansion))
@@ -85,6 +132,7 @@ def expand_regret(
 
 def average_regret(
     results: pd.DataFrame, 
+    datadir: str,
     average_over: list = ["seed"], 
     ignore_cols: list = [
         "true_min", 
@@ -97,12 +145,12 @@ def average_regret(
     regret_function: Callable = minimum_regret,
     regret_name: str = "min_regret",
     compute_var: bool = True, 
-    max_steps: int = 0,
-    datadir: str = DATADIR
+    max_steps: int = 2020,
 ) -> pd.DataFrame:
     """Computes regret statistics averaged over some columns (seed by default). 
 
     :param results: pd.DataFrame of the CSV results
+    :param datadir: Directory where the pickle files are stored
     :param average_over: Columns to average over, defaults to ["seed"]
     :param ignore_cols: Columns of dataframe to ignore when grouping by
     :param regret_function: Regret function that returns steps and regret,
@@ -110,9 +158,9 @@ def average_regret(
     :param regret_name: Naming used for regret function, defaults to "min_regret"
     :param compute_var: Whether or not to compute the variance, defaults to True
     :param max_steps: Maximum number of steps to match regret to,
-         defaults to 0 which will infer the maximum number of steps + initial points
+         if 0 will infer the maximum number of steps + initial points
          from the dataframe. 
-    :param datadir: Directory where the pickle files are stored, defaults to DATADIR
+
     :return: Grouped dataframe with regret statistics added. 
     """
     if max_steps == 0:
@@ -161,7 +209,7 @@ def average_regret(
 def plot_regret(
     mean: np.ndarray,
     var: np.ndarray = None,
-    n_stds: int = 3,
+    n_stds: int = 1,
     ax = None,
     title: str = "",
     label: str = "",
@@ -171,6 +219,7 @@ def plot_regret(
     ylim: tuple = None,
     regret_color: str = "blue",
     std_alpha: float = 0.3,
+    scatter: bool = False,
     **plot_kwargs
 ):
     matplotlib.rcParams.update({
@@ -184,8 +233,11 @@ def plot_regret(
         fig, ax = plt.subplots(**plot_kwargs)
     
     steps = np.arange(len(mean))
-    ax.plot(steps, mean, color=regret_color, label=label)
-    if var is not None:
+    if scatter:
+        ax.scatter(steps, mean, color=regret_color, label=label)
+    else:
+        ax.plot(steps, mean, color=regret_color, label=label)
+    if var is not None and not scatter:
         for n in range(n_stds):
 
             ax.fill_between(
@@ -216,10 +268,46 @@ def plot_regret(
     except UnboundLocalError:
         pass
 
+
+def plot_min_regret_model_comparison(
+    objective: str,
+    acquisition: str,
+    ax,
+    model_dict: dict = MODELS_DICT,
+    objective_label_dict: dict = OBJECTIVE_DICT,
+    acquisition_label_dict: dict = ACQUISITION_DICT,
+    results_dir: str = RESULTS_DIR,
+    color_dict: list = COLOR_DICT,
+    average_regret_kwargs: dict = {},
+    **plot_regret_kwargs
+):
+    for model_dir, model_meta in model_dict.items():
+        res = pd.read_csv(os.path.join(results_dir, model_dir, f"{model_meta['name']}_results.csv"), skipinitialspace=True)
+        average_res = average_regret(res, os.path.join(results_dir, model_dir), **average_regret_kwargs)
+        average_res = average_res[(average_res["objective"] == objective) & (average_res["acquisition"] == acquisition)]
+
+        if average_res.empty:
+            continue
+        assert len(average_res) == 1, f"More than one entry for objective {objective} in model {model_dir}"
+        
+        plot_regret(
+            average_res["mean_min_regret"].values[0], 
+            average_res["var_min_regret"].values[0], 
+            ax=ax,
+            title=f"{objective_label_dict[objective]} with {acquisition_label_dict[acquisition]}",
+            label=model_meta['label'],
+            regret_color = color_dict[model_dir],
+            **plot_regret_kwargs
+        )
+
 #%%
 
 if __name__ == "__main__":
-    grouped_results = average_regret(results)
+
+    model_name = "random"
+    DATADIR = os.path.join(RESULTS_DIR, model_name)
+    results = pd.read_csv(os.path.join(DATADIR, f"{model_name}_results.csv"), skipinitialspace=True)
+    grouped_results = average_regret(results, DATADIR)
     fig = plot_regret(grouped_results.loc[0, "mean_min_regret"], grouped_results.loc[0, "var_min_regret"])
     plt.show()
 

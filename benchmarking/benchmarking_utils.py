@@ -88,14 +88,14 @@ def output_range(objective: tuple, density: int = 1e5) -> float:
     output_range = np.abs(np.max(observations) - np.min(observations))
     return output_range
 
-def add_noise(objective: tuple, noise_level: float = 0.002) -> tuple:
+def add_noise(objective: tuple, noise_level: float = 0.01) -> tuple:
     '''Adds noise as a percent of the range of the search space. Replaces original
     objective tuple with the noisy version'''
     new_obj = list(objective)
     noise = noise_level * output_range(objective)
     def noisy_obj(*args, **kwargs):
         noiseless = objective[1](*args, **kwargs)
-        error = np.random.normal(0, noise, size=noiseless.shape)
+        error = np.random.normal(0, noise**0.5, size=noiseless.shape)
         return noiseless + error
     new_obj[0] = f"noisy_{objective[0]}"
     new_obj[1] = noisy_obj
