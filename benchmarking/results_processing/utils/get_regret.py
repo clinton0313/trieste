@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import pickle
 
+from plotting_params import *
 from typing import Tuple, Callable
 
 pd.set_option("display.max_rows", 300)
@@ -17,58 +18,6 @@ matplotlib.rcParams.update({
 })
 matplotlib.style.use("seaborn-bright")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-
-RESULTS_DIR = os.path.realpath(os.path.join("..", "..", "results"))
-
-#Dict of keys: directory name; name: model prefix used in results; label: label for plotting.
-
-OBJECTIVE_DICT = {
-    "michal2": "Michalwicz-2",
-    "scaled_branin": "Scaled Branin-2",
-    "hartmann6": "Hartmann-6",
-    "goldstein2": "Log Goldstein-Price-2",
-    "shekel4": "Shekel-4",
-    "rosenbrock4": "Rosenbrock-4",
-    "ackley5": "Ackley-5",
-    "michal5": "Michalwicz-5",
-    "michal10": "Michalwicz-10",
-    "dropw2": "Dropwave-2",
-    "eggho2": "Eggholder-2"
-}
-
-ACQUISITION_DICT = {
-    "ei": "Expected Improvement",
-    "ts": "Thompson Sampling"
-}
-
-MODELS_DICT = {
-    "der": {
-        "name": "new_der_log",
-        "label": "Deep Evidential",
-    },
-    "deup": {
-        "name": "deup",
-        "label": "Direct Epistemic",
-    },
-    "de": {
-        "name": "de",
-        "label": "Deep Ensembles",
-    },
-    "gpr": {
-        "name": "gpr",
-        "label": "GPR",
-    },
-    "mc": {
-        "name": "mc",
-        "label": "MC Dropout",
-    },
-    "random": {
-        "name": "random",
-        "label": "Random Sampling",
-    },
-}
-
-COLOR_DICT = dict(zip(MODELS_DICT.keys(), matplotlib.colors.TABLEAU_COLORS.keys()))
 
 def simple_regret(record: pd.Series, datadir: str) -> Tuple[np.ndarray, np.ndarray]:
     """Gets the simple regret for a row of the results csv by opening
@@ -146,6 +95,8 @@ def average_regret(
     regret_name: str = "min_regret",
     compute_var: bool = True, 
     max_steps: int = 2020,
+    output_range_dict: dict = OUTPUT_RANGE_DICT,
+    scale_regret: bool = True,
 ) -> pd.DataFrame:
     """Computes regret statistics averaged over some columns (seed by default). 
 
@@ -168,6 +119,9 @@ def average_regret(
 
     def get_regret(record: pd.Series):
         record["steps"], record["regret"] = expand_regret(record, regret_function, max_steps, datadir)
+        if scale_regret:
+            output_range = output_range_dict[record["objective"]]
+            record["regret"] = record["regret"]/output_range
         return record
 
     groupby_cols = [col for col in results.columns if col not in (average_over + ignore_cols)]
@@ -219,6 +173,7 @@ def plot_regret(
     ylim: tuple = None,
     regret_color: str = "blue",
     std_alpha: float = 0.3,
+    log_scale: bool = False,
     scatter: bool = False,
     **plot_kwargs
 ):
@@ -260,6 +215,9 @@ def plot_regret(
     else:
         ax.set_ylim(0,)
 
+    if log_scale:
+        ax.set_yscale("log")
+
     if label != "":
         ax.legend()
 
@@ -284,7 +242,9 @@ def plot_min_regret_model_comparison(
     for model_dir, model_meta in model_dict.items():
         res = pd.read_csv(os.path.join(results_dir, model_dir, f"{model_meta['name']}_results.csv"), skipinitialspace=True)
         average_res = average_regret(res, os.path.join(results_dir, model_dir), **average_regret_kwargs)
-        average_res = average_res[(average_res["objective"] == objective) & (average_res["acquisition"] == acquisition)]
+        average_res = average_res[(average_res["objective"] == objective)]
+        if model_dir != "random":
+            average_res = average_res[(average_res["acquisition"] == acquisition)]
 
         if average_res.empty:
             continue
@@ -307,8 +267,8 @@ if __name__ == "__main__":
     model_name = "random"
     DATADIR = os.path.join(RESULTS_DIR, model_name)
     results = pd.read_csv(os.path.join(DATADIR, f"{model_name}_results.csv"), skipinitialspace=True)
-    grouped_results = average_regret(results, DATADIR)
-    fig = plot_regret(grouped_results.loc[0, "mean_min_regret"], grouped_results.loc[0, "var_min_regret"])
+    grouped_results = average_regret(results, DATADIR, log_regret=True)
+    fig = plot_regret(grouped_results.loc[0, "mean_min_regret"], grouped_results.loc[0, "var_min_regret"], log_scale=True)
     plt.show()
 
     f, a = plt.subplots()
