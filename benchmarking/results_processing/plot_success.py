@@ -14,31 +14,36 @@ matplotlib.rcParams.update({
 matplotlib.style.use("seaborn-bright")
 matplotlib.use("tkagg")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-os.makedirs(os.path.join("figs", "success"), exist_ok=True)
+
+
 
 stats = pd.read_csv("stats_flattened.csv")
 
 #%%
 
-for model in stats["model"].unique():
+def quick_bar_plots(x, y, hue, title, stats=stats):
+    os.makedirs(os.path.join("figs", title), exist_ok=True)
+    for model in stats["model"].unique():
+        f, a = plt.subplots()
+        sns.barplot(x, y, hue=hue, data=stats[stats["model"]==model], ax=a)
+        a.set_title(f"{model}")
+        f.savefig(os.path.join("figs", title, f"{model}_{title}.png"), facecolor="white", transparent=False)
+        f.clear()
+        plt.close(f)
+
     f, a = plt.subplots()
-    sns.barplot("objective", "found_min", hue="acquisition", data=stats[stats["model"]==model], ax=a)
-    a.set_title(f"{model}")
-    f.savefig(os.path.join("figs", "success", f"{model}_success.png"), facecolor="white", transparent=False)
-    f.clear()
-    plt.close(f)
+    sns.barplot(x, y, hue=hue, data=stats, ax=a)
+    a.set_title("Overall")
+    f.savefig(os.path.join("figs", title, f"overall_{title}.png"), facecolor="white", transparent=False)
 
-f, a = plt.subplots()
-sns.barplot("objective", "found_min", hue="acquisition", data=stats, ax=a)
-a.set_title("Overall")
-f.savefig(os.path.join("figs", "success", f"overall_success.png"), facecolor="white", transparent=False)
+    f, ax = plt.subplots(3, 2, tight_layout=True)
+    sns.barplot(x, y, hue=hue, data=stats, ax=ax.ravel()[0])
+    ax.ravel()[0].set_xticklabels(ax.ravel()[0].get_xticklabels(), rotation=45, horizontalalignment='right')
+    ax.ravel()[0].set_title("Overall")
+    for model, a in zip(stats["model"].unique(), ax.ravel()[1:]):
+        sns.barplot(x, y, hue=hue, data=stats[stats["model"]==model], ax=a)
+        a.set_title(f"{model}")
+        a.set_xticklabels(a.get_xticklabels(), rotation=45, horizontalalignment='right')
+    f.savefig(os.path.join("figs", title, f"all_{title}.png"), facecolor="white", transparent=False)
 
-f, ax = plt.subplots(3, 2, tight_layout=True)
-sns.barplot("objective", "found_min", hue="acquisition", data=stats, ax=ax.ravel()[0])
-ax.ravel()[0].set_xticklabels(ax.ravel()[0].get_xticklabels(), rotation=45, horizontalalignment='right')
-ax.ravel()[0].set_title("Overall")
-for model, a in zip(stats["model"].unique(), ax.ravel()[1:]):
-    sns.barplot("objective", "found_min", hue="acquisition", data=stats[stats["model"]==model], ax=a)
-    a.set_title(f"{model}")
-    a.set_xticklabels(a.get_xticklabels(), rotation=45, horizontalalignment='right')
-f.savefig(os.path.join("figs", "success", f"all_success.png"), facecolor="white", transparent=False)
+quick_bar_plots("steps_taken_mean", "objective", "acquisition", "steps")
