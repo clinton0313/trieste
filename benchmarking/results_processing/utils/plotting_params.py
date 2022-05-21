@@ -1,8 +1,10 @@
 
+import matplotlib
 import os
 from trieste.objectives.single_objectives import *
 
-RESULTS_DIR = os.path.realpath(os.path.join("..", "..", "results"))
+CURRENT_DIR = os.path.dirname(os.path.realpath(__file__))
+RESULTS_DIR = os.path.join(CURRENT_DIR, "..", "..", "results")
 
 #Dict of keys: directory name; name: model prefix used in results; label: label for plotting.
 
@@ -15,8 +17,6 @@ OBJECTIVE_DICT = {
     "shekel4": "Shekel-4",
     "rosenbrock4": "Rosenbrock-4",
     "ackley5": "Ackley-5",
-    "michal5": "Michalwicz-5",
-    "michal10": "Michalwicz-10",
     "dropw2": "Dropwave-2",
     "eggho2": "Eggholder-2"
 }
@@ -32,8 +32,6 @@ OBJ_MIN_DICT = {
     "ackley5": ACKLEY_5_MINIMUM, 
     "dropw2": DROPWAVE_MINIMUM, 
     "eggho2": EGGHOLDER_MINIMUM,
-    "michal5": MICHALEWICZ_5_MINIMUM,
-    "michal10": MICHALEWICZ_10_MINIMUM
 }
 
 OUTPUT_RANGE_DICT = {
@@ -47,8 +45,6 @@ OUTPUT_RANGE_DICT = {
     "ackley5": 19.161816848081262, 
     "dropw2": 0.9999982299815201, 
     "eggho2": 2008.6400742211358,
-    "michal5": 1.8, #PLACEHOLDERS HERE
-    "michal10": 1.8, #PLACEHOLDERS HERE
 }
 
 ACQUISITION_DICT = {

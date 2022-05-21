@@ -17,7 +17,7 @@ from collections import defaultdict
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from trieste.acquisition.rule import RandomSampling
-from trieste.models.gpflow import GaussianProcessRegression
+from trieste.models.gpflow import GaussianProcessRegression, build_gpr, build_svgp, SparseVariational, KMeansInducingPointSelector
 from trieste.models.interfaces import TrainableProbabilisticModel
 from trieste.models.keras import (
     DirectEpistemicUncertaintyPredictor,
@@ -177,21 +177,14 @@ def deepensemble_builder(data, ensemble_size, num_hidden_layers, units):
     model = DeepEnsemble(network)
     return model
 
+def gpr_builder(data, search_space):
+    gpr = build_gpr(data, search_space)
+    return GaussianProcessRegression(gpr)
 
-def gpr_builder(data):
-    variance = tf.math.reduce_variance(data.observations)
-    kernel = gpflow.kernels.Matern52(variance=variance, lengthscales=0.2)
-    prior_scale = tf.cast(1.0, dtype=tf.float64)
-    kernel.variance.prior = tfp.distributions.LogNormal(
-        tf.cast(-2.0, dtype=tf.float64), prior_scale
-    )
-    kernel.lengthscales.prior = tfp.distributions.LogNormal(
-        tf.math.log(kernel.lengthscales), prior_scale
-    )
-    gpr = gpflow.models.GPR(data.astuple(), kernel, noise_variance=1e-5)
-    gpflow.set_trainable(gpr.likelihood, False)
-
-    return GaussianProcessRegression(gpr, num_kernel_samples=100)
+def svgp_builder(data, search_space):
+    svgp = build_svgp(data, search_space)
+    point_selector = KMeansInducingPointSelector(search_space)
+    return SparseVariational(svgp, inducing_point_selector=point_selector) 
 
 class DummyModel(TrainableProbabilisticModel):
     def predict(self, query_points):
@@ -459,6 +452,9 @@ def simulate_experiment(
     initial_data = observer(initial_query_points)
 
     #Build model
+    if model_builder == gpr_builder or model_builder == svgp_builder:
+        model_args.update({"search_space": search_space})
+
     built_model = model_builder(initial_data, **model_args)
 
     #Bayesian Optimizer

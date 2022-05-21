@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import pickle
 
-from plotting_params import *
+from .plotting_params import *
 from typing import Tuple, Callable
 
 pd.set_option("display.max_rows", 300)
@@ -173,7 +173,7 @@ def plot_regret(
     ylim: tuple = None,
     regret_color: str = "blue",
     std_alpha: float = 0.3,
-    log_scale: bool = False,
+    log_scale: bool = True,
     scatter: bool = False,
     **plot_kwargs
 ):
@@ -185,13 +185,13 @@ def plot_regret(
     matplotlib.style.use("seaborn-bright")
 
     if ax is None:
-        fig, ax = plt.subplots(**plot_kwargs)
+        fig, ax = plt.subplots()
     
     steps = np.arange(len(mean))
     if scatter:
-        ax.scatter(steps, mean, color=regret_color, label=label)
+        ax.scatter(steps, mean, color=regret_color, label=label, **plot_kwargs)
     else:
-        ax.plot(steps, mean, color=regret_color, label=label)
+        ax.plot(steps, mean, color=regret_color, label=label, **plot_kwargs)
     if var is not None and not scatter:
         for n in range(n_stds):
 
@@ -250,9 +250,14 @@ def plot_min_regret_model_comparison(
             continue
         assert len(average_res) == 1, f"More than one entry for objective {objective} in model {model_dir}"
         
+        try:
+            regret_label = average_regret_kwargs["regret_name"]
+        except KeyError:
+            regret_label = "min_regret"
+
         plot_regret(
-            average_res["mean_min_regret"].values[0], 
-            average_res["var_min_regret"].values[0], 
+            average_res[f"mean_{regret_label}"].values[0], 
+            average_res[f"var_{regret_label}"].values[0], 
             ax=ax,
             title=f"{objective_label_dict[objective]} with {acquisition_label_dict[acquisition]}",
             label=model_meta['label'],
