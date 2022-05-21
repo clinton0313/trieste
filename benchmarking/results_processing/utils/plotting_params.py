@@ -34,6 +34,19 @@ OBJ_MIN_DICT = {
     "eggho2": EGGHOLDER_MINIMUM,
 }
 
+OBJ_FUNC_DICT = {
+    "michal2": michalewicz_2,
+    "scaled_branin": scaled_branin, 
+    "hartmann6": hartmann_6, 
+    "goldstein2": logarithmic_goldstein_price, 
+    "hartmann3": hartmann_3, 
+    "shekel4": shekel_4, 
+    "rosenbrock4": rosenbrock_4, 
+    "ackley5": ackley_5, 
+    "dropw2": dropwave, 
+    "eggho2": eggholder,
+}
+
 OUTPUT_RANGE_DICT = {
     "michal2": 1.801303345635689, 
     "scaled_branin": 5.918577123175378, 
