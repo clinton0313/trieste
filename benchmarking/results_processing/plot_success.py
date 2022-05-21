@@ -30,6 +30,9 @@ def quick_bar_plots(
     title: str,
     stats: pd.DataFrame,
     savepath: str = SAVEPATH,
+    plot_by: str = "model",
+    fig_rows: int = 3,
+    fig_cols: int = 2,
     log_scale: bool = False
 ) -> None:
     """
@@ -43,9 +46,9 @@ def quick_bar_plots(
     :param savepath: Savepath, defaults to SAVEPATH (figs)
     """
     os.makedirs(os.path.join(savepath, title), exist_ok=True)
-    for model in stats["model"].unique():
+    for model in stats[plot_by].unique():
         f, a = plt.subplots()
-        sns.barplot(x, y, hue=hue, data=stats[stats["model"]==model], ax=a)
+        sns.barplot(x, y, hue=hue, data=stats[stats[plot_by]==model], ax=a)
         a.set_title(f"{model}")
         f.savefig(os.path.join(savepath, title, f"{model}_{title}.png"), facecolor="white", transparent=False)
         f.clear()
@@ -58,14 +61,14 @@ def quick_bar_plots(
         a.set_yscale("log")
     f.savefig(os.path.join(savepath, title, f"overall_{title}.png"), facecolor="white", transparent=False)
 
-    f, ax = plt.subplots(3, 2, tight_layout=True)
+    f, ax = plt.subplots(fig_rows, fig_cols, tight_layout=True)
     sns.barplot(x, y, hue=hue, data=stats, ax=ax.ravel()[0])
     ax.ravel()[0].set_xticklabels(ax.ravel()[0].get_xticklabels(), rotation=45, horizontalalignment='right')
     ax.ravel()[0].set_title("Overall")
     if log_scale:
         ax.ravel()[0].set_yscale("log")
-    for model, a in zip(stats["model"].unique(), ax.ravel()[1:]):
-        sns.barplot(x, y, hue=hue, data=stats[stats["model"]==model], ax=a)
+    for model, a in zip(stats[plot_by].unique(), ax.ravel()[1:]):
+        sns.barplot(x, y, hue=hue, data=stats[stats[plot_by]==model], ax=a)
         a.set_title(f"{model}")
         a.set_xticklabels(a.get_xticklabels(), rotation=45, horizontalalignment='right')
         if log_scale:

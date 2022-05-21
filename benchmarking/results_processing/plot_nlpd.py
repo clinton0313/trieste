@@ -38,13 +38,28 @@ if __name__ == "__main__":
         "difference_total"
     ]:
         quick_bar_plots(
-            x = "objective",
+            x = "model",
             y = f"nlpd_{t}",
             hue = "acquisition",
+            plot_by = "objective",
             title = t,
             stats = nlpd_res,
             savepath = os.path.join("figs", "nlpd", "log_scale"),
+            fig_rows = 4,
+            fig_cols = 3,
             log_scale = True
+        )
+        quick_bar_plots(
+            x = "model",
+            y = f"nlpd_{t}",
+            hue = "acquisition",
+            plot_by = "objective",
+            title = t,
+            stats = nlpd_res,
+            savepath = os.path.join("figs", "nlpd", "linear_scale"),
+            fig_rows= 4,
+            fig_cols = 3,
+            log_scale = False
         )
 
 #%%
