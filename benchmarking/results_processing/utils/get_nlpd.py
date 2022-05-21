@@ -70,10 +70,15 @@ def weighted_nlpd(
         output = pickle.load(infile)
 
     predictions = output["predictions"]
-    assert len(list(predictions.keys())) == 2, f"Missing a start or end prediction for {record['pickle_file']}"
-    start, end = predictions.keys()
+    try:
+        steps= list(predictions.keys())
+    except KeyError:
+        if int(predictions.keys()) == 0:
+            steps = list(predictions.keys())
+        else:
+            steps = list(predictions.keys())
     total_nlpd = []
-    for step in [start, end]:
+    for step in steps:
         neg_log_prob = nlpd(
             mean_pred = predictions[step]["mean"],
             var_pred = predictions[step]["var"],
@@ -89,6 +94,9 @@ def weighted_nlpd(
 
         total_nlpd.append(float(np.sum(neg_log_prob * kernel_weights)))
     
+    if len(total_nlpd) == 1:
+        total_nlpd.append(np.nan)
+
     return tuple(total_nlpd)
 
 def average_nlpd(
