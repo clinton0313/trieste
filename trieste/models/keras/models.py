@@ -462,7 +462,6 @@ class MonteCarloDropout(KerasPredictor, TrainableProbabilisticModel):
             self.optimizer.loss = "mse"
 
         self._learning_rate = self.optimizer.optimizer.learning_rate.numpy()
-        # self._learning_rate = learning_rate
 
         model.compile(
             self.optimizer.optimizer,

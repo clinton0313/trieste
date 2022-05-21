@@ -14,7 +14,8 @@ COLUMNS = [
     "true_min", 
     "found_minimum", 
     "steps_taken",  
-    "optimize_runtime"
+    "optimize_runtime",
+    "acquisition_runtime"
 ]
 
 csvs = [
@@ -32,6 +33,7 @@ def produce_stats(files):
         df = (
             df.assign(
                 optimize_runtime_step = df["optimize_runtime"] / (df["steps_taken"] + 1),
+                acquisition_runtime_step = df["acquisition_runtime"] / (df["steps_taken"] + 1),
                 final_regret = np.abs(df["found_minimum"] - df["true_min"]) / df["objective"].map(output_ranges),
                 found_min = lambda dtf: np.where(dtf.final_regret < 1e-03, 1, 0)
             )
@@ -39,7 +41,7 @@ def produce_stats(files):
         dfs.append(df)
 
     df = pd.concat(dfs)
-    stats = df[["model", "objective", "acquisition", "optimize_runtime_step", "steps_taken", "final_regret", "found_min"]]
+    stats = df[["model", "objective", "acquisition", "acquisition_runtime_step", "optimize_runtime_step", "steps_taken", "final_regret", "found_min"]]
 
     stats = (
         stats
@@ -61,7 +63,7 @@ def produce_stats(files):
     return stats, df
 # %%
 stats, df = produce_stats(csvs)
-# stats.to_csv("stats.csv")
+stats.to_csv("stats.csv")
 # %% Plot results
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -174,10 +176,17 @@ def plot_optim_runtime(df):
 
 # %%
 fig = plot_regret(df, "ts")
-# fig.savefig('results/final_regret_stats_ts.png', bbox_inches='tight', dpi=300)
+fig.savefig('results/final_regret_stats_ts.png', bbox_inches='tight', dpi=300)
+
+fig = plot_regret(df, "ei")
+fig.savefig('results/final_regret_stats_ei.png', bbox_inches='tight', dpi=300)
+
 # %%
+fig = plot_steps(df, "ts")
+fig.savefig('results/steps_taken_stats_ts.png', bbox_inches='tight', dpi=300)
+
 fig = plot_steps(df, "ei")
-# fig.savefig('results/steps_taken_stats_ei.png', bbox_inches='tight', dpi=300)
+fig.savefig('results/steps_taken_stats_ei.png', bbox_inches='tight', dpi=300)
 # %%
 stats.reset_index(inplace=True)
 fig = plot_optim_runtime(stats)
