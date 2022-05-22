@@ -94,171 +94,76 @@ gpr,dropw2,ei,20,500,6,-1,-0.785751334,500,127.082,1132.946,gpr_ei_dropw2__seed6
 gpr,dropw2,ei,20,500,7,-1,-0.936245327,500,129.513,1129.459,gpr_ei_dropw2__seed7.pkl
 gpr,dropw2,ei,20,500,8,-1,-0.785751334,500,127.979,1131.756,gpr_ei_dropw2__seed8.pkl
 gpr,dropw2,ei,20,500,9,-1,-0.785751334,500,128.763,1131.313,gpr_ei_dropw2__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,11,0.0,4.062573815588387,500,56.906,674.089,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed11.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ei,20,500,21,-1.047393,-1.0472523129647309,7,2.292,7.321,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ei_scaled_branin__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ei,20,500,21,-3.12913,-3.1275026682276263,15,4.28,14.953,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ei_goldstein2__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ei,20,500,21,-1.8013034,-1.8003480592141412,41,9.562,39.516,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ei_michal2__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,rosenbrock4,ei,40,500,21,-1.01917,-1.0191652631048291,91,28.171,91.714,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ei_rosenbrock4__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,eggho2,ei,20,500,21,-959.6407,-888.9403614446851,500,127.758,574.418,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-512., -512.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([512., 512.])>),gpr_ei_eggho2__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ei,40,500,21,-10.5363,-10.191477260640335,500,46.089,659.899,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ei_shekel4__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,21,0.0,2.8830755239933445,500,80.34,722.001,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ei,20,500,21,-1.0,-0.619499436691512,500,243.037,570.327,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ei_dropw2__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ei,30,500,21,-3.86278,-3.8616610094942865,500,239.042,600.847,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ei_hartmann3__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann6,ei,60,500,21,-3.32237,-3.202535646608456,500,91.104,776.84,Box(<tf.Tensor: shape=(6,), dtype=float64, numpy=array([0., 0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(6,), dtype=float64, numpy=array([1., 1., 1., 1., 1., 1.])>),gpr_ei_hartmann6__seed21.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,eggho2,ei,20,500,4,-959.6407,-958.8700074835951,49,8.514,51.215,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-512., -512.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([512., 512.])>),gpr_ei_eggho2__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,eggho2,ei,20,500,2,-959.6407,-959.3221690464223,303,74.489,365.753,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-512., -512.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([512., 512.])>),gpr_ei_eggho2__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,eggho2,ei,20,500,5,-959.6407,-716.6292758304478,500,177.458,684.54,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-512., -512.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([512., 512.])>),gpr_ei_eggho2__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,eggho2,ei,20,500,0,-959.6407,-888.9413180470472,500,190.096,683.409,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-512., -512.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([512., 512.])>),gpr_ei_eggho2__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,8,0.0,4.038609653698217,500,64.307,719.513,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed8.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,4,0.0,4.155856065742899,500,66.23,717.705,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,6,0.0,3.282368186734601,500,61.559,726.599,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed6.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,3,0.0,3.5546957815985643,500,64.596,723.169,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed3.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,2,0.0,3.8109220896308287,500,67.858,720.0,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,7,0.0,1.7927114969401572,500,69.648,720.884,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed7.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,0,0.0,2.2830187569266904,500,78.531,729.83,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,9,0.0,1.5522103345655722,500,178.162,777.434,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,5,0.0,2.4320890323333266,500,276.83,780.204,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,500,1,0.0,10.259281056736997,500,426.167,768.19,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,4,-1.8013034,-1.7998820948567178,3,1.507,4.807,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,6,-1.047393,-1.0472186968744783,10,4.027,13.013,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed6.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,8,-1.047393,-1.0467114911817619,12,4.456,16.522,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed8.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,0,-1.047393,-1.0466735991471496,12,4.146,16.636,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,4,-1.047393,-1.0473596777657441,15,5.928,19.833,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,7,-1.8013034,-1.8010593154908932,4,1.702,5.979,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed7.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,2,-1.8013034,-1.8004625570413293,16,6.431,21.254,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,3,-1.8013034,-1.7998813744847721,19,7.282,24.197,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed3.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,1,-1.047393,-1.0472855476905822,19,7.04,25.146,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,7,-1.047393,-1.0469284127256422,23,8.356,29.61,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed7.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,0,-1.8013034,-1.7999887725986348,23,8.803,29.658,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,3,-1.047393,-1.0472606568277056,27,10.579,34.203,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed3.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,5,-1.8013034,-1.8004775693503485,30,12.07,37.727,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,6,-3.12913,-3.127458214197896,6,2.463,8.46,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed6.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,0,-3.12913,-3.1290828656232335,16,6.317,20.904,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,8,-3.12913,-3.1271525499284727,4,1.726,5.966,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed8.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,9,-1.8013034,-1.7997049412169663,23,8.705,29.961,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,1,-3.12913,-3.1276921010947834,22,8.273,29.206,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,1,-1.8013034,-1.8001495641409724,40,15.495,51.574,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,9,-1.047393,-1.0472780193170426,39,15.333,52.498,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,6,-1.8013034,-1.7998455622096357,37,15.419,48.186,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed6.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,4,-3.12913,-3.126605293802722,23,8.573,30.031,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,5,-3.12913,-3.127053432612697,21,8.307,28.182,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,9,-3.12913,-3.126492021157743,13,5.723,18.158,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,2,-1.047393,-1.0473021679917203,49,20.077,66.06,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,2,-3.12913,-3.127370003126819,33,13.667,44.296,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,michal2,ts,20,500,8,-1.8013034,-1.8004584900911702,40,15.553,54.339,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([3.14159265, 3.14159265])>),gpr_ts_michal2__seed8.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,7,-3.86278,-3.859466205832951,7,8.403,11.33,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed7.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,7,-3.12913,-3.1284001184000556,27,10.68,37.479,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed7.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,scaled_branin,ts,20,500,5,-1.047393,-1.0472976338244064,72,31.443,102.692,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_scaled_branin__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,goldstein2,ts,20,500,3,-3.12913,-3.128747086723349,61,27.645,89.238,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([0., 0.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([1., 1.])>),gpr_ts_goldstein2__seed3.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,2,-3.86278,-3.862388603543264,37,44.069,59.117,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,1,-3.86278,-3.862385185685971,45,56.419,73.784,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,4,-3.86278,-3.8596638619149557,51,61.409,83.082,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,3,-3.86278,-3.861886608019795,83,109.512,147.614,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed3.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,8,-3.86278,-3.861958846124366,80,105.124,145.299,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed8.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,5,-3.86278,-3.8626385972674764,102,137.248,190.378,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,0,-3.86278,-3.8609818980291775,112,153.001,207.777,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,6,-3.86278,-3.862314053907066,150,221.356,324.033,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed6.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,hartmann3,ts,30,500,9,-3.86278,-3.862361278511181,151,225.508,324.664,Box(<tf.Tensor: shape=(3,), dtype=float64, numpy=array([0., 0., 0.])>, <tf.Tensor: shape=(3,), dtype=float64, numpy=array([1., 1., 1.])>),gpr_ts_hartmann3__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,1,-1.0,-0.9362451516943342,500,730.673,5385.209,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,2,-1.0,-0.9992958029186361,500,736.175,5374.017,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,0,-1.0,-0.9362452023125394,500,731.882,5605.419,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,5,-1.0,-0.9982674874976841,500,743.933,5343.745,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,3,-1.0,-0.9362451927453922,500,722.485,5641.809,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed3.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,4,-1.0,-0.7857513295863962,500,735.52,5647.855,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,5,-10.5363,-8.077553068861038,500,2481.654,7416.258,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed5.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,6,-10.5363,-7.554064686278184,500,2425.987,7459.741,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed6.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,2,-10.5363,-7.884781527851051,500,2470.772,7482.308,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed2.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,4,-10.5363,-7.28525842978718,500,2449.535,7507.438,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed4.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,8,-10.5363,-6.979422319492229,500,2488.357,7386.871,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed8.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,0,-10.5363,-8.674681204955812,500,2432.809,7553.73,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed0.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,1,-10.5363,-8.199310078637525,500,2447.911,7564.282,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,3,-10.5363,-8.460906381517995,500,2463.927,7573.718,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed3.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,7,-10.5363,-7.771169644126442,500,2478.298,7490.487,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed7.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,shekel4,ts,40,500,9,-10.5363,-8.84295272061994,500,2493.557,7496.053,Box(<tf.Tensor: shape=(4,), dtype=float64, numpy=array([0., 0., 0., 0.])>, <tf.Tensor: shape=(4,), dtype=float64, numpy=array([1., 1., 1., 1.])>),gpr_ts_shekel4__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,eggho2,ts,20,500,1,-959.6407,-894.5100169006529,500,701.834,4570.681,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-512., -512.])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([512., 512.])>),gpr_ts_eggho2__seed1.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,9,-1.0,-0.9362453276774648,500,726.848,5131.612,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed9.pkl
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,dropw2,ts,20,500,8,-1.0,-0.9992996789631354,500,709.823,5226.69,Box(<tf.Tensor: shape=(2,), dtype=float64, numpy=array([-5.12, -5.12])>, <tf.Tensor: shape=(2,), dtype=float64, numpy=array([5.12, 5.12])>),gpr_ts_dropw2__seed8.pkl
+gpr,eggho2,ei,20,500,4,-959.6407,-958.8700075,49,8.514,51.215,gpr_ei_eggho2__seed4.pkl
+gpr,eggho2,ei,20,500,2,-959.6407,-959.322169,303,74.489,365.753,gpr_ei_eggho2__seed2.pkl
+gpr,eggho2,ei,20,500,5,-959.6407,-716.6292758,500,177.458,684.54,gpr_ei_eggho2__seed5.pkl
+gpr,eggho2,ei,20,500,0,-959.6407,-888.941318,500,190.096,683.409,gpr_ei_eggho2__seed0.pkl
+gpr,ackley5,ei,50,500,8,0,4.038609654,500,64.307,719.513,gpr_ei_ackley5__seed8.pkl
+gpr,ackley5,ei,50,500,4,0,4.155856066,500,66.23,717.705,gpr_ei_ackley5__seed4.pkl
+gpr,ackley5,ei,50,500,6,0,3.282368187,500,61.559,726.599,gpr_ei_ackley5__seed6.pkl
+gpr,ackley5,ei,50,500,3,0,3.554695782,500,64.596,723.169,gpr_ei_ackley5__seed3.pkl
+gpr,ackley5,ei,50,500,2,0,3.81092209,500,67.858,720,gpr_ei_ackley5__seed2.pkl
+gpr,ackley5,ei,50,500,7,0,1.792711497,500,69.648,720.884,gpr_ei_ackley5__seed7.pkl
+gpr,ackley5,ei,50,500,0,0,2.283018757,500,78.531,729.83,gpr_ei_ackley5__seed0.pkl
+gpr,ackley5,ei,50,500,9,0,1.552210335,500,178.162,777.434,gpr_ei_ackley5__seed9.pkl
+gpr,ackley5,ei,50,500,5,0,2.432089032,500,276.83,780.204,gpr_ei_ackley5__seed5.pkl
+gpr,ackley5,ei,50,500,1,0,10.25928106,500,426.167,768.19,gpr_ei_ackley5__seed1.pkl
+gpr,michal2,ts,20,500,4,-1.8013034,-1.799882095,3,1.507,4.807,gpr_ts_michal2__seed4.pkl
+gpr,scaled_branin,ts,20,500,6,-1.047393,-1.047218697,10,4.027,13.013,gpr_ts_scaled_branin__seed6.pkl
+gpr,scaled_branin,ts,20,500,8,-1.047393,-1.046711491,12,4.456,16.522,gpr_ts_scaled_branin__seed8.pkl
+gpr,scaled_branin,ts,20,500,0,-1.047393,-1.046673599,12,4.146,16.636,gpr_ts_scaled_branin__seed0.pkl
+gpr,scaled_branin,ts,20,500,4,-1.047393,-1.047359678,15,5.928,19.833,gpr_ts_scaled_branin__seed4.pkl
+gpr,michal2,ts,20,500,7,-1.8013034,-1.801059315,4,1.702,5.979,gpr_ts_michal2__seed7.pkl
+gpr,michal2,ts,20,500,2,-1.8013034,-1.800462557,16,6.431,21.254,gpr_ts_michal2__seed2.pkl
+gpr,michal2,ts,20,500,3,-1.8013034,-1.799881374,19,7.282,24.197,gpr_ts_michal2__seed3.pkl
+gpr,scaled_branin,ts,20,500,1,-1.047393,-1.047285548,19,7.04,25.146,gpr_ts_scaled_branin__seed1.pkl
+gpr,scaled_branin,ts,20,500,7,-1.047393,-1.046928413,23,8.356,29.61,gpr_ts_scaled_branin__seed7.pkl
+gpr,michal2,ts,20,500,0,-1.8013034,-1.799988773,23,8.803,29.658,gpr_ts_michal2__seed0.pkl
+gpr,scaled_branin,ts,20,500,3,-1.047393,-1.047260657,27,10.579,34.203,gpr_ts_scaled_branin__seed3.pkl
+gpr,michal2,ts,20,500,5,-1.8013034,-1.800477569,30,12.07,37.727,gpr_ts_michal2__seed5.pkl
+gpr,goldstein2,ts,20,500,6,-3.12913,-3.127458214,6,2.463,8.46,gpr_ts_goldstein2__seed6.pkl
+gpr,goldstein2,ts,20,500,0,-3.12913,-3.129082866,16,6.317,20.904,gpr_ts_goldstein2__seed0.pkl
+gpr,goldstein2,ts,20,500,8,-3.12913,-3.12715255,4,1.726,5.966,gpr_ts_goldstein2__seed8.pkl
+gpr,michal2,ts,20,500,9,-1.8013034,-1.799704941,23,8.705,29.961,gpr_ts_michal2__seed9.pkl
+gpr,goldstein2,ts,20,500,1,-3.12913,-3.127692101,22,8.273,29.206,gpr_ts_goldstein2__seed1.pkl
+gpr,michal2,ts,20,500,1,-1.8013034,-1.800149564,40,15.495,51.574,gpr_ts_michal2__seed1.pkl
+gpr,scaled_branin,ts,20,500,9,-1.047393,-1.047278019,39,15.333,52.498,gpr_ts_scaled_branin__seed9.pkl
+gpr,michal2,ts,20,500,6,-1.8013034,-1.799845562,37,15.419,48.186,gpr_ts_michal2__seed6.pkl
+gpr,goldstein2,ts,20,500,4,-3.12913,-3.126605294,23,8.573,30.031,gpr_ts_goldstein2__seed4.pkl
+gpr,goldstein2,ts,20,500,5,-3.12913,-3.127053433,21,8.307,28.182,gpr_ts_goldstein2__seed5.pkl
+gpr,goldstein2,ts,20,500,9,-3.12913,-3.126492021,13,5.723,18.158,gpr_ts_goldstein2__seed9.pkl
+gpr,scaled_branin,ts,20,500,2,-1.047393,-1.047302168,49,20.077,66.06,gpr_ts_scaled_branin__seed2.pkl
+gpr,goldstein2,ts,20,500,2,-3.12913,-3.127370003,33,13.667,44.296,gpr_ts_goldstein2__seed2.pkl
+gpr,michal2,ts,20,500,8,-1.8013034,-1.80045849,40,15.553,54.339,gpr_ts_michal2__seed8.pkl
+gpr,hartmann3,ts,30,500,7,-3.86278,-3.859466206,7,8.403,11.33,gpr_ts_hartmann3__seed7.pkl
+gpr,goldstein2,ts,20,500,7,-3.12913,-3.128400118,27,10.68,37.479,gpr_ts_goldstein2__seed7.pkl
+gpr,scaled_branin,ts,20,500,5,-1.047393,-1.047297634,72,31.443,102.692,gpr_ts_scaled_branin__seed5.pkl
+gpr,goldstein2,ts,20,500,3,-3.12913,-3.128747087,61,27.645,89.238,gpr_ts_goldstein2__seed3.pkl
+gpr,hartmann3,ts,30,500,2,-3.86278,-3.862388604,37,44.069,59.117,gpr_ts_hartmann3__seed2.pkl
+gpr,hartmann3,ts,30,500,1,-3.86278,-3.862385186,45,56.419,73.784,gpr_ts_hartmann3__seed1.pkl
+gpr,hartmann3,ts,30,500,4,-3.86278,-3.859663862,51,61.409,83.082,gpr_ts_hartmann3__seed4.pkl
+gpr,hartmann3,ts,30,500,3,-3.86278,-3.861886608,83,109.512,147.614,gpr_ts_hartmann3__seed3.pkl
+gpr,hartmann3,ts,30,500,8,-3.86278,-3.861958846,80,105.124,145.299,gpr_ts_hartmann3__seed8.pkl
+gpr,hartmann3,ts,30,500,5,-3.86278,-3.862638597,102,137.248,190.378,gpr_ts_hartmann3__seed5.pkl
+gpr,hartmann3,ts,30,500,0,-3.86278,-3.860981898,112,153.001,207.777,gpr_ts_hartmann3__seed0.pkl
+gpr,hartmann3,ts,30,500,6,-3.86278,-3.862314054,150,221.356,324.033,gpr_ts_hartmann3__seed6.pkl
+gpr,hartmann3,ts,30,500,9,-3.86278,-3.862361279,151,225.508,324.664,gpr_ts_hartmann3__seed9.pkl
+gpr,dropw2,ts,20,500,1,-1,-0.936245152,500,730.673,5385.209,gpr_ts_dropw2__seed1.pkl
+gpr,dropw2,ts,20,500,2,-1,-0.999295803,500,736.175,5374.017,gpr_ts_dropw2__seed2.pkl
+gpr,dropw2,ts,20,500,0,-1,-0.936245202,500,731.882,5605.419,gpr_ts_dropw2__seed0.pkl
+gpr,dropw2,ts,20,500,5,-1,-0.998267487,500,743.933,5343.745,gpr_ts_dropw2__seed5.pkl
+gpr,dropw2,ts,20,500,3,-1,-0.936245193,500,722.485,5641.809,gpr_ts_dropw2__seed3.pkl
+gpr,dropw2,ts,20,500,4,-1,-0.78575133,500,735.52,5647.855,gpr_ts_dropw2__seed4.pkl
+gpr,shekel4,ts,40,500,5,-10.5363,-8.077553069,500,2481.654,7416.258,gpr_ts_shekel4__seed5.pkl
+gpr,shekel4,ts,40,500,6,-10.5363,-7.554064686,500,2425.987,7459.741,gpr_ts_shekel4__seed6.pkl
+gpr,shekel4,ts,40,500,2,-10.5363,-7.884781528,500,2470.772,7482.308,gpr_ts_shekel4__seed2.pkl
+gpr,shekel4,ts,40,500,4,-10.5363,-7.28525843,500,2449.535,7507.438,gpr_ts_shekel4__seed4.pkl
+gpr,shekel4,ts,40,500,8,-10.5363,-6.979422319,500,2488.357,7386.871,gpr_ts_shekel4__seed8.pkl
+gpr,shekel4,ts,40,500,0,-10.5363,-8.674681205,500,2432.809,7553.73,gpr_ts_shekel4__seed0.pkl
+gpr,shekel4,ts,40,500,1,-10.5363,-8.199310079,500,2447.911,7564.282,gpr_ts_shekel4__seed1.pkl
+gpr,shekel4,ts,40,500,3,-10.5363,-8.460906382,500,2463.927,7573.718,gpr_ts_shekel4__seed3.pkl
+gpr,shekel4,ts,40,500,7,-10.5363,-7.771169644,500,2478.298,7490.487,gpr_ts_shekel4__seed7.pkl
+gpr,shekel4,ts,40,500,9,-10.5363,-8.842952721,500,2493.557,7496.053,gpr_ts_shekel4__seed9.pkl
+gpr,eggho2,ts,20,500,1,-959.6407,-894.5100169,500,701.834,4570.681,gpr_ts_eggho2__seed1.pkl
+gpr,dropw2,ts,20,500,9,-1,-0.936245328,500,726.848,5131.612,gpr_ts_dropw2__seed9.pkl
+gpr,dropw2,ts,20,500,8,-1,-0.999299679,500,709.823,5226.69,gpr_ts_dropw2__seed8.pkl

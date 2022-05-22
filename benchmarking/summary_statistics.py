@@ -19,7 +19,10 @@ COLUMNS = [
 ]
 
 csvs = [
-    file for path, _, _ in os.walk(PATH) for file in glob(os.path.join(path, "*.csv"))
+    file for path, _, _ in os.walk(PATH) for file in glob(os.path.join(path, "*.csv")) 
+    if "noisy" not in file 
+    if "nlpd" not in file
+    if "random" not in file
 ]
 with open('output_ranges.json') as f:
     output_ranges = json.load(f)
@@ -29,7 +32,7 @@ def produce_stats(files):
     dfs = []
     for file in files:
         df = pd.read_csv(file, usecols=COLUMNS)
-
+        print(file)
         df = (
             df.assign(
                 optimize_runtime_step = df["optimize_runtime"] / (df["steps_taken"] + 1),
