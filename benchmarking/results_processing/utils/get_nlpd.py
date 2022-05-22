@@ -1,7 +1,5 @@
 #%%
 import itertools
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
@@ -10,12 +8,6 @@ import pickle
 from plotting_params import *
 from typing import Callable, Tuple
 
-matplotlib.rcParams.update({
-    "figure.figsize": (12, 12),
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-})
-matplotlib.style.use("seaborn-bright")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 def nlpd(
@@ -26,6 +18,11 @@ def nlpd(
 ) -> np.ndarray:
     '''Computes Gaussian NLPD between predictions and query points'''
     true_points = objective(query_points)
+
+    # epsilon = np.empty(var_pred.shape)
+    # epsilon[:] = 1e-15
+    # var_pred = np.max(np.stack((epsilon, var_pred), axis=1), axis=1)
+
     return (
         (mean_pred - true_points)**2 / (2 * var_pred)
         + 1/2 * np.log(2 * np.math.pi * var_pred)
@@ -62,7 +59,7 @@ def weighted_nlpd(
     datadir: str, 
     obj_func_dict: dict = OBJ_FUNC_DICT,
     normalize: bool = True,
-) -> Tuple[float, float]:
+) -> Tuple[float, float, float, float]:
     '''For a record in a results dataframe, computes the starting weighted 
     nlpd and the end nlpd and returns as a tuple. '''
     
@@ -74,8 +71,6 @@ def weighted_nlpd(
         steps= list(predictions.keys())
     except KeyError:
         if int(predictions.keys()) == 0:
-            steps = list(predictions.keys())
-        else:
             steps = list(predictions.keys())
     total_nlpd = []
     for step in steps:
@@ -92,9 +87,24 @@ def weighted_nlpd(
             normalize = normalize
         )
 
+        minimizer_nlpd = nlpd(
+            mean_pred = predictions[step]["minimizer_mean"],
+            var_pred = predictions[step]["minimizer_var"],
+            query_points = predictions[step]["minimizer"],
+            objective = obj_func_dict[record["objective"]]
+        )
+
+        minimizer_kernel_weights = gaussian_kernel_weights(
+            minimizers = predictions[step]["minimizer"],
+            query_points = predictions[step]["coords"] + 1e-15,
+            normalize = normalize
+        )
+        
+
         total_nlpd.append(float(np.sum(neg_log_prob * kernel_weights)))
+        total_nlpd.append(float(np.sum(minimizer_nlpd * minimizer_kernel_weights)))
     
-    if len(total_nlpd) == 1:
+    while len(total_nlpd) < 4:
         total_nlpd.append(np.nan)
 
     return tuple(total_nlpd)
@@ -126,12 +136,20 @@ def average_nlpd(
     :return: Grouped dataframe with regret statistics added. 
     """
     def get_nlpd(record: pd.Series) -> pd.Series:
-        record["nlpd_start"], record["nlpd_end"] = weighted_nlpd(record, datadir, **nlpd_kwargs)
+        record["nlpd_start"], record["nlpd_end"] , record["nlpd_minimizer_start"], record["nlpd_minimizer_end"] = weighted_nlpd(record, datadir, **nlpd_kwargs)
         record["nlpd_difference"] = record["nlpd_end"] - record["nlpd_start"]
+        record["nlpd_minimizer_difference"] = record["nlpd_minimizer_end"] - record["nlpd_minimizer_start"]
         return record
     
     groupby_cols = [col for col in results.columns if col not in (average_over + ignore_cols)]
-    nlpd_cols = ["nlpd_start", "nlpd_end", "nlpd_difference"]
+    nlpd_cols = [
+        "nlpd_start", 
+        "nlpd_end",
+        "nlpd_minimizer_start",
+        "nlpd_minimizer_end",
+        "nlpd_difference",
+        "nlpd_minimizer_difference"
+    ]
     all_nlpd_cols = [
         f"{colname}_{stat}"
         for colname, stat  in itertools.product(nlpd_cols, ["mean", "var"])
@@ -164,11 +182,32 @@ def average_nlpd(
         grouped_results = grouped_results.append(agg_results, ignore_index=True)
     
     return grouped_results
+
+def get_all_nlpd(
+    results_dir: str,
+    models_dict: dict,
+    **nlpd_kwargs
+)-> pd.DataFrame:
+
+    all_results = []
+    for model_dir, model_meta in models_dict.items():
+        if model_dir == "random":
+            continue
+        data_dir = os.path.join(results_dir, model_dir)
+        results = pd.read_csv(os.path.join(data_dir, f"{model_meta['name']}_results.csv"), skipinitialspace=True)
+        grouped_results = average_nlpd(results, data_dir, **nlpd_kwargs)
+        all_results.append(grouped_results)
+    
+    return pd.concat(all_results, ignore_index=True)
 # %%
 
 if __name__ == "__main__":
-    model_name = "gpr"
-    DATADIR = os.path.join(RESULTS_DIR, model_name)
-    results = pd.read_csv(os.path.join(DATADIR, f"{model_name}_results.csv"), skipinitialspace=True)
-    grouped_results = average_nlpd(results, DATADIR)
-    print(grouped_results)
+    # model_name = "gpr"
+    # DATADIR = os.path.join(RESULTS_DIR, model_name)
+    # results = pd.read_csv(os.path.join(DATADIR, f"{model_name}_results.csv"), skipinitialspace=True)
+    # grouped_results = average_nlpd(results, DATADIR)
+    # print(grouped_results)
+    all_results = get_all_nlpd(RESULTS_DIR, MODELS_DICT)
+    all_results.to_csv(os.path.join(RESULTS_DIR, "nlpd_results.csv"))
+    print(all_results)
+# %%
