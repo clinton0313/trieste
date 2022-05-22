@@ -280,7 +280,3 @@ new_der_log,ackley5,ts,50,500,6,0.0,4.0628681901263235,500,32.384,21720.246,4,10
 new_der_log,ackley5,ts,50,500,7,0.0,5.707350724053136,500,31.979,21840.192,4,100,0.001,0.01,0.001,new_der_log_ts_ackley5_L4_n100_rw1e3_m1e2_lr1e3_seed7.pkl
 new_der_log,ackley5,ts,50,500,8,0.0,4.8361969163633916,500,29.433,21175.202,4,100,0.001,0.01,0.001,new_der_log_ts_ackley5_L4_n100_rw1e3_m1e2_lr1e3_seed8.pkl
 new_der_log,ackley5,ts,50,500,9,0.0,5.4720521168652105,500,29.401,21636.384,4,100,0.001,0.01,0.001,new_der_log_ts_ackley5_L4_n100_rw1e3_m1e2_lr1e3_seed9.pkl
-new_der_log,shekel4,ts,40,5,11,-10.5363,-4.012468678746365,5,0.563,145.577,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed11.pkl
-new_der_log,shekel4,ts,40,50,21,-10.5363,-4.819651131501112,50,3.586,6385.425,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed21.pkl
-new_der_log,shekel4,ts,40,50,7,-10.5363,-8.272144349594026,50,3.896,6552.829,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed7.pkl
-new_der_log,shekel4,ts,40,50,3,-10.5363,-3.5505991637682555,50,3.859,7199.983,4,100,0.001,0.01,0.001,new_der_log_ts_shekel4_L4_n100_rw1e3_m1e2_lr1e3_seed3.pkl

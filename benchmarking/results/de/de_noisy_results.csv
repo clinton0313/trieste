@@ -1,0 +1,2 @@
+model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,ensemble_size,num_hidden_layers,units,pickle_file
+de,noisy_hartmann6,ts,60,100,9,-3.32237,-3.704140270533932,100,24.665,12773.126,7,5,50,de_ts_noisy_hartmann6_L5_n50_es7_noisy__seed9.pkl

@@ -842,6 +842,7 @@ class DirectEpistemicUncertaintyPredictor(
     """
     A :class:`~trieste.model.TrainableProbabilisticModel` wrapper for a direct epistemic uncertainty
     prediction (DEUP) model built using Keras.
+
     The method employs an auxiliary deep neural network to predict the uncertainty that stems
     from the generalization error of the main predictor, which in principle is reducible with more
     data and higher effective capacity. Unlike other available Keras models, which solely exploit 
@@ -854,6 +855,7 @@ class DirectEpistemicUncertaintyPredictor(
     to predict the squared loss of the main predictor, which in the regression setup can be shown to 
     approximate the total uncertainty stemming both from the model variance and the potential misspecification 
     caused by, for example, early stopping.
+
     A particular advantage of training the auxiliary model is that the error predictor can be explicitly
     trained to account for examples that may come from a distribution different from the distribution of
     most of the training examples. These non-stationary settings, likely in the context of Bayesian 
@@ -863,11 +865,13 @@ class DirectEpistemicUncertaintyPredictor(
     of the function parameters and the model variance estimates. The former is computed using kernel density
     estimation and assuming a Gaussian kernel, while the latter is computed from the variance estimates of the 
     main deep ensemble model.  
+
     In practice, we provide a warm start to the error predictor by creating multiple versions of the main
     predictor trained on different subsets of the training data. This approach, inspired by standard cross
     validation, builds a larger set of targets for the error predictor and avoids discarding valuable observations
     in the early training of the error predictor. The warm start is enabled by default, and can be disabled by
     setting the ``_init_buffer_iters`` argument to 0.
+
     Note that currently we do not support setting up the model with dictionary configs and saving
     the model during Bayesian optimization loop (``track_state`` argument in
     :meth:`~trieste.bayesian_optimizer.BayesianOptimizer.optimize` method should be set to `False`).
@@ -950,8 +954,10 @@ class DirectEpistemicUncertaintyPredictor(
         Return ``num_samples`` samples at ``query_points``. We use the mixture approximation in
         :meth:`predict` for ``query_points`` and sample ``num_samples`` times from a Gaussian
         distribution given by the predicted mean and variance.
+
         :param query_points: The points at which to sample, with shape [..., N, D].
         :param num_samples: The number of samples at each point.
+
         :return: The samples. For a predictive distribution with event shape E, this has shape
             [..., S, N] + E, where S is the number of samples.
         """
@@ -974,18 +980,21 @@ class DirectEpistemicUncertaintyPredictor(
         """
         Optimize the underlying Direct Epistemic Uncertainty Prediction model with the 
         specified ``dataset``.
+
         Optimization is performed by using the Keras `fit` method, rather than applying the
         optimizer and using the batches supplied with the optimizer wrapper. User can pass
         arguments to the `fit` method through ``minimize_args`` argument in the optimizer wrapper.
         These default to using 100 epochs, batch size 32, and verbose 0. See
         https://keras.io/api/models/model_training_apis/#fit-method for a list of possible
         arguments.
+
         Note that optimization does not return the result, instead optimization results are
         stored in a history attribute of the model object. The algorithm iterates
         over two copies of the dataset's observations to account for the
         stationarizing features and the two targets: the target outcome for the main
         predictor and the squared loss for the auxiliary predictor. The procedure follows
         the main proposed algorithm in <cite data-cite="jain2022"/>.
+
         :param dataset: The data with which to optimize the model.
         """     
         self._data_dtype = dataset.query_points.dtype
@@ -1029,16 +1038,21 @@ class DirectEpistemicUncertaintyPredictor(
         r"""
         Returns mean and variance at ``query_points`` for the Direct Epistemic
         Uncertainty Prediction model.
+
         Following <cite data-cite="jain2022"/>, we consider the case for a model with
         a Gaussian ground truth, i.e.
+
                 .. math:: p(y \mid x)=\mathcal{N}\left(y ; f^{*}(x), \sigma^{2}(x)\right).
         In this scenario, it can be shown that the epistemic uncertainty can be estimated
         as the squared difference between main-model predictions and the Bayes optimal
         prediction at a given point, that is:
+
                 .. math:: \mathcal{E}(\hat{f}, x)=\left(\hat{f}(x)-f^{*}(x)\right)^{2}
+        
         As the Bayes optimal is unattainable, we instead approximate the epistemic uncertainty
         by computing the total uncertainty of the model, which is captured by the expected
         squared loss of the main-model predictions. This can be deconstructed as follows
+                
                 .. math:: \mathcal{U}(\hat{f}, x)=E_{P(. \mid x)}\left[(\hat{f}(x)-y)^{2}\right]=\left(\hat{f}(x)-f^{*}(x)\right)^{2}+\sigma^{2}(x)
         
         The predict method returns the point estimates of the main predictor, and uses point estimates
@@ -1049,6 +1063,7 @@ class DirectEpistemicUncertaintyPredictor(
         model and the Gaussian density of our queried points. These are used to enhance the dataset of
         features the auxiliary model predicts on, so that a D-dimensional queried point will be passed
         as a [D+2,1] observation to the error predictor.
+
         :param query_points: The points at which to make predictions.
         :return: The predicted mean and variance of the observations at the specified
             ``query_points``.
@@ -1107,6 +1122,7 @@ class DirectEpistemicUncertaintyPredictor(
         of the initial data points, and predicts both in sample and out of sample outcomes.
         The squared loss of these predictions are used to construct the target dataset for
         the error predictor.
+        
         :param dataset: The data with which to optimize the model.
         :param iterations: The number of full cross-validation passes. 
         :return: A dataset of queried points and stabilizing variables as features, and squared losses
