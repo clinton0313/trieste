@@ -1,4 +1,4 @@
-objective,model,acquisition,optimize_runtime_step_mean,optimize_runtime_step_std,steps_taken_mean,steps_taken_std,final_regret,found_min,final_regret,found_min
+objective,model,acquisition,acqsuition_runtime_step_mean,acquisition_runtime_step_std,optimize_runtime_step_mean,optimize_runtime_step_std,steps_taken_mean,steps_taken_std,final_regret,found_min
 ackley5,de,ei,2.57,0.97,25.11,1.47,500,0,0.14,0
 ackley5,de,ts,0.55,0.05,64.47,8,500,0,0.28,0
 ackley5,deup,ei,12.01,1.57,69.73,0.85,500,0,0.19,0
