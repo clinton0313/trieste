@@ -44,7 +44,10 @@ def produce_stats(files):
         dfs.append(df)
 
     df = pd.concat(dfs)
-    stats = df[["model", "objective", "acquisition", "acquisition_runtime_step", "optimize_runtime_step", "steps_taken", "final_regret", "found_min"]]
+    stats = (
+        df[["model", "objective", "acquisition", "acquisition_runtime_step", "optimize_runtime_step", "steps_taken", "final_regret", "found_min"]]
+        .loc[lambda df: ~df.objective.str.contains("noisy")]
+    )
 
     stats = (
         stats
