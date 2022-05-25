@@ -77,4 +77,19 @@ def quick_bar_plots(
 
 
 if __name__ == "__main__":
-    quick_bar_plots("steps_taken_mean", "objective", "acquisition", "steps", stats)
+    quick_bar_plots(
+        "steps_taken_mean", 
+        "objective", 
+        "acquisition", 
+        "steps", 
+        stats, 
+        savepath = os.path.join("figs", "steps")
+    )
+    quick_bar_plots(
+        "found_min", 
+        "objective", 
+        "acquisition", 
+        "steps", 
+        stats, 
+        savepath = os.path.join("figs", "success")
+    )

@@ -453,9 +453,10 @@ def simulate_experiment(
 
     #Build model
     if model_builder == gpr_builder or model_builder == svgp_builder:
-        model_args.update({"search_space": search_space})
+        built_model = model_builder(initial_data, search_space=search_space, **model_args)
+    else:
+        built_model = model_builder(initial_data, **model_args)
 
-    built_model = model_builder(initial_data, **model_args)
 
     #Bayesian Optimizer
     ask_tell = AskTellOptimizer(search_space, initial_data, built_model, acquisition_rule=acquisition_rule)

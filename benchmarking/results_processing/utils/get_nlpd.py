@@ -156,7 +156,7 @@ def average_nlpd(
     ]
 
     grouped_results = pd.DataFrame(columns=groupby_cols + all_nlpd_cols)
-
+    results = results.drop_duplicates()
     for groupby_values in itertools.product(
         *map(lambda x: results[x].unique(), groupby_cols)
     ):

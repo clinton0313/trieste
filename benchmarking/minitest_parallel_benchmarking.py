@@ -12,7 +12,7 @@ tf.get_logger().setLevel("ERROR")
 tf.keras.backend.set_floatx("float64")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-OUTPUT_PATH = "/homes/users/dampudia/scratch/minitest_parallel_benchmarking"
+OUTPUT_PATH = "test"
 
 common_args = {
     "objective": [
@@ -109,10 +109,10 @@ verbose = 50 #From 1 to 50
 #Each dictionary of args is independently crosses all of its arguments
 all_args = [
 #     der_simul_args,
-#     de_simul_args,
-#     mc_simul_args,
-    gpr_simul_args,
-#     deup_simul_args
+    # de_simul_args,
+    mc_simul_args,
+    # gpr_simul_args,
+    deup_simul_args
 ]
 #%%
 if __name__ == "__main__":

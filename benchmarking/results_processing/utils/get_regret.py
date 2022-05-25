@@ -131,7 +131,7 @@ def average_regret(
 
 
     grouped_results = pd.DataFrame(columns=groupby_cols + regret_cols)
-
+    results = results.drop_duplicates()
     for groupby_values in itertools.product(
         *map(lambda x: results[x].unique(), groupby_cols)
     ):

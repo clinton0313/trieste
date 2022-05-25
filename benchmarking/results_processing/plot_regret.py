@@ -24,34 +24,34 @@ matplotlib.style.use("seaborn-bright")
 matplotlib.use("tkagg")
 
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
-SAVEPATH = os.path.join("figs", "regret_plots", "linear_scale", "simple_regret")
-PREFIX = "simple_regret"
+SAVEPATH = os.path.join("figs", "regret_plots", "log_scale", "min_regret")
+PREFIX = "min_regret"
 os.makedirs(SAVEPATH, exist_ok=True)
 for obj, acq in tqdm(itertools.product(OBJECTIVE_DICT.keys(), ACQUISITION_DICT.keys())):
     f, a = plt.subplots()
     #Plotting simple regret (log_scale True by default)
-    plot_min_regret_model_comparison(
-        obj, 
-        acq, 
-        ax=a, 
-        xlim=(0, 500), 
-        average_regret_kwargs = {
-            "regret_function": simple_regret,
-            "regret_name": "simple_regret",
-        },
-        log_scale = False,
-        n_stds = 0,
-        alpha = 0.5,
-    )
-    # # Plotting min regret with log scale True by default
     # plot_min_regret_model_comparison(
     #     obj, 
     #     acq, 
     #     ax=a, 
     #     xlim=(0, 500), 
-    #     log_scale = False,
-    #     n_stds = 0
+    #     average_regret_kwargs = {
+    #         "regret_function": simple_regret,
+    #         "regret_name": "simple_regret",
+    #     },
+    #     log_scale = True,
+    #     n_stds = 0,
+    #     alpha = 0.5,
     # )
+    # Plotting min regret with log scale True by default
+    plot_min_regret_model_comparison(
+        obj, 
+        acq, 
+        ax=a, 
+        xlim=(0, 500), 
+        log_scale = True,
+        n_stds = 1
+    )
     f.savefig(
         os.path.join(SAVEPATH, f"{PREFIX}_{obj}_{acq}_model_comparison.png"),
         facecolor="white",
