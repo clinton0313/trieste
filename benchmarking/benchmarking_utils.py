@@ -181,8 +181,8 @@ def gpr_builder(data, search_space):
     gpr = build_gpr(data, search_space)
     return GaussianProcessRegression(gpr)
 
-def svgp_builder(data, search_space):
-    svgp = build_svgp(data, search_space)
+def svgp_builder(data, search_space, **kwargs):
+    svgp = build_svgp(data, search_space, **kwargs)
     point_selector = KMeansInducingPointSelector(search_space)
     return SparseVariational(svgp, inducing_point_selector=point_selector) 
 

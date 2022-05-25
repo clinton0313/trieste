@@ -102,6 +102,11 @@ deup_simul_args = {
     "lr": 0.001,
 }
 
+svgp_simul_args = {
+    "model": ("svgp", svgp_builder),
+    "num_inducing_points": 500,
+    "output_path": os.path.join(OUTPUT_PATH, "svgp"),
+}
 
 n_jobs = joblib.cpu_count()
 verbose = 50 #From 1 to 50 
@@ -112,7 +117,8 @@ all_args = [
     # de_simul_args,
     mc_simul_args,
     # gpr_simul_args,
-    deup_simul_args
+    deup_simul_args,
+    svgp_simul_args
 ]
 #%%
 if __name__ == "__main__":
