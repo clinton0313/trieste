@@ -18,7 +18,9 @@ OBJECTIVE_DICT = {
     "rosenbrock4": "Rosenbrock-4",
     "ackley5": "Ackley-5",
     "dropw2": "Dropwave-2",
-    "eggho2": "Eggholder-2"
+    "eggho2": "Eggholder-2",
+    "noisy_hartmann6": "Noisy Hartmann-6",
+    "noisy_shekel4": "Noisy Shekel-4"
 }
 
 OBJ_MIN_DICT = {
@@ -32,6 +34,8 @@ OBJ_MIN_DICT = {
     "ackley5": ACKLEY_5_MINIMUM, 
     "dropw2": DROPWAVE_MINIMUM, 
     "eggho2": EGGHOLDER_MINIMUM,
+    "noisy_hartmann6": HARTMANN_6_MINIMUM,
+    "noisy_shekel4": SHEKEL_4_MINIMUM
 }
 
 OBJ_FUNC_DICT = {
@@ -45,6 +49,8 @@ OBJ_FUNC_DICT = {
     "ackley5": ackley_5, 
     "dropw2": dropwave, 
     "eggho2": eggholder,
+    "noisy_hartmann6": hartmann_6,
+    "noisy_shekel4": shekel_4, 
 }
 
 OUTPUT_RANGE_DICT = {
@@ -58,6 +64,8 @@ OUTPUT_RANGE_DICT = {
     "ackley5": 19.161816848081262, 
     "dropw2": 0.9999982299815201, 
     "eggho2": 2008.6400742211358,
+    "noisy_hartmann6": 3.303679123380341,
+    "noisy_shekel4": 9.727798821861356,  
 }
 
 ACQUISITION_DICT = {
@@ -85,6 +93,10 @@ MODELS_DICT = {
     "mc": {
         "name": "mc",
         "label": "MC Dropout",
+    },
+    "svgp": {
+        "name": "svgp",
+        "label": "SVGP"
     },
     "random": {
         "name": "random",

@@ -255,9 +255,17 @@ def plot_min_regret_model_comparison(
         except KeyError:
             regret_label = "min_regret"
 
+        #SUPER HACKILY TRUNCATING GPR FROM THE EXPAND
+        if "noisy" in objective and model_dir == "gpr":
+            mean = average_res[f"mean_{regret_label}"].values[0][:1000]
+            var = average_res[f"var_{regret_label}"].values[0][:1000]
+        else:
+            mean = average_res[f"mean_{regret_label}"].values[0]
+            var = average_res[f"var_{regret_label}"].values[0]
+
         plot_regret(
-            average_res[f"mean_{regret_label}"].values[0], 
-            average_res[f"var_{regret_label}"].values[0], 
+            mean, 
+            var, 
             ax=ax,
             title=f"{objective_label_dict[objective]} with {acquisition_label_dict[acquisition]}",
             label=model_meta['label'],
