@@ -64,7 +64,8 @@ global_save_title_prefixes = {
     "maxi_rate": "m",
     "rate": "dr",
     "lr": "lr",
-    "ensemble_size": "es"
+    "ensemble_size": "es",
+    "num_inducing_points": "nip"
 }
 
 # OBJECTIVES
