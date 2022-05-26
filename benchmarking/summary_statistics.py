@@ -70,6 +70,9 @@ def produce_stats(files):
 # %%
 stats, df = produce_stats(csvs)
 stats.to_csv("stats.csv")
+
+
+
 # %% Plot results
 import matplotlib.pyplot as plt
 import seaborn as sns
