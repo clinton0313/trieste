@@ -191,6 +191,7 @@ def plot_regret(
     std_alpha: float = 0.3,
     log_scale: bool = True,
     scatter: bool = False,
+    legend: bool = True,
     **plot_kwargs
 ):
     matplotlib.rcParams.update({
@@ -222,19 +223,19 @@ def plot_regret(
     ax.set_title(title)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+
+
     if xlim is not None:
         ax.set_xlim(xlim)
     else:
         ax.set_xlim(0,)
     if ylim is not None:
         ax.set_ylim(ylim)
-    else:
-        ax.set_ylim(0,)
 
     if log_scale:
         ax.set_yscale("log")
 
-    if label != "":
+    if label != "" and legend:
         ax.legend()
 
     try:
@@ -273,8 +274,8 @@ def plot_min_regret_model_comparison(
 
         #SUPER HACKILY TRUNCATING GPR FROM THE EXPAND
         if "noisy" in objective and model_dir == "gpr":
-            mean = average_res[f"mean_{regret_label}"].values[0][:1000]
-            var = average_res[f"var_{regret_label}"].values[0][:1000]
+            mean = average_res[f"mean_{regret_label}"].values[0][:5000]
+            var = average_res[f"var_{regret_label}"].values[0][:5000]
         else:
             mean = average_res[f"mean_{regret_label}"].values[0]
             var = average_res[f"var_{regret_label}"].values[0]

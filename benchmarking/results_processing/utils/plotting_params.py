@@ -73,22 +73,22 @@ OUTPUT_RANGE_DICT = {
 }
 
 ACQUISITION_DICT = {
-    "ei": "Expected Improvement",
-    "ts": "Thompson Sampling"
+    "ei": "EI",
+    "ts": "TS"
 }
 
 MODELS_DICT = {
     "der": {
         "name": "new_der_log",
-        "label": "Deep Evidential",
+        "label": "DER",
     },
     "deup": {
         "name": "deup",
-        "label": "Direct Epistemic",
+        "label": "DEUP",
     },
     "de": {
         "name": "de",
-        "label": "Deep Ensembles",
+        "label": "Ensembles",
     },
     "gpr": {
         "name": "gpr",
@@ -104,8 +104,9 @@ MODELS_DICT = {
     },
     "random": {
         "name": "random",
-        "label": "Random Sampling",
+        "label": "Random",
     },
 }
 
 COLOR_DICT = dict(zip(MODELS_DICT.keys(), matplotlib.colors.TABLEAU_COLORS.keys()))
+COLOR_DICT.update({"random": "tab:gray"})
