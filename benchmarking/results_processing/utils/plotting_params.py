@@ -20,7 +20,8 @@ OBJECTIVE_DICT = {
     "dropw2": "Dropwave-2",
     "eggho2": "Eggholder-2",
     "noisy_hartmann6": "Noisy Hartmann-6",
-    "noisy_shekel4": "Noisy Shekel-4"
+    "noisy_shekel4": "Noisy Shekel-4",
+    "noisy_ackley5": "Noisy Ackley-5"
 }
 
 OBJ_MIN_DICT = {
@@ -35,7 +36,8 @@ OBJ_MIN_DICT = {
     "dropw2": DROPWAVE_MINIMUM, 
     "eggho2": EGGHOLDER_MINIMUM,
     "noisy_hartmann6": HARTMANN_6_MINIMUM,
-    "noisy_shekel4": SHEKEL_4_MINIMUM
+    "noisy_shekel4": SHEKEL_4_MINIMUM,
+    "noisy_ackley5": ACKLEY_5_MINIMUM
 }
 
 OBJ_FUNC_DICT = {
@@ -51,6 +53,7 @@ OBJ_FUNC_DICT = {
     "eggho2": eggholder,
     "noisy_hartmann6": hartmann_6,
     "noisy_shekel4": shekel_4, 
+    "noisy_ackley5": ackley_5
 }
 
 OUTPUT_RANGE_DICT = {
@@ -66,6 +69,7 @@ OUTPUT_RANGE_DICT = {
     "eggho2": 2008.6400742211358,
     "noisy_hartmann6": 3.303679123380341,
     "noisy_shekel4": 9.727798821861356,  
+    "noisy_ackley5": 19.161816848081262, 
 }
 
 ACQUISITION_DICT = {

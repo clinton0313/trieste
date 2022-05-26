@@ -15,14 +15,18 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 OUTPUT_PATH = "test_parallel_benchmarking"
 
 common_args = {
-    "objective": ackley5,
+    "objective": [
+        add_noise(shekel4, 0.1),
+        add_noise(hartmann6, 0.15),
+        add_noise(ackley5, 0.1)
+    ],
     "num_initial_points": 10,
     "acquisition":  [
         ("ei", EfficientGlobalOptimization, {}),
         ("ts", DiscreteThompsonSampling, {"num_search_space_samples": 1000, "num_query_points": 10})
         #num_search_space_samples for discrete thompson sampling is multiplied by number of search space dimensions
         ],
-    "num_steps": 10,
+    "num_steps": 5000,
     "predict_interval": 4,
     "plot": False,
     "report_predictions": True,
@@ -30,7 +34,7 @@ common_args = {
     "tolerance": 1e-3,
     "grid_density": 20,
     "metadata": "",
-    "seed": 0,
+    "seed": list(range(20)),
     "sample_seed": 42,
     "verbose_output": False
 }
@@ -57,9 +61,9 @@ verbose = 50 #From 1 to 50
 
 #Each dictionary of args is independently crosses all of its arguments
 all_args = [
-    # random_simul_args,
-    gpr_simul_args,
-    svgp_simul_args
+    random_simul_args,
+    # gpr_simul_args,
+    # svgp_simul_args
 ]
 #%%
 if __name__ == "__main__":

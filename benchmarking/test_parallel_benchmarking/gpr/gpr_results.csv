@@ -1,3 +1,0 @@
-model,objective,acquisition,num_initial_points,num_steps,seed,true_min,found_minimum,steps_taken,acquisition_runtime,optimize_runtime,search_space,pickle_file
-gpr,ackley5,ei,50,10,0,0.0,12.446739689743142,10,13.919,22.955,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ei_ackley5__seed0.pkl
-gpr,ackley5,ts,50,10,0,0.0,7.6035248978058085,10,91.612,24.586,Box(<tf.Tensor: shape=(5,), dtype=float64, numpy=array([0., 0., 0., 0., 0.])>, <tf.Tensor: shape=(5,), dtype=float64, numpy=array([1., 1., 1., 1., 1.])>),gpr_ts_ackley5__seed0.pkl

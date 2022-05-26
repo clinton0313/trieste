@@ -19,7 +19,7 @@ matplotlib.rcParams.update({
 matplotlib.style.use("seaborn-bright")
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-def simple_regret(record: pd.Series, datadir: str) -> Tuple[np.ndarray, np.ndarray]:
+def simple_regret(record: pd.Series, datadir: str, noisy: bool = False, objective_fn: Callable = None) -> Tuple[np.ndarray, np.ndarray]:
     """Gets the simple regret for a row of the results csv by opening
     the pickle file and parsing. 
 
@@ -32,11 +32,14 @@ def simple_regret(record: pd.Series, datadir: str) -> Tuple[np.ndarray, np.ndarr
         output = pickle.load(infile)
     
     steps = np.arange(len(output["observations"]))
-    regret = np.abs(output["observations"] - record["true_min"])
+    if not noisy:
+        regret = np.abs(output["observations"] - record["true_min"])
+    else:
+        regret = np.abs(objective_fn(output["query_points"]) - record["true_min"])
 
     return steps, regret.squeeze()
 
-def minimum_regret(record: pd.Series, datadir: str) -> Tuple[np.ndarray, np.ndarray]:
+def minimum_regret(record: pd.Series, datadir: str, noisy: bool = False, objective_fn: Callable = None) -> Tuple[np.ndarray, np.ndarray]:
     """Gets the cumulative regret for a row of the results csv by opening
     the pickle file and parsing. 
 
@@ -45,7 +48,7 @@ def minimum_regret(record: pd.Series, datadir: str) -> Tuple[np.ndarray, np.ndar
     :return: A tuple of bayesian optimization steps and cumulative regret
     """
 
-    steps, regret = simple_regret(record, datadir)
+    steps, regret = simple_regret(record, datadir, noisy, objective_fn)
     cumulative_regret = np.minimum.accumulate(regret)
     
     return steps, cumulative_regret
@@ -55,6 +58,8 @@ def expand_regret(
     regret_function: Callable, 
     max_steps: int,
     datadir: str,
+    noisy: bool = False,
+    objective_fn = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Pad regret with nan's to match the length of max_steps.
 
@@ -64,7 +69,7 @@ def expand_regret(
     :param datadir: Directory where the pickle files are stored
     :return: Tuple of padded steps and regret
     """
-    steps, regret = regret_function(record, datadir)
+    steps, regret = regret_function(record, datadir, noisy, objective_fn)
     try:
         expansion = np.zeros(max_steps - len(steps))
         expansion[:] = np.min(regret)
@@ -96,6 +101,7 @@ def average_regret(
     compute_var: bool = True, 
     max_steps: int = 2020,
     output_range_dict: dict = OUTPUT_RANGE_DICT,
+    objective_func_dict: dict = OBJ_FUNC_DICT,
     scale_regret: bool = True,
 ) -> pd.DataFrame:
     """Computes regret statistics averaged over some columns (seed by default). 
@@ -117,18 +123,13 @@ def average_regret(
     if max_steps == 0:
         max_steps = results.num_steps.max() + results.num_initial_points.max()
 
-    def get_regret(record: pd.Series):
-        record["steps"], record["regret"] = expand_regret(record, regret_function, max_steps, datadir)
-        if scale_regret:
-            output_range = output_range_dict[record["objective"]]
-            record["regret"] = record["regret"]/output_range
-        return record
+
 
     groupby_cols = [col for col in results.columns if col not in (average_over + ignore_cols)]
     regret_cols = [f"mean_{regret_name}"]
     if compute_var:
         regret_cols.append(f"var_{regret_name}")
-
+    regret_cols.append(f"len_{regret_name}")
 
     grouped_results = pd.DataFrame(columns=groupby_cols + regret_cols)
     results = results.drop_duplicates()
@@ -140,6 +141,17 @@ def average_regret(
         groupby_dict = dict(zip(groupby_cols, groupby_value_lists))
         groupby_mask = results.isin(groupby_dict)[groupby_cols]
         filtered_results = results[groupby_mask.all(1)]
+
+        
+        noisy = True if "noisy" in groupby_dict["objective"][0] else False
+        objective_fn = objective_func_dict[groupby_dict["objective"][0]]
+
+        def get_regret(record: pd.Series):
+            record["steps"], record["regret"] = expand_regret(record, regret_function, max_steps, datadir, noisy, objective_fn)
+            if scale_regret:
+                output_range = output_range_dict[record["objective"]]
+                record["regret"] = record["regret"]/output_range
+            return record
 
         filtered_results = filtered_results.apply(get_regret, axis=1)
         agg_results = dict(zip(groupby_cols, groupby_values))
@@ -154,6 +166,9 @@ def average_regret(
             var_regret = np.nanvar(regrets, axis=1)
             agg_results.update({regret_cols[1]: var_regret})
         
+        len_regret = regrets.shape[1]
+        agg_results.update({regret_cols[2]: len_regret})
+
         grouped_results = grouped_results.append(agg_results, ignore_index=True)
     
     return grouped_results
@@ -162,6 +177,7 @@ def average_regret(
 
 def plot_regret(
     mean: np.ndarray,
+    num_seeds: int,
     var: np.ndarray = None,
     n_stds: int = 1,
     ax = None,
@@ -197,8 +213,8 @@ def plot_regret(
 
             ax.fill_between(
                 steps, 
-                mean - (n+1) * var**0.5, 
-                mean + (n+1) * var**0.5, 
+                mean - (n+1) * (var/num_seeds)**0.5, 
+                mean + (n+1) * (var/num_seeds)**0.5, 
                 color=regret_color, 
                 alpha=std_alpha
             )
@@ -262,9 +278,12 @@ def plot_min_regret_model_comparison(
         else:
             mean = average_res[f"mean_{regret_label}"].values[0]
             var = average_res[f"var_{regret_label}"].values[0]
+        
+        num_seeds = average_res[f"len_{regret_label}"].values[0]
 
         plot_regret(
             mean, 
+            num_seeds,
             var, 
             ax=ax,
             title=f"{objective_label_dict[objective]} with {acquisition_label_dict[acquisition]}",
