@@ -149,7 +149,7 @@ def plot_optimtime_comparison(
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     SAVEPATH = os.path.join("figs", "optimtime_plots")
-    f, a = plt.subplots(1,2, figsize=(24,8),sharey=True)
+    f, a = plt.subplots(1,2, figsize=(12,6),sharey=True)
     for id, function in enumerate(functions):
         plot_optimtime_comparison(
             results,
