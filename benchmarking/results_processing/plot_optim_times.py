@@ -14,7 +14,7 @@ from utils.plotting_params import *
 basedir = Path(os.path.dirname(os.path.realpath(__file__))).parents[0]
 # %%
 results = []
-functions = ["noisy_shekel4", "noisy_hartmann6"] # "noisy_ackley5", 
+functions = ["noisy_shekel4", "noisy_ackley5", "noisy_hartmann6"] # , 
 models = ["de", "der", "mc", "deup", "svgp", "gpr"]
 
 def get_optimtime(record, name):
@@ -107,7 +107,7 @@ def plot_optimtime(
     # if log_scale:
     #     ax.set_yscale("log")
 
-    if label != "" and idx_pos == 1:
+    if label != "" and idx_pos == 2:
         ax.legend(loc="upper center", bbox_to_anchor=(0.3,1))
 
     try:
@@ -149,7 +149,7 @@ def plot_optimtime_comparison(
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     SAVEPATH = os.path.join("figs", "optimtime_plots")
-    f, a = plt.subplots(1,2, figsize=(12,6),sharey=True)
+    f, a = plt.subplots(1,3, figsize=(18,6),sharey=True)
     for id, function in enumerate(functions):
         plot_optimtime_comparison(
             results,
