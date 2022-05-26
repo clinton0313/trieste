@@ -14,7 +14,7 @@ from utils.plotting_params import *
 basedir = Path(os.path.dirname(os.path.realpath(__file__))).parents[0]
 # %%
 results = []
-functions = ["noisy_hartmann6", "noisy_shekel4"]
+functions = ["noisy_shekel4", "noisy_hartmann6"] # "noisy_ackley5", 
 models = ["de", "der", "mc", "deup", "svgp", "gpr"]
 
 def get_optimtime(record, name):
@@ -63,6 +63,7 @@ def plot_optimtime(
     xlim: tuple = None,
     ylim: tuple = None,
     log_scale: bool = False,
+    idx_pos = None,
     **kwargs
 ):
     matplotlib.rcParams.update({
@@ -92,7 +93,8 @@ def plot_optimtime(
 
     ax.set_title(title)
     ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    if idx_pos == 0:
+        ax.set_ylabel(ylabel)
     if xlim is not None:
         ax.set_xlim(xlim)
     else:
@@ -105,7 +107,7 @@ def plot_optimtime(
     # if log_scale:
     #     ax.set_yscale("log")
 
-    if label != "":
+    if label != "" and idx_pos == 1:
         ax.legend(loc="upper center", bbox_to_anchor=(0.3,1))
 
     try:
@@ -147,33 +149,34 @@ def plot_optimtime_comparison(
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.realpath(__file__)))
     SAVEPATH = os.path.join("figs", "optimtime_plots")
-
-    for function in functions:
-        f, a = plt.subplots()
+    f, a = plt.subplots(1,2, figsize=(24,8),sharey=True)
+    for id, function in enumerate(functions):
         plot_optimtime_comparison(
             results,
             function,
-            ax=a,
-            log_scale=True
+            ax=a[id],
+            idx_pos=id,
+            log_scale=False
         )
 
-        # # Include cubic projection
-        # res = results[function + "_gpr_mean"].values[~np.isnan(results[function + "_gpr_mean"].values)]
-        # poly = np.polyfit(np.arange(0,500,10), res, deg=3)
-        # projection = np.polyval(poly, np.arange(500,1000,10))
+    # # Include cubic projection
+    # res = results[function + "_gpr_mean"].values[~np.isnan(results[function + "_gpr_mean"].values)]
+    # poly = np.polyfit(np.arange(0,500,10), res, deg=3)
+    # projection = np.polyval(poly, np.arange(500,1000,10))
 
-        # a2 = f.add_subplot(111, label="projection", frame_on=False)
-        # a2.plot(np.arange(500,1000,10), projection, color="r", linestyle="dashed", alpha=.5)
-        # a2.set_xticks([])
-        # a2.set_yticks([])
-        # a2.set_ylim(0,1500)
-        # a2.set_xlim(0,5000)
+    # a2 = f.add_subplot(111, label="projection", frame_on=False)
+    # a2.plot(np.arange(500,1000,10), projection, color="r", linestyle="dashed", alpha=.5)
+    # a2.set_xticks([])
+    # a2.set_yticks([])
+    # a2.set_ylim(0,1500)
+    # a2.set_xlim(0,5000)
 
-        f.savefig(
-            os.path.join(SAVEPATH, f"{function}_model_optimization_comparison.png"),
-            facecolor="white",
-            transparent=False
-        )
-        f.clear()
-        plt.close(f)
+    f.savefig(
+        os.path.join(SAVEPATH, "model_optimization_comparison.png"),
+        facecolor="white",
+        transparent=False,
+        bbox_inches='tight'
+    )
+    f.clear()
+    plt.close(f)
 # %%
