@@ -168,7 +168,7 @@ fig_4 = {
         "max_steps": 2000
     },
     "xlim": (0, 500),
-    "ylims": [(3e-2, 1), (9e-2, 1), (3e-4,1)]
+    "ylims": [(3e-2, 1), (2e-1, 1), (3e-4,1)]
 }
 # shekel: 9e-2, ackley: 2e-2, hartmann: 6e-4
 
