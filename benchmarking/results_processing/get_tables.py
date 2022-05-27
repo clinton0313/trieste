@@ -2,7 +2,12 @@
 
 import pickle, os
 from pathlib import Path
-from benchmarking.results_processing.utils.plotting_params import COLOR_DICT, MODELS_DICT, OBJECTIVE_DICT
+from benchmarking.results_processing.utils.plotting_params import (
+    COLOR_DICT, 
+    MODELS_DICT, 
+    OBJECTIVE_DICT,
+)
+from benchmarking.results_processing.utils.get_regret import average_regret
 import numpy as np
 import pandas as pd
 from glob import glob
@@ -44,7 +49,14 @@ ORDER_NOISELESS = [
     'MC Dropout',
     'GPR',
 ]
-ORDER_NOISY = ORDER_NOISELESS + ['SVGP']
+ORDER_NOISY = [
+    'Deep Ensembles', 
+    'Deep Evidential', 
+    'Direct Epistemic',
+    'MC Dropout',
+    'SVGP',
+    'GPR'
+]
 
 ORDER_FUNCTIONS_NOISELESS = [
     'Log Goldstein-Price-2',
@@ -79,6 +91,8 @@ csvs = [
     if "nlpd" not in file
     if "random" not in file
 ]
+
+# %%
 with open(basedir / 'output_ranges.json') as f:
     output_ranges = json.load(f)
 
@@ -104,6 +118,18 @@ def produce_df(files, objectives: list):
 
     return df
 
+def produce_regrets(files):
+    regrets = []
+    for file in files:
+        regret = average_regret(pd.read_csv(file), Path(file).parents[0])
+        regret = regret.loc[regret.objective.str.contains("noisy")]
+        # regret["final_regret"] = regret.mean_min_regret.apply(lambda row: np.min(row))
+        # regrets.append(regret[["model", "objective", "final_regret"]])
+        regrets.append(regret)
+
+    regrets = pd.concat(regrets)
+    return regrets
+
 def produce_latex(
     dataframe: pd.DataFrame, 
     target: str = "optimize_runtime_step", 
@@ -117,6 +143,15 @@ def produce_latex(
         .agg("mean")
         .reset_index()
     )
+    if target == "final_regret" and noise:
+        regrets = produce_regrets(csvs)
+        tmp_ = pd.merge(
+            tmp_[["model", "objective", "acquisition", "optimize_runtime_step", "optimize_runtime"]], 
+            regrets,
+            left_on=["model", "objective"], 
+            right_on=["model", "objective"],
+            how="left"
+        )
 
     tmp_["objective"] = tmp_["objective"].map(OBJECTIVE_DICT)
     tmp_["model"] = tmp_["model"].map({MODELS_DICT[k]["name"]: MODELS_DICT[k]["label"] for k in MODELS_DICT.keys()})
@@ -132,10 +167,16 @@ def produce_latex(
         tmp_ = tmp_[list(zip(tmp_.columns.get_level_values(0), ORDER_NOISY))]
         tmp_ = tmp_.reindex(ORDER_FUNCTIONS_NOISY)
         tmp_.index = tmp_.index.map(NOISY_NAME_MAP)
+
     else:
         title = "noiseless"
         tmp_ = tmp_[list(zip(tmp_.columns.get_level_values(0), ORDER_NOISELESS*2))]
         tmp_ = tmp_.reindex(ORDER_FUNCTIONS_NOISELESS)
+
+
+    if target == "final_regret":
+        tmp_ = tmp_.astype(str)
+        tmp_.replace({"0.0": "-"}, inplace=True)
 
     tmp_.to_latex(basedir / "results_processing" / "tables" / f"{title}_{target}_results.tex")
     
@@ -145,10 +186,9 @@ def produce_latex(
 noiseless = produce_df(csvs, NOISELESS_FUNCTIONS)
 noisy = produce_df(csvs, NOISY_FUNCTIONS)
 
-noiseless_table = produce_latex(noiseless, target="optimize_runtime", decimals=1, noise=False)
-noisy_table = produce_latex(noisy, target="optimize_runtime", decimals=1, noise=True)
+noiseless_table = produce_latex(noiseless, target="final_regret", decimals=2, noise=False)
+noisy_table = produce_latex(noisy, target="final_regret", decimals=2, noise=True)
 # %%
-
 # %%
-
+regrets = produce_regrets(csvs)
 # %%
