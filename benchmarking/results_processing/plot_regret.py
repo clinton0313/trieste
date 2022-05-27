@@ -96,14 +96,14 @@ def plot_side_by_side(
     os.makedirs(savepath, exist_ok=True)
     fig, axes = plt.subplots(nrows, ncols, figsize = figsize, tight_layout=True)
     if ylims == []:
-        ylims = [plot_kwargs.get("ylim", None) for _ in range(len(axes))]
+        ylims = [plot_kwargs.get("ylim", None) for _ in range(len(axes.ravel()))]
     for (obj, acq), ax, ylim in zip(itertools.product(objectives, acquisitions), axes.ravel(), ylims):
         plot_kwargs.update({"ylim": ylim})
         plot_min_regret_model_comparison(obj, acq, ax, legend = False, **plot_kwargs)
     handles, labels = axes.ravel()[0].get_legend_handles_labels()
     fig.legend(handles, labels)
     fig.supxlabel("Function Evaluations")
-    fig.supylabel("Cumulative Minimum Regret")
+    fig.supylabel("Standardized Minimum Regret")
     fig.savefig(
         os.path.join(savepath, f"{'_'.join(objectives + acquisitions)}_min_regret.png"),
         facecolor="white",
@@ -127,7 +127,7 @@ fig_1 = {
         "max_steps": 5000
     },
     "xlim": (0, 5000),
-    "ylims": [(3e-1, 1),(1e-2, 1),(4e-2,1)]
+    "ylims": [(3e-1, 1),(3e-1, 1),(4e-2,1)]
 }
 # shekel: 2e-1, ackley: ?, hartmann: 3e-2
 
@@ -168,7 +168,7 @@ fig_4 = {
         "max_steps": 2000
     },
     "xlim": (0, 500),
-    "ylims": [(3e-2, 1), (2e-1, 1), (3e-4,1)]
+    "ylims": [(3e-2, 1), (1e-1, 1), (3e-4,1)]
 }
 # shekel: 9e-2, ackley: 2e-2, hartmann: 6e-4
 
@@ -221,6 +221,6 @@ fig_7 = {
 }
 
 figs = [fig_1, fig_2, fig_3, fig_4, fig_5, fig_6, fig_7]
-for fig_args in tqdm(figs):
+for fig_args in tqdm([fig_5]):
     fig_args.update(plot_kwargs)
     plot_side_by_side(**fig_args)
