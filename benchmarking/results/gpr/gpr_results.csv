@@ -164,7 +164,6 @@ gpr,shekel4,ts,40,500,1,-10.5363,-8.199310079,500,2447.911,7564.282,gpr_ts_sheke
 gpr,shekel4,ts,40,500,3,-10.5363,-8.460906382,500,2463.927,7573.718,gpr_ts_shekel4__seed3.pkl
 gpr,shekel4,ts,40,500,7,-10.5363,-7.771169644,500,2478.298,7490.487,gpr_ts_shekel4__seed7.pkl
 gpr,shekel4,ts,40,500,9,-10.5363,-8.842952721,500,2493.557,7496.053,gpr_ts_shekel4__seed9.pkl
-gpr,eggho2,ts,20,500,1,-959.6407,-894.5100169,500,701.834,4570.681,gpr_ts_eggho2__seed1.pkl
 gpr,dropw2,ts,20,500,9,-1,-0.936245328,500,726.848,5131.612,gpr_ts_dropw2__seed9.pkl
 gpr,dropw2,ts,20,500,8,-1,-0.999299679,500,709.823,5226.69,gpr_ts_dropw2__seed8.pkl
 gpr,rosenbrock4,ts,40,500,2,-1.01917,-1.019124329,85,242.901,167.975,gpr_ts_rosenbrock4__seed2.pkl
@@ -227,3 +226,7 @@ gpr,noisy_ackley5,ts,50,50,12,0,1.376448857,50,819.985,9645.045,gpr_ts_noisy_ack
 gpr,noisy_ackley5,ts,50,50,17,0,5.529009226,50,891.271,9591.038,gpr_ts_noisy_ackley5__seed17.pkl
 gpr,noisy_ackley5,ts,50,50,18,0,4.886780937,50,952.892,9664.142,gpr_ts_noisy_ackley5__seed18.pkl
 gpr,noisy_ackley5,ts,50,50,13,0,4.294153048,50,799.742,9911.189,gpr_ts_noisy_ackley5__seed13.pkl
+gpr,eggho2,ts,20,50,0,-959.6407,-934.3732011,50,250.163,3883.371,gpr_ts_eggho2__seed0.pkl
+gpr,eggho2,ts,20,50,8,-959.6407,-957.8258554,50,247.388,3950.99,gpr_ts_eggho2__seed8.pkl
+gpr,eggho2,ts,20,50,3,-959.6407,-893.5197844,50,236.602,3993.496,gpr_ts_eggho2__seed3.pkl
+gpr,eggho2,ts,20,50,1,-959.6407,-928.1061953,50,232.421,4074.489,gpr_ts_eggho2__seed1.pkl

@@ -9,8 +9,6 @@ from itertools import product
 import matplotlib
 import matplotlib.pyplot as plt
 
-from utils.plotting_params import *
-
 basedir = Path(os.path.dirname(os.path.realpath(__file__))).parents[0]
 # %%
 results = []

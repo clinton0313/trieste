@@ -1,5 +1,5 @@
 # %%
-# from benchmarking.benchmarking_utils import *
+from benchmarking.benchmarking_utils import *
 import pandas as pd
 import numpy as np
 import os, json
@@ -32,7 +32,6 @@ def produce_stats(files):
     dfs = []
     for file in files:
         df = pd.read_csv(file, usecols=COLUMNS)
-        print(file)
         df = (
             df.assign(
                 optimize_runtime_step = df["optimize_runtime"] / (df["steps_taken"] + 1),
